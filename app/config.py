@@ -8,6 +8,7 @@ class Configuration:
     # LLM Settings
     model_name: str = "local/Qwen3.5"
     model_base_url: str = "http://localhost:1234"
+    model_health_url: str = "http://localhost:1234/v1/health"
     model_api_key: str = "i_dont_know"
 
     # Embedding and Document Settings
