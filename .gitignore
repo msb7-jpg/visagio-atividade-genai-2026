@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.mypy_cache/
+
+# Virtual environments
+.venv
+
+# Local configuration and environment secrets
+.env
+
+# Local checkpoints database
+db/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Local models and document caches
+models/
+
+# Project documentation to ignore for now (will be the next project)
+docs/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+
