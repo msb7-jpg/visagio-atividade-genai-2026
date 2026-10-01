@@ -2,7 +2,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from app.config import Configuration
+from app.core.config import Configuration
 from app.db import get_model
 
 

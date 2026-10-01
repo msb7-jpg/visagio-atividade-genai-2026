@@ -2,7 +2,7 @@ from langchain.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-from app.config import Configuration
+from app.core.config import Configuration
 
 
 def get_model(config: Configuration) -> BaseChatModel:

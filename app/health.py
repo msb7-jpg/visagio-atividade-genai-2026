@@ -1,6 +1,6 @@
 import requests
 
-from app.config import Configuration
+from app.core.config import Configuration
 
 
 def check_health(config: Configuration):
@@ -12,8 +12,8 @@ def check_health(config: Configuration):
 
     try:
         content = response.json()
-    except requests.exceptions.JSONDecodeError:
-        raise ValueError("The AI Server returned an invalid response.")
+    except requests.exceptions.JSONDecodeError as e:
+        raise ValueError("The AI Server returned an invalid response.") from e
 
     if content.get("status") != "ok":
         raise ValueError("The AI Server is not running.")

@@ -9,7 +9,7 @@ logging.getLogger("pydantic").setLevel(logging.ERROR)
 logging.getLogger("langchain").setLevel(logging.ERROR)
 
 from app.agent import generate_query_pipe
-from app.config import Configuration
+from app.core.config import Configuration
 
 
 def main():
