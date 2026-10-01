@@ -19,34 +19,43 @@ A missão desta solução é criar um **Assistente Inteligente Híbrido** capaz 
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        FRONTEND (Interface Web / Chat)                 │
 │  - Histórico de Conversas (Threads) | Streaming SSE token a token      │
-│  - Visualização de Dados (Tabelas, KPIs, Gráficos) | Visualizador SQL   │
-│  - Painel de Trilha de Execução Dinâmica (Node Stepper em Tempo Real)  │
+│  - Blocos de Mensagem Polimórficos (NodeStepper, Shiki, Markdown, Chart)│
+│  - PFP exclusivo do Agente | Timeline Lateral Direita (Scroll Spy)    │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │ HTTP REST + SSE (Event Streaming)
                                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                 BACKEND FASTAPI (Stateless & Vertical Slice)           │
-│  - Camada HTTP pura: endpoints, validação Pydantic, serialização       │
-│  - Injeção de dependências, controle de sessão/threads e CORS          │
-│  - ZERO import de LangChain/LangGraph nos roteadores web               │
+│                 CAMADA HTTP FASTAPI (Transporte Puro & Stateless)      │
+│  - Endpoints REST e SSE (/chat/stream, /chat/threads)                  │
+│  - Validação de entrada Pydantic, serialização e CORS                  │
+│  - Injeção de dependência da interface do serviço de agente           │
+│  - ZERO import de LangChain / LangGraph nos roteadores                 │
 └────────────────────────────────────┬───────────────────────────────────┘
-                                     │ Invocação de Interface/Contrato de Domínio
+                                     │ Chamada da Interface: run_turn_stream(AgentInput)
                                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│             CORE DO AGENTE (LangGraph StateGraph Desacoplado)          │
+│           FACHADA DE SERVIÇO DO AGENTE (AgentService / Ports)          │
+│  - Ponto único de entrada: traduz requisições para o fluxo do grafo    │
+│  - Checkpointer assíncrono (AsyncSqliteSaver) por thread_id           │
+│  - Formatação e beautify de SQL via sqlparse no backend               │
+│  - Traduz eventos internos (astream_events) para DTOs puros AgentEvent│
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ Orquestração interna encapsulada
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│             CORE DO AGENTE (LangGraph StateGraph Isolado)              │
 │  - Grafo de Estados com Subgrafos especializados                       │
-│  - Persistência e Checkpointer em SQLite desacoplado                   │
-│  - Execução Direta, Fluida e Totalmente Automatizada                   │
 │  - Self-Correction Loop para correção autônoma de SQL                  │
 │  - Hugging Face Embeddings para busca híbrida semântica                │
+│  - Conexão estrita Read-Only ao SQLite (URI mode=ro)                   │
 └────────────────────────────────────┬───────────────────────────────────┘
-                                     │ Conexão estrita Read-Only (URI mode=ro)
+                                     │ Leitura somente-leitura segura
                                      ▼
                   [(cinerocket.db — SQLite Camada Gold)]
 ```
 
 1. **Stateless no Servidor HTTP (FastAPI):** O FastAPI não armazena histórico conversacional em memória RAM. Toda a memória de execução e histórico de diálogo é delegada ao mecanismo de persistência e checkpointers.
-2. **Desacoplamento Rigoroso (Clean Architecture & Vertical Slice):** O motor de IA (LangGraph / LangChain) reside em seu próprio módulo de domínio/serviço. A camada web apenas orquestra IDs de thread, streams de eventos e requisições HTTP.
+2. **Desacoplamento Rigoroso (Ports & Adapters / Clean Architecture):** O FastAPI não conhece nós, transições, ferramentas ou mensagens internas do LangGraph. A camada web apenas injeta o `AgentService` e consome um fluxo assíncrono de eventos tipados (`AgentEvent`), sem importar qualquer módulo de IA.
 3. **Segurança por Isolamento Físico e Lógico:** Conexão com o banco analítico configurada estritamente com `mode=ro` (Read-Only) em nível de driver SQLite, impedindo fisicamente comandos destrutivos (`DROP`, `DELETE`, `UPDATE`, `INSERT`).
 4. **Execução Fluida e Automatizada:** Sem pausas manuais ou telas de confirmação no fluxo padrão. O agente executa diretamente as leituras analíticas sob rigorosa segurança read-only e proteção sintática.
 5. **Autocorreção em Malha Fechada (Self-Correction Loop):** Se a query gerada disparar um erro de sintaxe ou coluna inexistente, o agente captura a mensagem de diagnóstico do SQLite, analisa o erro e gera uma versão corrigida antes de responder ao usuário.
@@ -162,47 +171,64 @@ backend/
 │       │   ├── router_metadata.py # OpenAPI EndpointDoc
 │       │   ├── schemas.py         # DTOs: ChatRequestDTO, ChatEventDTO, ThreadStateDTO
 │       │   └── service.py         # Orquestração da thread com o Agente
-│       └── analytics/             # Slice para metadados da base, perguntas sugeridas e métricas
-│           ├── router.py          # GET /analytics/schema, GET /analytics/suggestions
-│           └── service.py
+│       ├── analytics/             # Slice para metadados da base, perguntas sugeridas e métricas
+│       │   ├── router.py          # GET /analytics/schema, GET /analytics/suggestions
+│       │   └── service.py
+│       └── settings/              # Slice para configuração dinâmica e validação de provedores de IA
+│           ├── router.py          # GET /settings/provider, POST /settings/provider, POST /settings/test-provider
+│           ├── schemas.py         # ProviderConfigDTO, TestProviderRequestDTO, TestProviderResponseDTO
+│           └── service.py         # Validação ativa de credenciais, ping de modelos e verificação de URLs
 └── tests/
 ```
 
-### 3.2 Arquitetura Agnóstica de Provedores LLM (Model Provider Factory)
+### 3.2 Arquitetura Agnóstica de Provedores LLM & Configuração Dinâmica na Interface
 
-Um requisito central é a **extrema facilidade e flexibilidade para alternar provedores de IA** via variáveis de ambiente, sem alterações no código de agentes ou nas ferramentas.
+Um dos maiores diferenciais da plataforma é a **capacidade de alternar e configurar provedores de IA diretamente pela interface web**, além do arquivo `.env`, contando com um **mecanismo de validação e dry-run em tempo real**.
 
 ```
                   ┌──────────────────────────────────────────────┐
-                  │              Configuration (.env)            │
-                  │  LLM_PROVIDER: "local" | "openrouter" |      │
-                  │                "google" | "openai"           │
+                  │              UI Settings / .env              │
+                  │  LLM_PROVIDER: "groq" | "local" |            │
+                  │        "openrouter" | "google" | "openai"    │
                   └──────────────────────┬───────────────────────┘
                                          │
                                          ▼
                   ┌──────────────────────────────────────────────┐
                   │       app.core.llm_factory.get_chat_model()  │
                   └──────────────────────┬───────────────────────┘
-                     ┌───────────────────┼───────────────────┐
-                     ▼                   ▼                   ▼
-            [ChatOpenAI (Local)]  [ChatOpenAI (Router)] [ChatGoogleGenerativeAI]
-            • Host: localhost:1234 • Host: openrouter.ai • Google AI Studio
-            • Llama.cpp / Ollama  • Modelos :free       • Gemini 1.5 / 2.0
-            • Key arbitrária      • OPENROUTER_API_KEY  • GOOGLE_API_KEY
+          ┌───────────────┼──────────────┼───────────────┼───────────────┐
+          ▼               ▼              ▼               ▼               ▼
+     [ChatGroq]     [ChatOpenAI]   [ChatOpenAI]    [ChatGoogle]    [ChatOpenAI]
+    (Ultra-Fast)       (Local)     (OpenRouter)     (AI Studio)      (Oficial)
+    • Groq API      • localhost    • openrouter.ai • Gemini 2.0    • OpenAI
+    • Llama 3.3 70B • 1234 / Ollama• Modelos :free • Chave Google  • GPT-4o-mini
+    • GROQ_API_KEY  • Sem chave    • OPENROUTER_KEY• GOOGLE_API_KEY• OPENAI_KEY
 ```
 
-1. **Configuração Unificada (`app/core/config.py`):**
-   - Utilização de `pydantic-settings` para ler variáveis de ambiente de forma tipada e segura.
-   - Parâmetro central `LLM_PROVIDER` (valores suportados: `local`, `openrouter`, `google`, `openai`, `custom`).
-   - Mapeamento dinâmico de credenciais e endpoints:
-     - **Modo Local (Padrão de Dev):** `LLM_BASE_URL="http://localhost:1234/v1"`, `LLM_MODEL="local/model"`, `LLM_API_KEY="not-needed"`. Compatível com qualquer servidor padrão OpenAI (llama.cpp, LM Studio, Ollama, vLLM).
-     - **Modo OpenRouter:** `LLM_BASE_URL="https://openrouter.ai/api/v1"`, `OPENROUTER_API_KEY`, suporte nativo a headers extras (`HTTP-Referer`, `X-Title`) e modelos gratuitos `:free` com suporte a tool calling.
-     - **Modo Google AI Studio:** `GOOGLE_API_KEY`, inicialização direta via `ChatGoogleGenerativeAI` ou via endpoint compatível OpenAI da Google.
-     - **Modo OpenAI Oficial:** `OPENAI_API_KEY`, `LLM_MODEL="gpt-4o-mini"`.
-2. **Padrão Factory (`app/core/llm_factory.py`):**
-   - Função utilitária pura `get_chat_model(temperature=0.0, max_tokens=None) -> BaseChatModel`.
-   - Constrói o cliente estritamente para o provedor selecionado no ambiente.
-   - **Sem Fallback Oculto (Fail-Fast com Diagnóstico Claro):** Não haverá troca automática de modelo em caso de falha. Se o provedor escolhido pelo usuário falhar (erro 429 de rate limit, erro 401 de chave de API incorreta, ou porta 1234 indisponível no servidor local), a aplicação emite um erro explícito e determinístico, orientando o usuário a verificar suas configurações no `.env`. O usuário tem total controle sobre qual LLM está executando suas consultas.
+#### 1. Provedores Suportados e Modelos Padrão
+* **Groq (`groq` - Recomendado para Performance):**
+  - Conector nativo via `langchain-groq` (ou endpoint compatível OpenAI `https://api.groq.com/openai/v1`).
+  - Modelo padrão: `llama-3.3-70b-versatile` (latência ultrabaixa, taxa de ~500 tokens/s, excelente para Tool Calling e streaming suave).
+  - Credencial: `GROQ_API_KEY`.
+* **Modo Local (`local` - Privacidade & Offline):**
+  - Endpoint padrão: `http://localhost:1234/v1` (LM Studio, llama.cpp, Ollama, vLLM).
+  - Credencial: arbitrária / não necessária.
+* **OpenRouter (`openrouter` - Multi-Modelos & Modelos Gratuitos):**
+  - Endpoint: `https://openrouter.ai/api/v1` com suporte a headers (`HTTP-Referer`, `X-Title`).
+  - Modelos com cota gratuita (`:free`), como `meta-llama/llama-3.3-70b-instruct:free`.
+* **Google AI Studio (`google` - Janela Longa & Raciocínio):**
+  - Conector: `langchain-google-genai` (`ChatGoogleGenerativeAI`).
+  - Modelo: `gemini-2.0-flash` ou `gemini-2.5-flash`.
+* **OpenAI Oficial (`openai`):**
+  - Modelo: `gpt-4o-mini` ou `gpt-4o`.
+
+#### 2. Mecanismo de Teste e Validação em Tempo Real (`POST /settings/test-provider`)
+Antes de salvar a configuração, a interface permite ao usuário disparar um teste de conectividade:
+* **Validação de API Key:** Instancia um cliente isolado efêmero com timeout estrito de 5 segundos e envia uma requisição de probe mínima (ex: `HumanMessage(content="ping")` ou inspeção de modelos).
+* **Validação de URL Local:** Se for provedor local, testa a resolução de DNS, conexão TCP e resposta HTTP da porta especificada.
+* **Resposta Estruturada com Diagnóstico Claro:**
+  - **Sucesso:** `{ "success": true, "latency_ms": 145, "model": "llama-3.3-70b-versatile", "message": "Provedor respondendo perfeitamente!" }`
+  - **Erro:** Captura HTTP 401 (chave inválida), HTTP 429 (cota esgotada) ou Connection Refused (porta local offline) e retorna um diagnóstico amigável em português para a interface, sem derrubar a aplicação.
 
 ---
 
@@ -226,31 +252,34 @@ Um requisito central é a **extrema facilidade e flexibilidade para alternar pro
 
 ### 4.1 Requisitos Funcionais do Frontend
 1. **Gerenciamento de Sessão Conversacional:**
-   - Capacidade de criar novas conversas gerando um `thread_id` único (UUID v4) ou listar conversas anteriores armazenadas.
-2. **Consumo de Streaming em Tempo Real (SSE - Server-Sent Events):**
-   - Suporte a leitura de eventos de fluxo (`text/event-stream`), renderizando tokens de texto e o progresso da cadeia progressivamente sem bloqueio de tela.
-   - Tratamento de diferentes tipos de evento recebidos no stream:
-     - `chain_step` / `node_start`: Notificação de transição de nó no grafo (ex: `{"node": "sql_generator", "label": "Gerando Consulta SQL", "status": "running"}`).
-     - `node_end`: Conclusão do nó com duração (ex: `{"node": "sql_generator", "duration_ms": 320, "status": "completed"}`).
-     - `thought`: texto indicando a fase de raciocínio atual do agente.
-     - `tool_start` / `tool_end`: Disparo e término de ferramentas (ex: consulta executada no banco ou cálculo no interpretador de código).
-     - `sql`: código SQL formulado pelo agente para renderização imediata com syntax highlight.
-     - `token`: pedaços da resposta final textual sintetizada.
-     - `data`: payload estruturado com linhas e colunas retornadas pelo banco para montagem da tabela.
-     - `error`: erro amigável com diagnóstico caso a consulta não possa ser resolvida.
-3. **Componente Visual de Trilha/Cadeia (Chain Stepper / Thought Inspector):**
+   - Capacidade de criar novas conversas gerando um `thread_id` único (UUID v4) ou listar conversas anteriores armazenadas via TanStack Query v5.
+2. **Consumo de Streaming em Tempo Real (SSE Tipado via `useAgentStream`):**
+   - Suporte a leitura de eventos de fluxo (`text/event-stream`), despachando cada evento para blocos polimórficos de mensagem:
+     - `step_start`: Transição e início de nó no grafo (ex: `{"step": "sql_generator", "label": "Gerando Consulta SQL"}`).
+     - `step_end`: Conclusão do nó com duração (ex: `{"step": "sql_generator", "duration_ms": 320, "status": "completed"}`).
+     - `thought`: Texto de raciocínio intermediário e logs explicativos.
+     - `sql`: Código SQL formatado pelo backend (`sqlparse`), pronto para exibição com Shiki.
+     - `token`: Pedaços incrementais de texto para renderização progressiva em Markdown.
+     - `chart`: Payload declarativo `ChartJsConfigDTO` para renderização imediata com `react-chartjs-2`.
+     - `data`: Registros analíticos tabulares (`columns`, `rows`) retornados pelo SQLite.
+     - `error`: Mensagens de erro com diagnóstico amigável e indicador de autocorreção.
+     - `done`: Finalização do ciclo do turno.
+3. **Componente Visual de Trilha/Cadeia (Node Stepper & Thought Inspector):**
    - Exibir visualmente os passos do agente em tempo real no topo da mensagem enquanto o streaming ocorre.
-   - Indicador de pulso/carregamento no nó ativo e checklist verde nos nós concluídos.
-   - Estado expansível (accordion) para inspecionar logs ou saídas parciais de cada nó da cadeia.
-4. **Visualizador de Respostas Ricas (Rich Output):**
-   - **Formatação Markdown:** suporte a negrito, listas e blocos de código com destaque de sintaxe SQL.
-   - **Renderizador Tabular Dinâmico:** detecção de resultados com múltiplas linhas para exibição em tabela com paginação e ordenação de colunas.
-   - **Exportação de Dados:** botão rápido para download do resultado em formato CSV ou JSON.
+   - Indicador de pulso/carregamento no nó ativo e checklist verde nos nós concluídos com tempo medido em ms.
+   - Estado expansível (accordion) para inspecionar logs ou saídas parciais de cada nó.
+4. **Renderização de Respostas Ricas (Polymorphic Message Blocks):**
+   - **Formatação Markdown:** `react-markdown` + `remark-gfm` com suporte a tabelas GFM, links seguros e tipografia refinada via `@tailwindcss/typography` (`prose prose-invert`).
+   - **Syntax Highlighting de SQL (`shiki`):** Renderização de alta fidelidade visual (TextMate grammars), fundo escuro `#13171E`, numeração de linhas, botão "Copiar SQL" com feedback visual de 2s e badge de segurança "Read-Only / SQLite".
+   - **Renderizador Tabular Dinâmico:** Componente paginado com ordenação de colunas e botão de exportação para CSV ou JSON.
 5. **Renderizador Declarativo de Gráficos (`react-chartjs-2`):**
    - O backend envia um payload Pydantic declarativo unificado (`ChartJsConfigDTO`) via tool `generate_chartjs_spec` contendo apenas `type`, `title`, `labels` e `datasets` (valores e labels de métricas). Zero estilização ou posicionamento no backend.
-   - O frontend renderiza o componente `<Chart type={config.type} data={config.data} options={options} />`, aplicando tema e cores da UI.
-6. **Hub / Tela de Perguntas Pré-Configuradas:**
-   - Tela/Aba dedicada ou drawer no chat com as 3 categorias de perguntas rápidas:
+   - O frontend renderiza o componente `<Chart type={config.type} data={config.data} options={options} />`, aplicando o tema Dark Glass.
+6. **Elementos de Identidade e Navegação (UX & ui/ref.md):**
+   - **PFP Exclusivo do CineData Agent (`AgentAvatar`):** Avatar próprio do assistente com glow cinematográfico suave, diferenciando as respostas da IA com presença orgânica.
+   - **Timeline Lateral Direita (`TimelineScrollSpy`):** Painel lateral direito resumindo as perguntas e tópicos da conversa ativa; aplica highlight dinâmico no item correspondente à medida que o usuário rola a página verticalmente.
+7. **Hub / Tela de Perguntas Pré-Configuradas:**
+   - Drawer ou aba no chat com as 3 categorias de perguntas rápidas:
      - 📊 *Perguntas com Gráficos Declarativos (Rankings, Linhas Temporais, Pizza de Gêneros)*.
      - 🔍 *Perguntas Canônicas Text-to-SQL do Desafio (Bilheteria, Margem de Lucro, Elenco, Produtoras)*.
      - 🧠 *Perguntas de Busca Semântica Híbrida (Conceitos temáticos em sinopses e sentimentos em avaliações)*.

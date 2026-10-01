@@ -112,6 +112,28 @@ As cores de acento devem ser usadas de forma pontual e estratégica.
 * **Border Radius:** `12px`
 * **Badge Interno:** Ícone azul com fundo azul translúcido (`rgba(37, 99, 235, 0.15)`).
 
+### 5.5 Blocos de Código SQL com Syntax Highlighting (Shiki)
+* **Tema Shiki:** `tokyo-night` ou custom dark `#13171E` integrado com a paleta MGC AI.
+* **Container:** Fundo `#13171E`, borda `1px solid #282F3D`, cantos arredondados `12px`.
+* **Barra de Ferramentas Superior:**
+  * Nome do arquivo/banco: `cinerocket.db (SQLite)` em texto cinza `#9CA3AF` (`12px`, Monospace).
+  * Badge de Segurança: `Read-Only` em verde escuro ou azul com fundo translúcido.
+  * Botão de Ação: `Copy` com ícone de prancheta Lucide; ao clicar, muda para ícone de check e texto "Copied!" em verde por 2 segundos.
+* **Tipografia de Código:** `JetBrains Mono` ou `Fira Code`, tamanho `13px`, line-height `1.6`, com numeração de linhas lateral suave (`#4B5563`).
+
+### 5.6 Avatar do Agente (PFP) & Mini-Mapa da Conversa (Scroll Spy)
+* **PFP do Agente (`AgentAvatar`):**
+  * Dimensões: `36px` x `36px` (no desktop) ou `32px` x `32px` (no mobile).
+  * Superfície: Fundo `#1B202B`, borda `1px solid rgba(255, 255, 255, 0.1)`.
+  * Glow Cinemático: Halo sutil âmbar/dourado (`rgba(255, 94, 43, 0.25)`).
+  * Live Status: Indicador de 8px no canto inferior (verde pulsante durante o streaming de nós/tokens).
+* **Mini-Mapa Lateral Direito (`TimelineScrollSpy`):**
+  * Largura: `200px` a `240px` fixada à direita da área de chat em telas amplas (`lg:` / `xl:`).
+  * Itens da Trilha: Lista vertical ligada por uma linha sutil (`1px solid #282F3D`).
+  * Estado Inativo: Texto `#6B7280`, marcador cinza neutro.
+  * Estado Ativo (Highlighted via Intersection Observer): Marcador aceso com cor `#FF5E2B`, texto em destaque `#F3F4F6`, transição suave.
+  * Clique: Scroll suave até a mensagem âncora no feed central.
+
 ---
 
 ## 6. Layout, Espaçamento & Estrutura

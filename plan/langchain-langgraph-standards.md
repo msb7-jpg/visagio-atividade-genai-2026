@@ -6,38 +6,39 @@ Este guia serve como a **referência técnica oficial de desenvolvimento** para 
 
 ## 1. Matriz de Versões e Pacotes Oficiais (PyPI 2026)
 
-| Pacote | Versão Atual / Recomendada | Papel no Projeto |
-| :--- | :--- | :--- |
-| **`langchain`** | `>= 1.4.3` | Orquestração de alto nível, integrações e utilitários. |
-| **`langchain-core`** | `>= 1.6.6` | Interfaces fundamentais (`BaseMessage`, `@tool`, `BaseChatModel`, `Runnable`). |
-| **`langgraph`** | `>= 1.2.12` | Grafo de estados (`StateGraph`, `START`, `END`, `MessagesState`, `Command`). |
-| **`langgraph-checkpoint-sqlite`** | `>= 3.1.1` | Checkpointer assíncrono e síncrono para persistência em SQLite (`AsyncSqliteSaver`, `SqliteSaver`). |
-| **`langchain-openai`** | `>= 1.6.6` | Integração OpenAI, modelos locais compatíveis (porta 1234) e OpenRouter. |
-| **`langchain-google-genai`** | `>= 4.4.0` | Conector nativo para Google AI Studio / Gemini API. |
-| **`langchain-huggingface`** | `>= 1.2.2` | Embeddings locais para RAG via Hugging Face Hub / Sentence Transformers. |
-| **`pydantic` & `pydantic-settings`** | `>= 2.13.5` / `>= 2.15.0` | Tipagem estrita e carregamento seguro de variáveis de ambiente. |
+| Pacote                               | Versão Atual / Recomendada | Papel no Projeto                                                                                    |
+| :----------------------------------- | :------------------------- | :-------------------------------------------------------------------------------------------------- |
+| **`langchain`**                      | `>= 1.4.3`                 | Orquestração de alto nível, integrações e utilitários.                                              |
+| **`langchain-core`**                 | `>= 1.6.6`                 | Interfaces fundamentais (`BaseMessage`, `@tool`, `BaseChatModel`, `Runnable`).                      |
+| **`langgraph`**                      | `>= 1.2.12`                | Grafo de estados (`StateGraph`, `START`, `END`, `MessagesState`, `Command`).                        |
+| **`langgraph-checkpoint-sqlite`**    | `>= 3.1.1`                 | Checkpointer assíncrono e síncrono para persistência em SQLite (`AsyncSqliteSaver`, `SqliteSaver`). |
+| **`langchain-openai`**               | `>= 1.6.6`                 | Integração OpenAI, modelos locais compatíveis (porta 1234) e OpenRouter.                            |
+| **`langchain-google-genai`**         | `>= 4.4.0`                 | Conector nativo para Google AI Studio / Gemini API.                                                 |
+| **`langchain-huggingface`**          | `>= 1.2.2`                 | Embeddings locais para RAG via Hugging Face Hub / Sentence Transformers.                            |
+| **`pydantic` & `pydantic-settings`** | `>= 2.13.5` / `>= 2.15.0`  | Tipagem estrita e carregamento seguro de variáveis de ambiente.                                     |
 
 ---
 
 ## 2. O Que Mudou: Tabela "NUNCA USE" vs "SEMPRE USE" (Anti-Patterns & Deprecations)
 
-| ❌ Legado / Deprecado / Não Usar | ✅ Padrão Canônico Atual | Por que evitar? |
-| :--- | :--- | :--- |
-| `langchain_experimental.tools.python.tool.PythonREPLTool` | `@tool` customizado com sandbox (`calculate_data_metrics`) | `langchain-experimental` foi colocado em sunset / deprecado e gera múltiplos warnings com Python moderno. |
-| `from langchain.chains import LLMChain, ConversationChain` | `chain = prompt \| model \| StrOutputParser()` | Chains legadas foram descontinuadas em favor de pipes LCEL (`Runnable`). |
-| `from langchain.agents import initialize_agent, AgentType` | `from langgraph.prebuilt import create_react_agent` ou `StateGraph` explícito | `initialize_agent` é monolítico, não suporta streaming refinado nem checkpointers persistentes. |
-| `from langchain.tools import tool` | `from langchain_core.tools import tool` | O decorador `@tool` reside no pacote `langchain_core`. |
-| `from langchain.schema import ...` | `from langchain_core.messages import HumanMessage, AIMessage, ToolMessage` | `langchain.schema` foi decomposto no `langchain_core`. |
-| Herdar de `BaseTool` para ferramentas simples | Usar o decorador `@tool` com type hints e docstrings claras | `@tool` gera esquemas JSON/Pydantic automáticos para Tool Calling. |
-| Checkpoints com `MemorySaver` em produção | `AsyncSqliteSaver.from_conn_string("...")` | `MemorySaver` guarda dados na RAM e se perde ao reiniciar ou escalar containers. |
-| `dict` genérico solto como estado | `TypedDict` com `Annotated[list, add_messages]` ou herdar de `MessagesState` | Reducers explícitos evitam sobrescrita acidental de histórico de mensagens. |
-| Importar `ChatOpenAI` de `langchain.chat_models` | `from langchain_openai import ChatOpenAI` | Provedores foram desacoplados em pacotes de parceiros (`partner packages`). |
+| ❌ Legado / Deprecado / Não Usar                           | ✅ Padrão Canônico Atual                                                      | Por que evitar?                                                                                           |
+| :--------------------------------------------------------- | :---------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
+| `langchain_experimental.tools.python.tool.PythonREPLTool`  | `@tool` customizado com sandbox (`calculate_data_metrics`)                    | `langchain-experimental` foi colocado em sunset / deprecado e gera múltiplos warnings com Python moderno. |
+| `from langchain.chains import LLMChain, ConversationChain` | `chain = prompt \| model \| StrOutputParser()`                                | Chains legadas foram descontinuadas em favor de pipes LCEL (`Runnable`).                                  |
+| `from langchain.agents import initialize_agent, AgentType` | `from langgraph.prebuilt import create_react_agent` ou `StateGraph` explícito | `initialize_agent` é monolítico, não suporta streaming refinado nem checkpointers persistentes.           |
+| `from langchain.tools import tool`                         | `from langchain_core.tools import tool`                                       | O decorador `@tool` reside no pacote `langchain_core`.                                                    |
+| `from langchain.schema import ...`                         | `from langchain_core.messages import HumanMessage, AIMessage, ToolMessage`    | `langchain.schema` foi decomposto no `langchain_core`.                                                    |
+| Herdar de `BaseTool` para ferramentas simples              | Usar o decorador `@tool` com type hints e docstrings claras                   | `@tool` gera esquemas JSON/Pydantic automáticos para Tool Calling.                                        |
+| Checkpoints com `MemorySaver` em produção                  | `AsyncSqliteSaver.from_conn_string("...")`                                    | `MemorySaver` guarda dados na RAM e se perde ao reiniciar ou escalar containers.                          |
+| `dict` genérico solto como estado                          | `TypedDict` com `Annotated[list, add_messages]` ou herdar de `MessagesState`  | Reducers explícitos evitam sobrescrita acidental de histórico de mensagens.                               |
+| Importar `ChatOpenAI` de `langchain.chat_models`           | `from langchain_openai import ChatOpenAI`                                     | Provedores foram desacoplados em pacotes de parceiros (`partner packages`).                               |
 
 ---
 
 ## 3. Padrões Canônicos de Implementação
 
 ### 3.1 Criação de Ferramentas com `@tool`
+
 Toda tool deve ter tipagem estrita com Pydantic / Python hints e uma docstring explicativa clara, pois o LLM utiliza a docstring para decidir quando invocá-la.
 
 ```python
@@ -56,7 +57,7 @@ def execute_sql_query(query: str) -> list[dict[str, Any]]:
     clean_query = query.strip()
     if not clean_query.upper().startswith("SELECT"):
         raise ValueError("Apenas consultas SELECT de leitura são autorizadas.")
-    
+
     # Conexão estritamente Read-Only em nível de SO
     with sqlite3.connect("file:cinerocket.db?mode=ro", uri=True) as conn:
         conn.row_factory = sqlite3.Row
@@ -65,128 +66,6 @@ def execute_sql_query(query: str) -> list[dict[str, Any]]:
         rows = cur.fetchall()
         return [dict(row) for row in rows]
 ```
-
----
-
-### 3.2 Estruturação de Estado do Agente com `MessagesState`
-O LangGraph moderno oferece o `MessagesState` pré-empacotado ou tipagem declarativa com `add_messages`:
-
-```python
-# app/agent/state.py
-from typing import Annotated, Literal
-from langchain_core.messages import BaseMessage
-from langgraph.graph.message import add_messages
-from typing_extensions import TypedDict
-
-class AgentState(TypedDict):
-    # O reducer add_messages anexa mensagens em vez de sobrescrever a lista
-    messages: Annotated[list[BaseMessage], add_messages]
-    
-    # Campos customizados de contexto
-    route: Literal["sql", "rag", "hybrid", "direct"] | None
-    generated_sql: str | None
-    query_result: list[dict] | None
-    error_count: int
-```
-
----
-
-### 3.3 Factory Agnóstica de Provedores LLM (`app/core/llm_factory.py`)
-Centraliza timeouts, temperatura e instanciação dos modelos sem acoplar os nós do grafo a uma biblioteca de fornecedor específica:
-
-```python
-# app/core/llm_factory.py
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
-from app.core.config import settings
-
-def get_chat_model(temperature: float = 0.0) -> BaseChatModel:
-    """Instancia o modelo LLM configurado nas variáveis de ambiente (.env).
-    Fail-Fast: Caso o provedor falhe, emite erro direto sem fallbacks mágicos.
-    """
-    provider = settings.LLM_PROVIDER.lower()
-    
-    if provider == "local":
-        return ChatOpenAI(
-            base_url=settings.LLM_BASE_URL,  # Ex: http://localhost:1234/v1
-            api_key=SecretStr("not-needed"),
-            model=settings.LLM_MODEL,
-            temperature=temperature,
-            timeout=settings.LLM_TIMEOUT_SECONDS,
-        )
-    
-    elif provider == "openrouter":
-        return ChatOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=SecretStr(settings.OPENROUTER_API_KEY),
-            model=settings.LLM_MODEL,
-            temperature=temperature,
-            default_headers={
-                "HTTP-Referer": "https://github.com/visagio/cinedata-analytics",
-                "X-Title": "CineData Analytics Assistant",
-            }
-        )
-        
-    elif provider == "google":
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(
-            google_api_key=settings.GOOGLE_API_KEY,
-            model=settings.LLM_MODEL,
-            temperature=temperature,
-        )
-        
-    elif provider == "openai":
-        return ChatOpenAI(
-            api_key=SecretStr(settings.OPENAI_API_KEY),
-            model=settings.LLM_MODEL,
-            temperature=temperature,
-        )
-        
-    else:
-        raise ValueError(f"Provedor LLM não suportado: {provider}")
-```
-
----
-
-### 3.4 Streaming de Eventos SSE com `astream_events`
-Para alimentar a interface com tokens e pensamentos em tempo real:
-
-```python
-# Exemplo de consumo na camada de serviço FastAPI
-async def stream_agent_execution(thread_id: str, prompt: str):
-    config = {"configurable": {"thread_id": thread_id}}
-    
-    async for event in agent_graph.astream_events(
-        {"messages": [HumanMessage(content=prompt)]},
-        config=config,
-        version="v2"  # Sempre especificar version='v2'
-    ):
-        event_kind = event["event"]
-        name = event.get("name", "")
-        
-        # 1. Transição de Nós no Grafo (Alimenta o Stepper/Trilha visual na UI em tempo real)
-        if event_kind == "on_chain_start" and name in ["router_node", "sql_generator", "sql_executor", "data_analysis", "synthesizer"]:
-            yield f"data: {json.dumps({'type': 'node_start', 'node': name, 'status': 'running'})}\n\n"
-            
-        elif event_kind == "on_chain_end" and name in ["router_node", "sql_generator", "sql_executor", "data_analysis", "synthesizer"]:
-            yield f"data: {json.dumps({'type': 'node_end', 'node': name, 'status': 'completed'})}\n\n"
-        
-        # 2. Token da resposta final
-        elif event_kind == "on_chat_model_stream":
-            chunk = event["data"]["chunk"]
-            if chunk.content:
-                yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
-        
-        # 3. Início e término de execução de ferramenta (ex: gerando ou rodando SQL)
-        elif event_kind == "on_tool_start":
-            yield f"data: {json.dumps({'type': 'tool_start', 'tool': event['name'], 'input': event['data'].get('input')})}\n\n"
-            
-        elif event_kind == "on_tool_end":
-            yield f"data: {json.dumps({'type': 'tool_end', 'tool': event['name']})}\n\n"
-```
-
----
 
 ## 4. Implementação Canônica da Ferramenta de Análise de Dados (`Safe Data Analysis Tool`)
 
@@ -234,7 +113,7 @@ def calculate_data_metrics(code: str) -> str:
         "math": math,
         "statistics": statistics,
     }
-    
+
     try:
         # Execução isolada em namespace fechado
         exec(code, local_env)
@@ -246,13 +125,14 @@ def calculate_data_metrics(code: str) -> str:
 ```
 
 ### Vantagens da Ferramenta Nativa:
+
 1. **Zero Deprecations:** Sem dependência de `langchain-experimental`, mantendo a instalação do projeto enxuta e sem warnings.
 2. **Segurança por Padrão:** Não permite acesso ao sistema de arquivos (`open()`), módulos de sistema operacional (`os`, `sys`, `subprocess`) ou conexões de rede (`urllib`, `socket`).
 3. **Controle Total:** Tratamento de exceções previsível que retorna mensagens de erro amigáveis para o próprio LLM se autocorrigir caso erre a fórmula matemática.
 
 ---
 
-## 5. Checklist de Verificação de Código (Code Review Rules)
+## 6. Checklist de Verificação de Código (Code Review Rules)
 
 - [ ] **Zero Imports Legados:** Certificar-se de que não há nenhum import de `langchain.chains`, `langchain.agents.initialize_agent` ou `langchain.schema`.
 - [ ] **Versionamento de Stream:** Chamadas para `astream_events` devem sempre incluir explicitamente o parâmetro `version="v2"`.

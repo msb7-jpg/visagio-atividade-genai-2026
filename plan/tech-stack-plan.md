@@ -17,6 +17,7 @@ O backend possui a espinha dorsal estruturada com FastAPI, SQLite assíncrono (S
 | **`langchain-google-genai`** (>= 4.4.0) | Conector oficial para Google AI Studio / Gemini 2.0/2.5 previsto na factory multi-provedor. |
 | **`sentence-transformers`** | Runtime local de embeddings vetoriais para o RAG semântico (`all-MiniLM-L6-v2` / `paraphrase-multilingual-MiniLM-L12-v2`). |
 | **`sse-starlette`** (>= 2.1.0) | Suporte robusto a Server-Sent Events (SSE) assíncrono para streaming token-a-token e eventos de nós do LangGraph. |
+| **`sqlparse`** (>= 0.5.0) | Formatação, indentação automática e beautify de queries SQL geradas pelo LLM antes da emissão via SSE. |
 
 ### 1.2 Ajustes e Limpeza no `pyproject.toml`
 * Remover a entrada duplicada de `pydantic-settings` (linhas 13 e 19).
@@ -24,30 +25,32 @@ O backend possui a espinha dorsal estruturada com FastAPI, SQLite assíncrono (S
 
 ---
 
-## 2. TanStack AI (`@tanstack/ai-react`) vs. Arquitetura do Chat
+## 2. Decisão Arquitetural: TanStack AI (`@tanstack/ai-react`) vs. Hook Customizado `useAgentStream`
 
-O **TanStack AI** é uma biblioteca recente de abstração para chat em React baseada em hooks headless (`useChat`).
+O **TanStack AI** é uma biblioteca recente de abstração para chat em React baseada em hooks headless (`useChat`), concorrente do Vercel AI SDK.
 
-### 2.1 Análise de Encaixe e Funcionamento
-* **Como opera:** Fornece gerenciamento de estado conversacional no client-side (`messages`, `input`, `isLoading`, `sendMessage`), desacoplado de estilos visuais.
-* **Desafio com LangGraph:** Nosso backend emite um fluxo SSE composto por múltiplos tipos de eventos estruturados no mesmo stream:
-  1. `node_start` / `node_end` (atualização do Node Stepper em tempo real).
+### 2.1 Análise de Encaixe e Limitações para Nossa Aplicação
+* **Foco do TanStack AI:** Projetado essencialmente para assistentes puramente textuais com tool calling simplificado, tratando mensagens como strings de texto com deltas.
+* **Complexidade do Nosso Modelo de Eventos (LangGraph):** O backend CineData emite um fluxo SSE composto por múltiplos tipos de eventos estruturados heterogêneos no mesmo stream:
+  1. `step_start` / `step_end` (atualização do Node Stepper em tempo real com tempos de execução).
   2. `thought` (raciocínio interno e logs intermediários).
-  3. `sql` (código SQL formatado com syntax highlight).
-  4. `token` (pedaços incrementais da resposta em linguagem natural).
+  3. `sql` (código SQL formatado via `sqlparse` para auditoria).
+  4. `token` (pedaços incrementais da resposta executiva em linguagem natural).
   5. `chart` (`ChartJsConfigDTO` declarativo gerado pelo agente).
-  6. `data` (linhas e colunas de registros analíticos).
+  6. `data` (linhas e colunas de registros analíticos retornados pelo banco).
+  7. `error` (notificações de autocorreção em malha fechada).
+* **Veredito:** Tentar encaixar esse fluxo rico de eventos no `@tanstack/ai-react` exigiria serializações forçadas em texto e acoplamento artificial a uma biblioteca em estágio experimental (Early Beta).
 
-### 2.2 Estratégia de Implementação Recomendada
-* **Opção Híbrida / Hook Customizado:** Criar um hook `useChatStream` construído com `fetch` + `ReadableStream` / `EventSource` e cache gerenciado pelo **TanStack Query v5**.
-* Isso garante compatibilidade total com o modelo de eventos do LangGraph, mantendo a reatividade do **Node Stepper**, do **Thought Inspector** e da renderização dinâmica de tabelas e gráficos.
-* Caso optemos pelo `@tanstack/ai-react`, ele será acoplado como a camada de entrada do chat, delegando eventos de telemetria e gráficos para um store de visualização.
+### 2.2 Estratégia Adotada: TanStack Query v5 + Hook Customizado `useAgentStream`
+* **TanStack Query v5 (`@tanstack/react-query`):** Utilizado para o que ele faz de melhor — gerenciamento de cache de threads (`GET /chat/threads`), histórico de sessões anteriores, catálogo de perguntas e metadados analíticos.
+* **Hook Customizado `useAgentStream`:** Implementado com `fetch` + `ReadableStream` (ou `eventsource-parser`), 100% tipado com TypeScript, despachando eventos diretamente para **Blocos de Mensagem Polimórficos (`MessageBlock`)**.
+* Isso garante reatividade nativa para o **Node Stepper**, **Thought Inspector**, **SqlCodeBlock**, **TableRenderer** e **ChartRenderer**.
 
 ---
 
 ## 3. Stack Tecnológica do Frontend
 
-Inspirado diretamente na arquitetura e no design de [visagio-atividade-dev-2026/frontend](file:///home/miguel/workspace/visagio-atividade-dev-2026/frontend):
+Inspirado diretamente na arquitetura e no design de [visagio-atividade-dev-2026/frontend](file:///home/miguel/workspace/visagio-atividade-dev-2026/frontend) e nas diretrizes `ui/DESIGN.md`:
 
 ### 3.1 Core & Build
 * **React 19** + **TypeScript 5.8+**
@@ -56,14 +59,24 @@ Inspirado diretamente na arquitetura e no design de [visagio-atividade-dev-2026/
 
 ### 3.2 Estilização e Design System (Dark Glassmorphism + Shadcn)
 * **Tailwind CSS v4** (`@tailwindcss/vite`, `@import "tailwindcss";`, cores em `oklch`).
+* **`@tailwindcss/typography`**: Plugin oficial para renderização de Markdown tipográfico de alta qualidade (`prose prose-invert`).
 * **Shadcn UI (CLI v4)** com componentes Radix Nova:
   * `button`, `card`, `dialog`, `dropdown-menu`, `input`, `scroll-area`, `separator`, `sheet`, `skeleton`, `tabs`, `badge`, `tooltip`, `accordion`.
-* **Lucide React** para iconografia unificada.
-* **Geist Font** (`@fontsource-variable/geist`).
+* **Lucide React** para iconografia unificada e minimalista (stroke 1.5px).
+* **Geist Font** (`@fontsource-variable/geist`) e **JetBrains Mono** para código.
 * **Motion / Framer Motion 13+** para animações de entrada de mensagens, pulso dos nós ativos e transições.
 * **Tailwind Animate CSS** (`tw-animate-css`) e utilitários `clsx` + `tailwind-merge` (`cn`).
 
-### 3.3 Gerenciamento de Estado & Dados Assíncronos
+### 3.3 Renderização de Markdown e Syntax Highlighting
+* **`react-markdown` (v9+)** + **`remark-gfm`**:
+  * Parser AST tolerante a streaming incompleto, convertendo Markdown seguro para componentes React nativos.
+  * Suporte a tabelas GFM, listas, ênfases e links externos seguros (`rel="noopener noreferrer"`).
+* **`shiki`**:
+  * Engine de syntax highlighting de alta fidelidade (TextMate grammars do VS Code).
+  * Renderiza queries SQL formatadas com tema escuro nativo (ex: `tokyo-night` ou custom dark glass `#13171E`).
+  * Integrado ao componente `SqlCodeBlock` com controles de auditoria: numeração de linhas, botão "Copiar SQL" com feedback visual de 2s e badge de segurança "Read-Only / SQLite".
+
+### 3.4 Gerenciamento de Estado & Dados Assíncronos
 * **`@tanstack/react-query` v5** + `@tanstack/react-query-devtools`:
   * Gestão de cache das threads de conversa (`GET /chat/threads`).
   * Metadados e catálogo de perguntas sugeridas (`GET /analytics/suggestions`).
@@ -71,7 +84,7 @@ Inspirado diretamente na arquitetura e no design de [visagio-atividade-dev-2026/
 * **`@tanstack/react-form`** + **`zod`**:
   * Para filtros analíticos e validação tipada de parâmetros de consulta.
 
-### 3.4 Visualização de Dados (Gráficos e Tabelas)
+### 3.5 Visualização de Dados (Gráficos e Tabelas)
 * **`react-chartjs-2`** + **`chart.js`**:
   * Consumo do payload declarativo `ChartJsConfigDTO` gerado pelo agente.
   * O backend envia apenas a semântica (`labels`, `datasets`, `type`), enquanto o frontend aplica o tema Dark Glass (cores âmbar, dourado cine, esmeralda lucro).
@@ -93,16 +106,20 @@ frontend/
 │   │   ├── chat/                  # Core da Interface do Assistente
 │   │   │   ├── components/
 │   │   │   │   ├── ChatMessage.tsx        # Renderizador de mensagens (Usuário / Assistente)
-│   │   │   │   ├── ChatInput.tsx          # Campo de prompt com atalhos
+│   │   │   │   ├── ChatInput.tsx          # Campo de prompt com atalhos e pílulas
+│   │   │   │   ├── AgentAvatar.tsx        # Avatar (PFP) exclusivo do CineData Agent com glow cinemático
 │   │   │   │   ├── NodeStepper.tsx        # Trilha visual do LangGraph em tempo real
-│   │   │   │   ├── ThoughtInspector.tsx   # Accordion expansível de raciocínio e SQL
+│   │   │   │   ├── ThoughtInspector.tsx   # Accordion expansível de raciocínio interno
+│   │   │   │   ├── SqlCodeBlock.tsx       # Bloco SQL com Shiki, botão copiar e badge Read-Only
+│   │   │   │   ├── MarkdownRenderer.tsx   # Renderizador react-markdown + remark-gfm + prose
 │   │   │   │   ├── ChartRenderer.tsx      # Renderizador react-chartjs-2
 │   │   │   │   ├── TableRenderer.tsx      # Tabela analítica com paginação e exportação
+│   │   │   │   ├── TimelineScrollSpy.tsx  # Histórico lateral direito com scroll spy e highlight
 │   │   │   │   └── SuggestedPrompts.tsx   # Pílulas de perguntas sugeridas
 │   │   │   ├── hooks/
-│   │   │   │   ├── useChatStream.ts       # Consumo SSE token-a-token e eventos do grafo
+│   │   │   │   ├── useAgentStream.ts      # Consumo SSE tipado, montagem de blocos polimórficos
 │   │   │   │   └── useThreadHistory.ts    # TanStack Query para listar e reidratar threads
-│   │   │   └── types/chat.ts              # DTOs de eventos SSE, mensagens e nós
+│   │   │   └── types/chat.ts              # DTOs de eventos SSE, blocos polimórficos e nós
 │   │   └── analytics/             # Hub de Metadados e Dicionário da Base
 │   │       ├── components/
 │   │       └── hooks/useAnalytics.ts

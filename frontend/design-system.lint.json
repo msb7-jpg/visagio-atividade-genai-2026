@@ -1,0 +1,70 @@
+{
+  "rules": {
+    "shadcn/no-restyle": [
+      "error",
+      {
+        "allow": ["layout"],
+        "contracts": [
+          {
+            "pattern": "^Button$",
+            "allow": ["layout"],
+            "deny": ["w-*", "h-*", "p-*", "bg-*"],
+            "message": {
+              "spacing": "Do not override Button spacing. Use standard Button sizes (sm, default, lg, icon).",
+              "default": "Do not restyle Button. Use standard variants (default, secondary, outline, ghost, destructive) or compose with a wrapper component. Never invent domain-specific variants like chat-variant."
+            }
+          },
+          {
+            "pattern": "^Badge$",
+            "allow": ["layout", "spacing"],
+            "message": {
+              "default": "Use standard Badge variants (default, secondary, outline, destructive). Do not hardcode custom styles or invent one-off variants."
+            }
+          },
+          {
+            "pattern": "^CommandDialog$",
+            "allow": ["layout", "spacing", "color", "shape", "effects"]
+          },
+          {
+            "pattern": "^InputGroup$",
+            "allow": ["layout", "spacing", "shape", "color", "motion"]
+          },
+          {
+            "pattern": "^StatefulButton$",
+            "allow": ["layout", "spacing", "typography", "shape", "color"]
+          },
+          {
+            "pattern": "^(Card|CardHeader|CardContent|CardFooter)$",
+            "allow": ["layout", "spacing"]
+          },
+          {
+            "pattern": "^Avatar$",
+            "allow": ["size-*"]
+          }
+        ]
+      }
+    ],
+    "shadcn/no-raw-colors": [
+      "error",
+      {
+        "message": "Do not use raw Tailwind colors (e.g. bg-blue-500, text-emerald-400). Use MGC AI semantic tokens from ui/DESIGN.md (bg-background, bg-card, bg-primary, text-muted-foreground)."
+      }
+    ],
+    "shadcn/no-arbitrary-values": [
+      "error",
+      {
+        "message": "Do not use arbitrary bracket values (e.g. p-[13px], w-[320px]). Use the design system scale."
+      }
+    ],
+    "shadcn/no-inline-styles": "error",
+    "shadcn/require-static-classes": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/components/ui/**", "src/components/chat/**"],
+      "rules": {
+        "shadcn/no-restyle": "off"
+      }
+    }
+  ]
+}
