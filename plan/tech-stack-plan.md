@@ -45,6 +45,7 @@ O **TanStack AI** é uma biblioteca recente de abstração para chat em React ba
 * **TanStack Query v5 (`@tanstack/react-query`):** Utilizado para o que ele faz de melhor — gerenciamento de cache de threads (`GET /chat/threads`), histórico de sessões anteriores, catálogo de perguntas e metadados analíticos.
 * **Hook Customizado `useAgentStream`:** Implementado com `fetch` + `ReadableStream` (ou `eventsource-parser`), 100% tipado com TypeScript, despachando eventos diretamente para **Blocos de Mensagem Polimórficos (`MessageBlock`)**.
 * Isso garante reatividade nativa para o **Node Stepper**, **Thought Inspector**, **SqlCodeBlock**, **TableRenderer** e **ChartRenderer**.
+* **Sincronização Reativa de Título:** Ao receber o evento `title`, o hook atualiza otimisticamente o cache `['threads']` no TanStack Query (`queryClient.setQueryData`) sem refetch pesado, sincroniza o `document.title` da aba do navegador e aciona o `<AnimatedTitle />` na barra lateral com efeito suave de revelação da esquerda para a direita (stagger + blur-in).
 
 ---
 
@@ -108,6 +109,7 @@ frontend/
 │   │   │   │   ├── ChatMessage.tsx        # Renderizador de mensagens (Usuário / Assistente)
 │   │   │   │   ├── ChatInput.tsx          # Campo de prompt com atalhos e pílulas
 │   │   │   │   ├── AgentAvatar.tsx        # Avatar (PFP) exclusivo do CineData Agent com glow cinemático
+│   │   │   │   ├── AnimatedTitle.tsx      # Revelação animada do título (Motion left-to-right)
 │   │   │   │   ├── NodeStepper.tsx        # Trilha visual do LangGraph em tempo real
 │   │   │   │   ├── ThoughtInspector.tsx   # Accordion expansível de raciocínio interno
 │   │   │   │   ├── SqlCodeBlock.tsx       # Bloco SQL com Shiki, botão copiar e badge Read-Only

@@ -105,6 +105,21 @@ SCHEMA DO BANCO CINEDATA (cinerocket.db):
 
 ---
 
+### 1.4 Geração Concorrente do Título de Conversa (Sub-rotina Desacoplada)
+
+Para proporcionar a experiência clássica de produtos como Gemini/ChatGPT sem penalizar a latência da primeira resposta analítica:
+
+1. **Execução Paralela Desacoplada do Grafo:** A geração de título **não é um nó sequencial** da FSM do LangGraph. Ela roda em paralelo via `asyncio.create_task` gerenciada pelo `AgentService` exclusivamente no 1º turno de uma nova conversa (`thread.title is None`).
+2. **Reaproveitamento do Modelo Ativo com Trava Estrita de Tokens:** Em vez de instanciar outro modelo ou requerer múltiplos downloads de pesos na VRAM (crucial para provedores locais como LM Studio/Ollama), a sub-rotina reaproveita a mesma instância LLM ativa do usuário, aplicando apenas a trava:
+   ```python
+   # Reusa o modelo ativo com temperatura baixa e limite curto de tokens
+   title_model = get_chat_model(temperature=0.3).bind(max_tokens=20)
+   title_chain = title_prompt | title_model | StrOutputParser()
+   ```
+3. **Latência Mínima & Emissão SSE:** Com limite de ~20 tokens de saída, a resposta retorna em 100-250ms. Assim que o texto é obtido, o serviço despacha o evento SSE `{"type": "title", "title": clean_title}` e persiste o registro no banco de threads do SQLite.
+
+---
+
 ## 2. Catálogo Oficial de Ferramentas (Tools Mapeadas)
 
 O modelo de linguagem dispõe de um conjunto conciso de ferramentas fortemente tipadas através do `@tool` do `langchain_core`:

@@ -70,6 +70,8 @@ A missão desta solução é criar um **Assistente Inteligente Híbrido** capaz 
    - O chat sugere "Pílulas de Perguntas Prontas" categorizadas (Bilheteria, Desempenho de Diretores, Tendências de Gênero, Filmes Populares).
 2. **Envio da Pergunta & Feedback em Tempo Real (Live Reasoning & Chain Visualization):**
    - O usuário digita ou clica em uma pergunta.
+   - **Reconhecimento Imediato (ACK):** O sistema emite instantaneamente um evento de confirmação de recebimento (`ack`), aceitando o prompt e acionando os indicadores visuais de prontidão.
+   - **Titulação Automática Concorrente (1º Turno):** No primeiro prompt de uma nova conversa, o backend dispara uma sub-rotina assíncrona leve para gerar um título conciso (3 a 5 palavras). Ao concluir, o evento `title` é emitido via SSE, atualizando a barra lateral de histórico e o título da aba do navegador (`document.title`) com revelação visual fluida.
    - O sistema exibe um **Painel de Raciocínio Dinâmico (Chain of Thought & Node Stepper)** atualizado via streaming em tempo real:
      - 🧭 **Grafo / Trilha de Execução Dinâmica:** Exibe os nós do grafo conforme são ativados e concluídos em tempo real (ex.: `[Classificador de Intenção] ➔ [Gerador SQL] ➔ [Executor Read-Only] ➔ [Interpretador Analítico] ➔ [Sintetizador]`).
      - ⚡ **Indicadores de Estado dos Nós:**
@@ -255,6 +257,8 @@ Antes de salvar a configuração, a interface permite ao usuário disparar um te
    - Capacidade de criar novas conversas gerando um `thread_id` único (UUID v4) ou listar conversas anteriores armazenadas via TanStack Query v5.
 2. **Consumo de Streaming em Tempo Real (SSE Tipado via `useAgentStream`):**
    - Suporte a leitura de eventos de fluxo (`text/event-stream`), despachando cada evento para blocos polimórficos de mensagem:
+     - `ack`: Confirmação imediata de recebimento do turno (`{"type": "ack", "thread_id": "...", "status": "accepted"}`).
+     - `title`: Título conciso da conversa gerado concorrentemente no 1º turno (`{"type": "title", "title": "Top 10 Filmes de Bilheteria"}`).
      - `step_start`: Transição e início de nó no grafo (ex: `{"step": "sql_generator", "label": "Gerando Consulta SQL"}`).
      - `step_end`: Conclusão do nó com duração (ex: `{"step": "sql_generator", "duration_ms": 320, "status": "completed"}`).
      - `thought`: Texto de raciocínio intermediário e logs explicativos.

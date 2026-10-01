@@ -67,6 +67,31 @@ def execute_sql_query(query: str) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 ```
 
+---
+
+### 3.2 Estruturação Canônica de Estado (`AgentState`)
+
+```python
+# app/agent/state.py
+from typing import Annotated, Literal
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
+from typing_extensions import TypedDict
+
+class AgentState(TypedDict):
+    # O reducer add_messages anexa mensagens preservando o histórico da thread
+    messages: Annotated[list[BaseMessage], add_messages]
+
+    # Roteamento e dados intermediários de execução
+    route: Literal["sql", "rag", "hybrid", "direct"] | None
+    generated_sql: str | None
+    query_result: list[dict] | None
+    error_count: int
+    title: str | None  # Título conciso gerado no 1º turno da conversa
+```
+
+---
+
 ## 4. Implementação Canônica da Ferramenta de Análise de Dados (`Safe Data Analysis Tool`)
 
 Como a biblioteca `langchain-experimental` foi colocada em **modo sunset / descontinuada** (disparando alertas de `DeprecationWarning` no Python moderno e dependendo de funções obsoletas do `asyncio`), a abordagem padrão de engenharia é construir a nossa própria ferramenta com `@tool` do `langchain_core`:
