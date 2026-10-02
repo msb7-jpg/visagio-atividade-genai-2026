@@ -5,6 +5,13 @@ from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
 
+class AgentStepInfo(TypedDict):
+    node: str
+    status: Literal["pending", "active", "done", "error"]
+    duration_ms: int | None
+    label: str
+
+
 class AgentState(TypedDict):
     """
     Estado do LangGraph para o CineData Analytics Agent.
@@ -13,7 +20,10 @@ class AgentState(TypedDict):
 
     messages: Annotated[list[BaseMessage], add_messages]
     route: Literal["sql", "rag", "hybrid", "direct"] | None
+    thought: str | None
     generated_sql: str | None
     query_result: list[dict[str, Any]] | None
     error_count: int
+    last_error: str | None
     title: str | None
+    steps: list[AgentStepInfo]

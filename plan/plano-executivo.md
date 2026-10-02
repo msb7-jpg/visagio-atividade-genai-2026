@@ -37,7 +37,7 @@ Se você é um agente de IA lendo este arquivo para iniciar ou continuar o desen
 | :---: | :--- | :--- | :---: |
 | **0** | **Fundação, Estruturação `backend/` & Pipeline Fullstack** | Mover backend para `backend/`, setup SQLite Read-Only, checkpointer, layout e testes | `[CONCLUÍDO - 01/10/2026]` |
 | **1** | **Settings & Conectividade Multi-LLM** | Gestão e teste dinâmico de provedores (Groq, Local, OpenRouter, Google, OpenAI) | `[CONCLUÍDO - 01/10/2026]` |
-| **2** | **Text-to-SQL Analítico & Auditoria Visual** | Core LangGraph, catálogo embutido, AST check, self-correction, SSE e Shiki | `[PENDENTE]` |
+| **2** | **Text-to-SQL Analítico & Auditoria Visual** | Core LangGraph, catálogo embutido, AST check, self-correction, SSE e Shiki | `[CONCLUÍDO - 02/10/2026]` |
 | **3** | **Visualização Declarativa de Gráficos & Tabelas** | Chart.js declarativo (`ChartJsConfigDTO`), tabela analítica e exportação CSV | `[PENDENTE]` |
 | **4** | **Histórico Persistente & Navegação de Threads** | `AsyncSqliteSaver`, titulação concorrente, reidratação e TimelineScrollSpy | `[PENDENTE]` |
 | **5** | **Busca Semântica Híbrida & Math Sandbox** | RAG vetorial em sinopses/reviews, sandbox matemática e sugestões rápidas | `[PENDENTE]` |
@@ -277,15 +277,15 @@ cd ..
 ```
 
 ### 6. Checklist Operacional
-- [ ] Catálogo semântico compacto (~600 tokens) integrado ao System Prompt do gerador SQL.
-- [ ] Validador AST implementado e bloqueando comandos destrutivos ou tabelas não autorizadas.
-- [ ] Self-correction loop funcional com até 3 tentativas de auto-recuperação de SQL.
-- [ ] Queries canônicas Q1 a Q10 validadas contra o banco `cinerocket.db`.
-- [ ] Endpoint `POST /chat/stream` emitindo eventos SSE com SQL formatado via `sqlparse`.
-- [ ] `useAgentStream` processando eventos SSE e renderizando blocos polimórficos no frontend.
-- [ ] Componentes `NodeStepper`, `ThoughtInspector`, `SqlCodeBlock` e `AgentAvatar` finalizados.
-- [ ] Testes do Slice 2 validados no backend e frontend.
-- [ ] Status da fatia: `[PENDENTE]`
+- [x] Catálogo semântico compacto (~600 tokens) integrado ao System Prompt do gerador SQL.
+- [x] Validador AST implementado e bloqueando comandos destrutivos ou tabelas não autorizadas.
+- [x] Self-correction loop funcional com até 3 tentativas de auto-recuperação de SQL.
+- [x] Queries canônicas Q1 a Q10 validadas contra o banco `cinerocket.db`.
+- [x] Endpoint `POST /chat/stream` emitindo eventos SSE com SQL formatado via `sqlparse`.
+- [x] `useAgentStream` processando eventos SSE e renderizando blocos polimórficos no frontend.
+- [x] Componentes `NodeStepper`, `ThoughtInspector`, `SqlCodeBlock` e `AgentAvatar` finalizados.
+- [x] Testes do Slice 2 validados no backend e frontend.
+- [x] Status da fatia: `[CONCLUÍDO - 02/10/2026]`
 
 ---
 

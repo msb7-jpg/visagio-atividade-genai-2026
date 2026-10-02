@@ -95,3 +95,43 @@ def test_llm_factory_ocp_custom_provider_extension():
     assert isinstance(model, ChatOpenAI)
     assert model.model_name == "custom-mock-v1"
 
+
+@pytest.mark.asyncio
+async def test_llm_provider_strategy_default_fast_probe():
+    """Verifica que a estratégia padrão de fast_probe envia ping leve via create_model."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.core.llm_factory import LLMProviderStrategy
+
+    class DummyStrategy(LLMProviderStrategy):
+        def create_model(self, **kwargs):
+            mock_model = MagicMock()
+            mock_model.ainvoke = AsyncMock(return_value="pong")
+            return mock_model
+
+    strategy = DummyStrategy()
+    is_healthy, msg = await strategy.fast_probe()
+    assert is_healthy is True
+    assert msg == "Ping bem-sucedido"
+
+
+@pytest.mark.asyncio
+async def test_local_provider_fast_probe_override():
+    """Verifica que LocalOpenAIProviderStrategy sobrescreve fast_probe."""
+    from unittest.mock import MagicMock, patch
+
+    from app.core.llm_factory import LocalOpenAIProviderStrategy
+
+    strategy = LocalOpenAIProviderStrategy()
+
+    # Com /health respondendo 200 ok
+    with patch("httpx.AsyncClient.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"status": "ok"}
+        mock_get.return_value = mock_resp
+
+        is_healthy, msg = await strategy.fast_probe(base_url="http://localhost:1234/v1")
+        assert is_healthy is True
+        assert "Health check" in msg
+

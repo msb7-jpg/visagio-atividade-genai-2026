@@ -45,17 +45,40 @@ def test_db_readonly_blocks_insert_and_write_operations():
             cursor.execute("DELETE FROM dim_movies WHERE id_filme = 1")
 
 
-def test_agent_graph_compiles_and_invokes():
-    """Verifica que o StateGraph do agente compila e executa o fluxo inicial."""
+@pytest.mark.asyncio
+async def test_agent_graph_compiles_and_invokes():
+    """Verifica que o StateGraph do agente compila e executa o fluxo com ainvoke."""
+    from unittest.mock import AsyncMock, patch
+
+    from langchain_core.messages import AIMessage
+
     graph = create_agent_graph()
     initial_state = {
         "messages": [HumanMessage(content="Qual o filme mais rentável?")],
         "route": None,
+        "thought": None,
         "generated_sql": None,
         "query_result": None,
         "error_count": 0,
+        "last_error": None,
         "title": None,
+        "steps": [],
     }
-    result = graph.invoke(initial_state)
-    assert result["route"] == "direct"
-    assert len(result["messages"]) == 1
+    with (
+        patch("app.agent.graph.get_chat_model") as mock_r,
+        patch("app.agent.nodes.sql_generator.get_chat_model") as mock_g,
+        patch("app.agent.nodes.synthesizer.get_chat_model") as mock_s,
+    ):
+        mock_r.return_value = AsyncMock(ainvoke=AsyncMock(return_value=AIMessage(content="sql")))
+        mock_msg = "<thought>teste</thought>```sql\nSELECT titulo FROM dim_movies LIMIT 1\n```"
+        mock_g.return_value = AsyncMock(
+            ainvoke=AsyncMock(return_value=AIMessage(content=mock_msg))
+        )
+        mock_s.return_value = AsyncMock(
+            ainvoke=AsyncMock(return_value=AIMessage(content="Resposta final"))
+        )
+
+        result = await graph.ainvoke(initial_state)
+        assert result["route"] == "sql"
+        assert result["generated_sql"] is not None
+        assert len(result["messages"]) >= 2

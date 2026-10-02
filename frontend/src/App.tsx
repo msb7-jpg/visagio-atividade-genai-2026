@@ -4,6 +4,8 @@ import { queryClient } from '@/lib/query-client'
 import { AppLayout } from '@/components/layouts/AppLayout'
 import { SettingsModal } from '@/features/settings/components/SettingsModal'
 
+import { ChatContainer } from '@/features/chat/ChatContainer'
+
 export function App() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -26,7 +28,9 @@ export function App() {
         activeThreadId={activeThreadId}
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
-      />
+      >
+        <ChatContainer />
+      </AppLayout>
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={handleCloseSettings}

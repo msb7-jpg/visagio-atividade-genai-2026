@@ -1,15 +1,14 @@
-import { useState, type ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import {
-  MessageSquare,
-  Plus,
-  Settings,
-  Database,
   BarChart3,
+  Film,
+  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  Film
+  Plus,
+  Settings
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState, type ReactNode } from 'react'
 
 export interface AppLayoutProps {
   children?: ReactNode
@@ -111,26 +110,16 @@ export function AppLayout({
 
         {/* Rodapé da Sidebar */}
         <div className="p-3 border-t border-border space-y-2 w-full flex flex-col items-center">
-          <div
-            className={`flex items-center text-xs text-muted-foreground ${
-              sidebarOpen ? 'gap-2 px-2 py-1.5 w-full' : 'justify-center p-1.5'
-            }`}
-            title="cinerocket.db (Read-Only)"
-          >
-            <Database className="h-4 w-4 text-primary shrink-0" />
-            {sidebarOpen ? (
-              <span className="text-xs">cinerocket.db (Read-Only)</span>
-            ) : null}
-          </div>
+
           {sidebarOpen ? (
             <Button
               variant="ghost"
               onClick={onOpenSettings}
-              aria-label="Configurações & Provedor"
+              aria-label="Configurações"
             >
               <span className="flex items-center gap-2">
                 <Settings className="h-3.5 w-3.5" />
-                <span>Configurações & Provedor</span>
+                <span>Configurações</span>
               </span>
             </Button>
           ) : (
@@ -138,7 +127,7 @@ export function AppLayout({
               variant="ghost"
               size="icon"
               onClick={onOpenSettings}
-              aria-label="Configurações & Provedor"
+              aria-label="Configurações"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -170,17 +159,11 @@ export function AppLayout({
               <span className="text-xs font-medium text-foreground">
                 CineData Analytics
               </span>
-              <span className="rounded-full bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground border border-border">
-                v1.0 (ro)
-              </span>
+
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card border border-border text-xs text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              <span>Conectado</span>
-            </div>
             <Button
               variant="ghost"
               size="icon"
@@ -195,7 +178,7 @@ export function AppLayout({
         {/* Área de Visualização do Chat / Conteúdo */}
         <main
           data-testid="app-main"
-          className="flex-1 overflow-y-auto bg-background p-4 flex flex-col justify-center items-center"
+          className="flex-1 overflow-hidden bg-background flex flex-col relative"
         >
           {children || (
             <div className="text-center max-w-md space-y-3">

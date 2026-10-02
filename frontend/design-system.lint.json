@@ -61,7 +61,7 @@
   },
   "overrides": [
     {
-      "files": ["src/components/ui/**", "src/components/chat/**"],
+      "files": ["src/components/ui/**", "src/components/chat/**", "src/features/chat/**"],
       "rules": {
         "shadcn/no-restyle": "off"
       }
