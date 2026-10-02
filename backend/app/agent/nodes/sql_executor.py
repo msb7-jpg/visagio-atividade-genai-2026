@@ -13,9 +13,10 @@ def sql_executor_node(state: AgentState) -> dict[str, Any]:
     """
     sql = state.get("generated_sql")
     if not sql:
+        existing_error = state.get("last_error")
         return {
             "query_result": None,
-            "last_error": "Nenhum código SQL foi gerado para execução.",
+            "last_error": existing_error or "Nenhum código SQL foi gerado para execução.",
             "error_count": state.get("error_count", 0) + 1,
         }
 

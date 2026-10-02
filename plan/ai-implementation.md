@@ -29,23 +29,23 @@ stateDiagram-v2
     semantic_search_node --> synthesizer_node : route == 'rag'
     semantic_search_node --> sql_generator_node : route == 'hybrid' (injetando IDs no contexto)
 
-    sql_generator_node --> sql_validator_node : SQL Gerado
+    sql_generator_node --> sql_executor_node : SQL Gerado ou detecção de operação
 
-    state sql_validator_node {
-        [*] --> AST_Check
-        AST_Check --> Rejeitado : Contém DROP/DELETE/INSERT
-        AST_Check --> Aprovado : Estritamente SELECT
+    state sql_executor_node {
+        [*] --> AST_Validation
+        AST_Validation --> InvalidoSeguranca : DDL/DML proibido (DROP/DELETE/INSERT) ou Tabela do Sistema
+        AST_Validation --> InvalidoSintaxe : Erro sintático recuperável
+        AST_Validation --> Aprovado : Estritamente SELECT (Leitura Segura)
+        Aprovado --> ExecucaoSQLite : Executa query em cinerocket.db (ro)
     }
 
-    sql_validator_node --> sql_corrector_node : AST inválido ou comando perigoso
-    sql_validator_node --> sql_executor_node : Query de leitura segura (estritamente SELECT)
-
-    sql_executor_node --> sql_corrector_node : Erro SQLite (SyntaxError / Coluna Inválida)
+    sql_executor_node --> synthesizer_node : Violação de segurança / Comando proibido / Recusa Read-Only (Bypass do Corretor)
+    sql_executor_node --> sql_corrector_node : Erro SQLite recuperável ou Sintaxe AST inválida (max 3 loops)
     sql_executor_node --> chart_generator_node : Query bem-sucedida e usuário quer gráfico
     sql_executor_node --> data_analysis_node : Requer cálculo estatístico avançado pós-SQL
     sql_executor_node --> synthesizer_node : Query simples bem-sucedida
 
-    sql_corrector_node --> sql_validator_node : Nova tentativa de query (max 3 loops)
+    sql_corrector_node --> sql_executor_node : Nova tentativa de query corrigida (max 3 loops)
     sql_corrector_node --> synthesizer_node : Excedeu limite de retentativas (diagnóstico amigável)
 
     data_analysis_node --> chart_generator_node : Análise numérica concluída (com gráfico)
@@ -53,7 +53,7 @@ stateDiagram-v2
 
     chart_generator_node --> synthesizer_node : Objeto Chart.js gerado
 
-    synthesizer_node --> [*] : Streaming da resposta executiva + Payload SSE final
+    synthesizer_node --> [*] : Streaming da resposta executiva + Payload SSE final (inclui explicação de recusa por segurança)
     DirectResponse --> [*]
 ```
 
@@ -63,13 +63,12 @@ stateDiagram-v2
 | :--- | :--- | :--- | :--- |
 | **`router_node`** | Analisa a intenção semântica da pergunta do usuário. | Entrada do grafo (`START`). | • `semantic_search_node` (se RAG ou Híbrido)<br>• `sql_generator_node` (se SQL)<br>• `DirectResponse` (se conversa casual). |
 | **`semantic_search_node`** | Busca vetorial via Hugging Face em sinopses (`dim_movies`) e resenhas (`movie_reviews`). | Rota `rag` ou `hybrid`. | • `synthesizer_node` (se puramente qualitativo)<br>• `sql_generator_node` (repassando IDs de filmes encontrados). |
-| **`sql_generator_node`** | Redige a query SQL baseando-se no dicionário de dados (`db-semantics.md`). | Rota `sql` ou após RAG híbrido. | `sql_validator_node`. |
-| **`sql_validator_node`** | Parser estrito AST: valida se a consulta é estritamente `SELECT` e se acessa tabelas autorizadas. | SQL gerado. | • `sql_executor_node` (se aprovada no AST)<br>• `sql_corrector_node` (se inválida). |
-| **`sql_executor_node`** | Executa a query com driver SQLite em modo estritamente `mode=ro`. | Validação AST OK. | • `chart_generator_node` (se o usuário pediu gráfico)<br>• `data_analysis_node` (se requer estatística)<br>• `sql_corrector_node` (se houver erro SQLite)<br>• `synthesizer_node` (se tabular). |
-| **`sql_corrector_node`** | Loop de autocorreção: analisa a mensagem de erro do SQLite e refaz o SQL. | Exceção do SQLite ou AST inválido. | `sql_validator_node` (até 3 tentativas). |
+| **`sql_generator_node`** | Redige a query SQL baseando-se no dicionário de dados (`db-semantics.md`). Se a intenção for destrutiva (DROP, DELETE, limpeza de banco), recusa a geração e registra violação de política de leitura (*Read-Only*). | Rota `sql` ou após RAG híbrido. | `sql_executor_node`. |
+| **`sql_executor_node`** | Valida a consulta via parser AST (`validate_sql_query`) e executa a query com driver SQLite em modo estritamente `mode=ro`. Em caso de violações de segurança ou recusas de escrita, sinaliza erro irrecuperável de política. | SQL gerado (ou erro de recusa de geração). | • `synthesizer_node` (se comando proibido/violação de segurança — **bypass do corretor**)<br>• `chart_generator_node` (se o usuário pediu gráfico)<br>• `data_analysis_node` (se requer estatística)<br>• `sql_corrector_node` (se erro técnico recuperável do SQLite)<br>• `synthesizer_node` (se consulta simples bem-sucedida). |
+| **`sql_corrector_node`** | Loop de autocorreção: analisa a mensagem de erro do SQLite e refaz o SQL. *Nota: Comandos proibidos e violações de segurança nunca entram neste loop.* | Exceção técnica do SQLite ou sintaxe inválida. | `sql_executor_node` (até 3 tentativas) ou `synthesizer_node` se exceder o limite. |
 | **`data_analysis_node`** | Executa a sandbox segura de código Python para cálculos estatísticos (variância, desvio). | Dataset retornado necessita cálculo avançado. | `chart_generator_node` ou `synthesizer_node`. |
 | **`chart_generator_node`** | Estrutura o schema declarativo simplificado de dados (`ChartJsConfigDTO`). | Usuário solicitou gráfico ou padrão visual claro. | `synthesizer_node`. |
-| **`synthesizer_node`** | Gera a resposta executiva final em linguagem natural formatada em Markdown. | Chegada de dados/gráficos prontos. | `END` (`[*]`). |
+| **`synthesizer_node`** | Gera a resposta executiva final em linguagem natural formatada em Markdown. Explica formalmente restrições de governança (*Read-Only*) caso tenha havido tentativa de limpeza ou mutação. | Chegada de dados/gráficos prontos ou erro/recusa de segurança. | `END` (`[*]`). |
 
 ---
 

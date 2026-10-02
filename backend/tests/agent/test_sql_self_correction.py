@@ -60,3 +60,50 @@ async def test_sql_corrector_loop_flow():
         assert final_exec["last_error"] is None
         assert isinstance(final_exec["query_result"], list)
         assert len(final_exec["query_result"]) == 1
+
+
+def test_check_sql_execution_security_bypass():
+    """Verifica se erros de violação de segurança/comandos proibidos pulam o corretor e vão para o sintetizador."""
+    from app.agent.graph import check_sql_execution
+
+    # Caso de erro de segurança / comando proibido
+    state_security: AgentState = {
+        "messages": [HumanMessage(content="Limpar todas as tabelas")],
+        "route": "sql",
+        "thought": None,
+        "generated_sql": None,
+        "query_result": None,
+        "error_count": 1,
+        "last_error": "Operação não permitida por política de segurança: O banco CineData opera estritamente em modo de leitura (Read-Only).",
+        "title": None,
+        "steps": [],
+    }
+    assert check_sql_execution(state_security) == "synthesizer"
+
+    # Caso de AST proibindo DROP
+    state_ast_drop: AgentState = {
+        "messages": [HumanMessage(content="Drop table dim_movies")],
+        "route": "sql",
+        "thought": None,
+        "generated_sql": "DROP TABLE dim_movies",
+        "query_result": None,
+        "error_count": 1,
+        "last_error": "Falha na validação AST: Comando proibido detectado na consulta: DROP",
+        "title": None,
+        "steps": [],
+    }
+    assert check_sql_execution(state_ast_drop) == "synthesizer"
+
+    # Caso de erro recuperável comum (ex: coluna errada)
+    state_recoverable: AgentState = {
+        "messages": [HumanMessage(content="Qual o filme?")],
+        "route": "sql",
+        "thought": None,
+        "generated_sql": "SELECT foo FROM dim_movies",
+        "query_result": None,
+        "error_count": 1,
+        "last_error": "Erro de execução SQL: no such column: foo",
+        "title": None,
+        "steps": [],
+    }
+    assert check_sql_execution(state_recoverable) == "sql_corrector"

@@ -49,8 +49,9 @@ INSTRUÇÕES DE RESPOSTA:
 1. Pense brevemente sobre a consulta analítica e estruture a query.
 2. Formate sua resposta SEMPRE com o bloco de raciocínio delimitado por <thought>...</thought>
    e a query SQL delimitada por ```sql ... ```.
-3. Gere apenas consultas SELECT ou CTEs (WITH). Não use comandos destrutivos.
-4. Inclua ordenações e LIMIT coerentes (padrão top 10 a 20 quando aplicável).
+3. Gere apenas consultas SELECT ou CTEs (WITH). O banco é ESTRITAMENTE DE LEITURA (READ-ONLY).
+4. Se o usuário solicitar qualquer operação de alteração, deleção, limpeza ou destruição de dados/tabelas (ex.: DELETE, DROP, TRUNCATE, UPDATE, ALTER), NUNCA gere o SQL. Em vez disso, explique no bloco <thought> e no texto que o CineData opera apenas em modo de consulta e que comandos de escrita/limpeza são expressamente proibidos por segurança.
+5. Inclua ordenações e LIMIT coerentes (padrão top 10 a 20 quando aplicável).
 """
 
 
@@ -100,9 +101,41 @@ async def sql_generator_node(
 
     thought, sql = extract_thought_and_sql(raw_content)
 
+    last_error = None
+    if not sql:
+        # Verifica se o texto do usuário ou a resposta do modelo indica comando destrutivo / DDL / DML
+        last_user_msg = ""
+        for m in reversed(messages):
+            if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
+                last_user_msg = str(m.content).lower()
+                break
+
+        destructive_terms = [
+            "limpar", "apagar", "deletar", "drop", "delete", "truncate",
+            "remover tabelas", "excluir", "zerar", "destruir"
+        ]
+        if any(term in last_user_msg for term in destructive_terms):
+            last_error = (
+                "Operação não permitida por política de segurança: O banco CineData opera "
+                "estritamente em modo de leitura (Read-Only). Consultas destrutivas, de exclusão "
+                "ou de modificação (como DROP, DELETE, TRUNCATE) são bloqueadas."
+            )
+        else:
+            # Se o modelo explicou no texto a recusa ou motivo
+            clean_raw = raw_content.strip()
+            if thought and len(clean_raw) > len(thought):
+                explanation = re.sub(r"<thought>.*?</thought>", "", clean_raw, flags=re.DOTALL | re.IGNORECASE).strip()
+            else:
+                explanation = clean_raw
+
+            if explanation and len(explanation) > 10:
+                last_error = f"Não foi possível gerar consulta SQL para este pedido: {explanation}"
+            else:
+                last_error = "Nenhum código SQL foi gerado para atender à solicitação."
+
     return {
         "thought": thought,
         "generated_sql": sql,
         "error_count": 0,
-        "last_error": None,
+        "last_error": last_error,
     }
