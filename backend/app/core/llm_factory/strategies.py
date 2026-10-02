@@ -33,6 +33,29 @@ class GroqProviderStrategy(LLMProviderStrategy):
             **kwargs,
         )
 
+    async def list_models(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> list[str]:
+        resolved_key = api_key or os.getenv("GROQ_API_KEY")
+        if not resolved_key:
+            return []
+        try:
+            headers = {"Authorization": f"Bearer {resolved_key}"}
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.get("https://api.groq.com/openai/v1/models", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = [m["id"] for m in data.get("data", []) if "id" in m]
+                    # Priorizar modelos de chat/completions excluindo modelos exclusivos de áudio/guard se desejado, ou ordenar
+                    chat_models = [m for m in models if "whisper" not in m and "guard" not in m]
+                    return chat_models or models
+        except Exception:
+            pass
+        return []
+
 
 class LocalOpenAIProviderStrategy(LLMProviderStrategy):
     """
@@ -107,6 +130,33 @@ class LocalOpenAIProviderStrategy(LLMProviderStrategy):
             timeout_seconds=timeout_seconds,
         )
 
+    async def list_models(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> list[str]:
+        target_base = (base_url or PROVIDER_DEFAULTS["local"]["base_url"]).rstrip("/")
+        endpoints = [f"{target_base}/models"]
+        if not target_base.endswith("/v1"):
+            endpoints.append(f"{target_base}/v1/models")
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                for url in endpoints:
+                    try:
+                        resp = await client.get(url)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            models = [m["id"] for m in data.get("data", []) if "id" in m]
+                            if models:
+                                return models
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        return []
+
 
 class OpenRouterProviderStrategy(LLMProviderStrategy):
     """Estratégia para o provedor OpenRouter."""
@@ -121,7 +171,10 @@ class OpenRouterProviderStrategy(LLMProviderStrategy):
         **kwargs: Any,
     ) -> BaseChatModel:
         resolved_key = (
-            api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_KEY")
+            api_key
+            or os.getenv("OPENROUTER_API_KEY")
+            or os.getenv("OPEN_ROUTER_API_KEY")
+            or os.getenv("OPENROUTER_KEY")
         )
         resolved_model = model or PROVIDER_DEFAULTS["openrouter"]["model"]
         resolved_base_url = base_url or PROVIDER_DEFAULTS["openrouter"]["base_url"]
@@ -143,6 +196,36 @@ class OpenRouterProviderStrategy(LLMProviderStrategy):
             **kwargs,
         )
 
+    async def list_models(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> list[str]:
+        try:
+            headers = {}
+            resolved_key = (
+                api_key
+                or os.getenv("OPENROUTER_API_KEY")
+                or os.getenv("OPEN_ROUTER_API_KEY")
+                or os.getenv("OPENROUTER_KEY")
+            )
+            if resolved_key:
+                headers["Authorization"] = f"Bearer {resolved_key}"
+
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.get("https://openrouter.ai/api/v1/models", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = [m["id"] for m in data.get("data", []) if "id" in m]
+                    # Priorizar modelos gratuitos (:free) no topo se existirem
+                    free_models = [m for m in models if ":free" in m]
+                    other_models = [m for m in models if ":free" not in m]
+                    return free_models + other_models[:40]
+        except Exception:
+            pass
+        return []
+
 
 class GoogleGenAIProviderStrategy(LLMProviderStrategy):
     """Estratégia para o provedor Google Gemini."""
@@ -158,35 +241,41 @@ class GoogleGenAIProviderStrategy(LLMProviderStrategy):
     ) -> BaseChatModel:
         resolved_key = api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         resolved_model = model or PROVIDER_DEFAULTS["google"]["model"]
+        # O SDK da Google exige um deadline mínimo de 10 segundos
+        effective_timeout = max(float(timeout_seconds), 10.0)
         return ChatGoogleGenerativeAI(
             model=resolved_model,
             google_api_key=resolved_key,
             temperature=temperature,
-            timeout=float(timeout_seconds),
+            timeout=effective_timeout,
             **kwargs,
         )
 
-
-class OpenAIProviderStrategy(LLMProviderStrategy):
-    """Estratégia para a API oficial da OpenAI."""
-
-    def create_model(
+    async def list_models(
         self,
-        model: str | None = None,
         api_key: str | None = None,
         base_url: str | None = None,
-        temperature: float = 0.0,
-        timeout_seconds: int = 30,
-        **kwargs: Any,
-    ) -> BaseChatModel:
-        resolved_key = api_key or os.getenv("OPENAI_API_KEY")
-        resolved_model = model or PROVIDER_DEFAULTS["openai"]["model"]
-        resolved_base_url = base_url or PROVIDER_DEFAULTS["openai"]["base_url"]
-        return ChatOpenAI(
-            model=resolved_model,
-            api_key=resolved_key,
-            base_url=resolved_base_url,
-            temperature=temperature,
-            timeout=float(timeout_seconds),
-            **kwargs,
-        )
+        timeout_seconds: float = 5.0,
+    ) -> list[str]:
+        resolved_key = api_key or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not resolved_key:
+            return []
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={resolved_key}"
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    models = []
+                    for m in data.get("models", []):
+                        name = m.get("name", "")
+                        # formato: models/gemini-2.0-flash -> remover prefixo "models/"
+                        if name.startswith("models/"):
+                            name = name[7:]
+                        methods = m.get("supportedGenerationMethods", [])
+                        if "generateContent" in methods and "gemini" in name:
+                            models.append(name)
+                    return models
+        except Exception:
+            pass
+        return []

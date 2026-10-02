@@ -2,7 +2,7 @@ from typing import Any
 
 PROVIDER_DEFAULTS: dict[str, dict[str, Any]] = {
     "groq": {
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "base_url": None,
     },
     "local": {
@@ -10,15 +10,11 @@ PROVIDER_DEFAULTS: dict[str, dict[str, Any]] = {
         "base_url": "http://localhost:1234/v1",
     },
     "openrouter": {
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "model": "apodex/apodex-1.1-mini:free",
         "base_url": "https://openrouter.ai/api/v1",
     },
     "google": {
-        "model": "gemini-2.0-flash",
-        "base_url": None,
-    },
-    "openai": {
-        "model": "gpt-4o-mini",
+        "model": "gemini-2.5-flash",
         "base_url": None,
     },
 }

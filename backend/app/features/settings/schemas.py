@@ -2,7 +2,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ProviderType = Literal["groq", "local", "openrouter", "google", "openai"]
+ProviderType = Literal["groq", "local", "openrouter", "google"]
+
+
+class SavedProviderSummaryDTO(BaseModel):
+    """Resumo de configuração persistida para um provedor específico."""
+
+    model: str
+    api_key: str | None = None
+    base_url: str | None = None
+    timeout_seconds: int = 30
 
 
 class ProviderConfigDTO(BaseModel):
@@ -21,6 +30,10 @@ class ProviderConfigDTO(BaseModel):
         default_factory=list,
         description="Lista de provedores que já possuem configuração salva no banco",
     )
+    saved_configs: dict[str, SavedProviderSummaryDTO] = Field(
+        default_factory=dict,
+        description="Mapa das configurações salvas para cada provedor com chaves mascaradas",
+    )
 
 
 class TestProviderRequestDTO(BaseModel):
@@ -37,7 +50,7 @@ class TestProviderRequestDTO(BaseModel):
     )
     base_url: str | None = Field(default=None, description="URL base do endpoint a ser testado")
     timeout_seconds: int = Field(
-        default=5, ge=1, le=15, description="Timeout estrito para a probe de conectividade"
+        default=10, ge=1, le=30, description="Timeout estrito para a probe de conectividade"
     )
 
 
@@ -52,4 +65,8 @@ class TestProviderResponseDTO(BaseModel):
     )
     error_code: str | None = Field(
         default=None, description="Código padronizado do erro quando aplicável"
+    )
+    available_models: list[str] = Field(
+        default_factory=list,
+        description="Lista de modelos ativos disponíveis obtidos diretamente do provedor",
     )

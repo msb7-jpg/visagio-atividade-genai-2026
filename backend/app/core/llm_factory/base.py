@@ -47,3 +47,15 @@ class LLMProviderStrategy(ABC):
         )
         await model.ainvoke([HumanMessage(content="ping")])
         return True, "Ping bem-sucedido"
+
+    async def list_models(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout_seconds: float = 5.0,
+    ) -> list[str]:
+        """
+        Retorna a lista de modelos ativos disponíveis consultando a API do provedor.
+        Subclasses devem implementar para obter modelos reais via HTTP.
+        """
+        return []

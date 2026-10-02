@@ -57,6 +57,8 @@ async def test_test_provider_probe_success():
             assert data["success"] is True
             assert data["latency_ms"] >= 0
             assert "estabelecida com sucesso" in data["message"]
+            assert "available_models" in data
+            assert isinstance(data["available_models"], list)
 
 
 @pytest.mark.asyncio
@@ -162,4 +164,9 @@ async def test_sqlite_persistence_and_saved_providers():
         saved_groq = res_post_groq.json()
         assert "groq" in saved_groq["saved_providers"]
         assert "local" in saved_groq["saved_providers"]
+        assert "saved_configs" in saved_groq
+        assert "groq" in saved_groq["saved_configs"]
+        assert "local" in saved_groq["saved_configs"]
+        assert saved_groq["saved_configs"]["groq"]["model"] == "llama-3.3-70b-versatile"
+        assert saved_groq["saved_configs"]["local"]["model"] == "Qwen3.5-4B-Q4_K_M"
 

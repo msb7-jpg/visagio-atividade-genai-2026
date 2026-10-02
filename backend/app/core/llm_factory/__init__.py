@@ -9,7 +9,6 @@ from app.core.llm_factory.strategies import (
     GoogleGenAIProviderStrategy,
     GroqProviderStrategy,
     LocalOpenAIProviderStrategy,
-    OpenAIProviderStrategy,
     OpenRouterProviderStrategy,
 )
 
@@ -19,7 +18,6 @@ provider_registry.register("groq", GroqProviderStrategy())
 provider_registry.register("local", LocalOpenAIProviderStrategy())
 provider_registry.register("openrouter", OpenRouterProviderStrategy())
 provider_registry.register("google", GoogleGenAIProviderStrategy())
-provider_registry.register("openai", OpenAIProviderStrategy())
 
 
 def get_chat_model(
@@ -67,7 +65,6 @@ __all__ = [
     "LLMProviderRegistry",
     "LLMProviderStrategy",
     "LocalOpenAIProviderStrategy",
-    "OpenAIProviderStrategy",
     "OpenRouterProviderStrategy",
     "PROVIDER_DEFAULTS",
     "get_chat_model",

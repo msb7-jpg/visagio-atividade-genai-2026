@@ -99,6 +99,10 @@ describe('SettingsModal', () => {
       expect(screen.getByTestId('saved-badge-local')).toBeInTheDocument()
     })
 
+    // O select de modelos deve estar inicialmente desabilitado
+    const selectBefore = screen.getByRole('combobox')
+    expect(selectBefore).toBeDisabled()
+
     const testBtn = screen.getByText('Testar Conexão')
     fireEvent.click(testBtn)
 
@@ -106,6 +110,9 @@ describe('SettingsModal', () => {
       expect(screen.getByTestId('inline-status-connected')).toBeInTheDocument()
       expect(screen.getByText(/45.2 ms/)).toBeInTheDocument()
     })
+
+    // O select de modelos deve estar habilitado após a conexão ser bem-sucedida
+    expect(screen.getByRole('combobox')).not.toBeDisabled()
   })
 
   it('saves configuration successfully when Salvar Configuração is clicked', async () => {

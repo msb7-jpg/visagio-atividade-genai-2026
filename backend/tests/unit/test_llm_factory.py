@@ -13,7 +13,7 @@ def test_llm_factory_groq_instantiation():
         api_key="gsk_mock_test_key_12345",
     )
     assert isinstance(model, ChatGroq)
-    assert model.model_name == "llama-3.3-70b-versatile"
+    assert model.model_name == "openai/gpt-oss-120b"
     assert model.temperature == pytest.approx(0.0, abs=1e-5)
 
 
@@ -52,16 +52,6 @@ def test_llm_factory_google_instantiation():
     assert isinstance(model, ChatGoogleGenerativeAI)
     assert model.model == "gemini-2.0-flash"
 
-
-def test_llm_factory_openai_instantiation():
-    """Verifica instanciação correta para OpenAI oficial."""
-    model = get_chat_model(
-        provider="openai",
-        api_key="sk-proj-mockopenai12345",
-        model="gpt-4o-mini",
-    )
-    assert isinstance(model, ChatOpenAI)
-    assert model.model_name == "gpt-4o-mini"
 
 
 def test_llm_factory_invalid_provider_raises_error():

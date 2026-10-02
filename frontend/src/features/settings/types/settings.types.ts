@@ -10,4 +10,5 @@ export interface TestProviderResponse {
   model: string
   message: string
   error_code?: string | null
+  available_models?: string[]
 }

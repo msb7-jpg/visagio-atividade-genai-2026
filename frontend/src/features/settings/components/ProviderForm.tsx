@@ -16,10 +16,11 @@ import {
   BookmarkCheck,
   Check,
   CheckCircle2,
-  Cpu,
+  Edit2,
   HardDrive,
   Layers,
   Loader2,
+  Lock,
   Sparkles,
   Zap
 } from 'lucide-react'
@@ -27,37 +28,55 @@ import { useState } from 'react'
 
 const PROVIDER_METADATA: Record<
   ProviderType,
-  { name: string; desc: string; defaultModel: string; icon: typeof Zap }
+  {
+    name: string
+    defaultModel: string
+    suggestedModels: string[]
+    icon: typeof Zap
+  }
 > = {
   groq: {
     name: 'Groq',
-    desc: 'Nuvem Ultra-rápida (Llama 3.3)',
-    defaultModel: 'llama-3.3-70b-versatile',
+    defaultModel: 'openai/gpt-oss-120b',
+    suggestedModels: [
+      'openai/gpt-oss-120b',
+      'qwen/qwen3.8-27b',
+      'openai/gpt-oss-20b'
+    ],
     icon: Zap
   },
   local: {
     name: 'Servidor Local',
-    desc: 'llama.cpp / LM Studio / Ollama',
     defaultModel: 'Qwen3.5-4B-Q4_K_M',
+    suggestedModels: [
+      'Qwen3.5-4B-Q4_K_M',
+      'llama-3.2-3b-instruct',
+      'mistral-7b-instruct'
+    ],
     icon: HardDrive
   },
   openrouter: {
     name: 'OpenRouter',
-    desc: 'Modelos e endpoints unificados',
-    defaultModel: 'meta-llama/llama-3.3-70b-instruct:free',
+    defaultModel: 'apodex/apodex-1.1-mini:free',
+    suggestedModels: [
+      'apodex/apodex-1.1-mini:free',
+      'qwen/qwen3.8-27b:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'liquid/lfm-2.5-2.6b:free',
+      'nvidia/nemotron-3.5-lightning:free'
+    ],
     icon: Layers
   },
   google: {
     name: 'Google Gemini',
-    desc: 'Gemini 2.0 Flash / Pro',
-    defaultModel: 'gemini-2.0-flash',
+    defaultModel: 'gemini-2.5-flash',
+    suggestedModels: [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-flash-latest',
+      'gemini-2.5-flash-lite'
+    ],
     icon: Sparkles
-  },
-  openai: {
-    name: 'OpenAI',
-    desc: 'GPT-4o Mini / GPT-4o',
-    defaultModel: 'gpt-4o-mini',
-    icon: Cpu
   }
 }
 
@@ -75,6 +94,15 @@ function ProviderFormContent({
   const { updateConfig, isUpdating, updateError, resetUpdate } = useUpdateProviderConfigMutation()
   const { testProvider, testResult, isTesting, testError, resetTest } = useTestProviderProbeMutation()
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null)
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([])
+
+  const savedProviders = initialConfig.saved_providers || []
+  const savedConfigs = initialConfig.saved_configs || {}
+
+  // Se o provedor atual já está salvo no banco, começa bloqueado; senão, aberto para edição
+  const [isEditingKey, setIsEditingKey] = useState<boolean>(
+    !savedProviders.includes(initialConfig.provider)
+  )
 
   const [_isPending, start] = useTimeoutFn(() => {
     onSuccess?.()
@@ -103,7 +131,8 @@ function ProviderFormContent({
           api_key: value.api_key ? value.api_key : null,
           base_url: value.base_url ? value.base_url : null,
           timeout_seconds: value.timeout_seconds ?? 30,
-          saved_providers: initialConfig.saved_providers ?? []
+          saved_providers: initialConfig.saved_providers ?? [],
+          saved_configs: initialConfig.saved_configs ?? {}
         },
         {
           onSuccess: () => {
@@ -120,17 +149,30 @@ function ProviderFormContent({
   const currentApiKey = useSelector(form.store, (state) => state.values.api_key)
   const currentBaseUrl = useSelector(form.store, (state) => state.values.base_url)
 
-  const savedProviders = initialConfig.saved_providers || []
-
   const handleProviderSelect = (prov: ProviderType) => {
     form.setFieldValue('provider', prov)
-    form.setFieldValue('model', PROVIDER_METADATA[prov].defaultModel)
 
-    form.setFieldValue(
-      'base_url',
-      prov === 'local' ? 'http://localhost:1234/v1' : ''
-    )
+    // Se já tiver configuração salva deste provedor no banco, carrega os dados salvos!
+    const saved = savedConfigs[prov]
+    if (saved) {
+      form.setFieldValue('model', saved.model || PROVIDER_METADATA[prov].defaultModel)
+      form.setFieldValue('api_key', saved.api_key || '')
+      form.setFieldValue(
+        'base_url',
+        saved.base_url || (prov === 'local' ? 'http://localhost:1234/v1' : '')
+      )
+      setIsEditingKey(false)
+    } else {
+      form.setFieldValue('model', PROVIDER_METADATA[prov].defaultModel)
+      form.setFieldValue('api_key', '')
+      form.setFieldValue(
+        'base_url',
+        prov === 'local' ? 'http://localhost:1234/v1' : ''
+      )
+      setIsEditingKey(true)
+    }
 
+    setDiscoveredModels([])
     resetTest()
     resetUpdate()
     setSaveSuccessMessage(null)
@@ -141,13 +183,20 @@ function ProviderFormContent({
     resetUpdate()
 
     try {
-      await testProvider({
+      const response = await testProvider({
         provider: selectedProvider,
         model: currentModel || PROVIDER_METADATA[selectedProvider].defaultModel,
         api_key: currentApiKey ? currentApiKey : null,
         base_url: currentBaseUrl ? currentBaseUrl : null,
-        timeout_seconds: 5
+        timeout_seconds: 10
       })
+
+      if (response?.success && response.available_models && response.available_models.length > 0) {
+        setDiscoveredModels(response.available_models)
+        if (!response.available_models.includes(currentModel)) {
+          form.setFieldValue('model', response.available_models[0])
+        }
+      }
     } catch {
       // testError já é gerenciado pelo TanStack Query e refletido na UI
     }
@@ -193,7 +242,7 @@ function ProviderFormContent({
                 data-testid={`provider-option-${prov}`}
                 className="p-3 cursor-pointer relative"
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Icon
                       className={
@@ -217,9 +266,6 @@ function ProviderFormContent({
                     ) : null}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-1">
-                  {info.desc}
-                </p>
               </Card>
             )
           })}
@@ -230,52 +276,100 @@ function ProviderFormContent({
       <div className="space-y-3 pt-2">
         {selectedProvider !== 'local' ? (
           <form.Field name="api_key">
-            {(field) => (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label
-                    htmlFor="api-key-input"
-                    className="block text-xs font-medium text-foreground"
-                  >
-                    Chave de API ({PROVIDER_METADATA[selectedProvider].name})
-                  </label>
-                  {isConnected ? (
-                    <span
-                      data-testid="inline-status-connected"
-                      className="flex items-center gap-1 text-xs font-mono text-accent-emerald"
+            {(field) => {
+              const isSaved = savedProviders.includes(selectedProvider)
+              const hasSavedKey = Boolean(savedConfigs[selectedProvider]?.api_key)
+
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="api-key-input"
+                      className="block text-xs font-medium text-foreground"
                     >
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span>Conectado ({testResult?.latency_ms} ms)</span>
-                    </span>
+                      Chave de API ({PROVIDER_METADATA[selectedProvider].name})
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {isConnected ? (
+                        <span
+                          data-testid="inline-status-connected"
+                          className="flex items-center gap-1 text-xs font-mono text-accent-emerald"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Conectado ({testResult?.latency_ms} ms)</span>
+                        </span>
+                      ) : null}
+                      {isSaved && !isEditingKey ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingKey(true)
+                            field.handleChange('')
+                          }}
+                          className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          <span>Alterar chave</span>
+                        </button>
+                      ) : isSaved && isEditingKey ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingKey(false)
+                            field.handleChange(savedConfigs[selectedProvider]?.api_key || '')
+                          }}
+                          className="text-[11px] text-muted-foreground hover:underline cursor-pointer"
+                        >
+                          Cancelar alteração
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {isSaved && !isEditingKey && hasSavedKey ? (
+                    <div
+                      data-testid="locked-key-display"
+                      className="flex h-9 w-full items-center justify-between rounded-lg border border-border bg-card/60 px-3 py-1 text-xs font-mono text-muted-foreground"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Lock className="h-3.5 w-3.5 text-accent-emerald" />
+                        <span>Chave segura configurada no servidor ({savedConfigs[selectedProvider]?.api_key})</span>
+                      </span>
+                      {isConnected ? (
+                        <CheckCircle2 className="h-4 w-4 text-accent-emerald" />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="relative flex items-center">
+                      <Input
+                        id="api-key-input"
+                        type="password"
+                        status={inputStatus}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => {
+                          resetTest()
+                          field.handleChange(event.target.value)
+                        }}
+                        placeholder="Cole sua chave de API..."
+                      />
+                      {isConnected ? (
+                        <CheckCircle2 className="absolute right-2.5 h-4 w-4 text-accent-emerald pointer-events-none" />
+                      ) : null}
+                      {isFailed ? (
+                        <AlertTriangle className="absolute right-2.5 h-4 w-4 text-primary pointer-events-none" />
+                      ) : null}
+                    </div>
+                  )}
+
+                  {isFailed && probeErrorMessage ? (
+                    <p className="mt-1 text-xs text-primary flex items-center gap-1">
+                      <span>{probeErrorMessage}</span>
+                    </p>
                   ) : null}
                 </div>
-                <div className="relative flex items-center">
-                  <Input
-                    id="api-key-input"
-                    type="password"
-                    status={inputStatus}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => {
-                      resetTest()
-                      field.handleChange(event.target.value)
-                    }}
-                    placeholder="Cole sua chave de API..."
-                  />
-                  {isConnected ? (
-                    <CheckCircle2 className="absolute right-2.5 h-4 w-4 text-accent-emerald pointer-events-none" />
-                  ) : null}
-                  {isFailed ? (
-                    <AlertTriangle className="absolute right-2.5 h-4 w-4 text-primary pointer-events-none" />
-                  ) : null}
-                </div>
-                {isFailed && probeErrorMessage ? (
-                  <p className="mt-1 text-xs text-primary flex items-center gap-1">
-                    <span>{probeErrorMessage}</span>
-                  </p>
-                ) : null}
-              </div>
-            )}
+              )
+            }}
           </form.Field>
         ) : (
           <form.Field name="base_url">
@@ -328,6 +422,64 @@ function ProviderFormContent({
             )}
           </form.Field>
         )}
+
+        {/* Campo de Modelo com Dropdown (habilitado após testar conexão com sucesso) */}
+        <form.Field name="model">
+          {(field) => {
+            // Se tiver modelos obtidos da API, usa-os; caso contrário, usa a lista de sugestões do provedor
+            const modelOptions =
+              discoveredModels.length > 0
+                ? discoveredModels
+                : [
+                    ...new Set([
+                      field.state.value,
+                      PROVIDER_METADATA[selectedProvider].defaultModel,
+                      ...PROVIDER_METADATA[selectedProvider].suggestedModels
+                    ])
+                  ].filter(Boolean)
+
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    htmlFor="model-select"
+                    className="block text-xs font-medium text-foreground"
+                  >
+                    Modelo ({PROVIDER_METADATA[selectedProvider].name})
+                  </label>
+                  <span className="text-[11px] text-muted-foreground">
+                    {isConnected
+                      ? `${modelOptions.length} modelos disponíveis`
+                      : 'Teste a conexão para carregar'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    id="model-select"
+                    disabled={!isConnected || isTesting}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => {
+                      field.handleChange(event.target.value)
+                    }}
+                    className="flex h-9 w-full rounded-lg border border-border bg-card px-3 py-1 text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+                  >
+                    {modelOptions.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {!isConnected ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Clique em &quot;Testar Conexão&quot; para validar as credenciais e listar os modelos disponíveis deste provedor.
+                  </p>
+                ) : null}
+              </div>
+            )
+          }}
+        </form.Field>
       </div>
 
       {/* Erro de mutação do TanStack Query exibido amigavelmente */}
