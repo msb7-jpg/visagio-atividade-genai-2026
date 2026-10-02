@@ -1,4 +1,5 @@
 import re
+from typing import Literal
 
 import sqlparse
 from sqlparse.sql import Statement
@@ -20,7 +21,9 @@ DISALLOWED_STATEMENTS = {
 FORBIDDEN_TABLES = {"sqlite_master", "sqlite_sequence", "sqlite_stat1", "sqlite_temp_master"}
 
 
-def validate_sql_query(query: str) -> tuple[bool, str | None]:
+def validate_sql_query(
+    query: str,
+) -> tuple[bool, str | None, Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX"] | None]:
     """
     Valida sintaticamente uma consulta SQL para assegurar que:
     1. Seja estritamente uma única declaração.
@@ -29,16 +32,16 @@ def validate_sql_query(query: str) -> tuple[bool, str | None]:
     4. Não acesse tabelas internas/protegidas do SQLite.
 
     Returns:
-        (is_valid, error_message)
+        (is_valid, error_message, error_category)
     """
     if not (cleaned := query.strip().rstrip(";")):
-        return False, "Query SQL vazia."
+        return False, "Query SQL vazia.", "RECOVERABLE_SYNTAX"
 
     if not (parsed := sqlparse.parse(cleaned)):
-        return False, "Não foi possível analisar a consulta SQL."
+        return False, "Não foi possível analisar a consulta SQL.", "RECOVERABLE_SYNTAX"
 
     if len(parsed) > 1:
-        return False, "Múltiplas instruções SQL não são permitidas. Envie apenas uma declaração."
+        return False, "Múltiplas instruções SQL não são permitidas. Envie apenas uma declaração.", "SECURITY_VIOLATION"
 
     stmt: Statement = parsed[0]
     first_token = stmt.get_type()
@@ -50,21 +53,21 @@ def validate_sql_query(query: str) -> tuple[bool, str | None]:
                 f"Tipo de instrução não permitida: {first_token}. "
                 "Apenas SELECT e CTEs (WITH) são autorizadas."
             )
-            return False, msg
+            return False, msg, "SECURITY_VIOLATION"
 
     for token in stmt.flatten():
         val = token.value.upper()
         
         if val in DISALLOWED_STATEMENTS:
-            return False, f"Comando proibido detectado na consulta: {val}"
+            return False, f"Comando proibido detectado na consulta: {val}", "SECURITY_VIOLATION"
         
         if token.ttype in (DML, DDL) and val not in ("SELECT", "WITH"):
-            return False, f"Declaração não autorizada detectada: {val}"
+            return False, f"Declaração não autorizada detectada: {val}", "SECURITY_VIOLATION"
 
     lower_query = cleaned.lower()
     for sys_tbl in FORBIDDEN_TABLES:
         
         if re.search(rf"\b{sys_tbl}\b", lower_query):
-            return False, f"Acesso proibido à tabela de sistema: {sys_tbl}"
+            return False, f"Acesso proibido à tabela de sistema: {sys_tbl}", "SECURITY_VIOLATION"
 
-    return True, None
+    return True, None, None

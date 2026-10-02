@@ -54,6 +54,8 @@ async def synthesizer_node(
     )
 
 
+    error_category = state.get("error_category")
+
     context_info = f"Rota: {route}\n"
     if generated_sql:
         context_info += f"SQL Executado:\n```sql\n{generated_sql}\n```\n"
@@ -64,6 +66,8 @@ async def synthesizer_node(
         context_info += f"Dados Retornados ({len(query_result)} linhas):\n{dumped_sample}\n"
     elif last_error:
         context_info += f"Houve um erro na execução: {last_error}\n"
+        if error_category:
+            context_info += f"Categoria do Erro: {error_category}\n"
 
     full_prompt = f"{SYNTHESIZER_PROMPT}\n\n[CONTEXTO DOS DADOS]\n{context_info}"
     system_msg = SystemMessage(content=full_prompt)

@@ -4,9 +4,10 @@ from app.agent.nodes.sql_validator import validate_sql_query
 def test_validate_sql_valid_queries():
     """Queries analíticas válidas devem passar na validação."""
     q1 = "SELECT titulo, receita_brl FROM dim_movies LIMIT 10"
-    is_valid, err = validate_sql_query(q1)
+    is_valid, err, cat = validate_sql_query(q1)
     assert is_valid is True
     assert err is None
+    assert cat is None
 
     q2 = """
     WITH ranked_movies AS (
@@ -17,9 +18,10 @@ def test_validate_sql_valid_queries():
     )
     SELECT * FROM ranked_movies LIMIT 5
     """
-    is_valid, err = validate_sql_query(q2)
+    is_valid, err, cat = validate_sql_query(q2)
     assert is_valid is True
     assert err is None
+    assert cat is None
 
 
 def test_validate_sql_blocks_mutations():
@@ -34,22 +36,26 @@ def test_validate_sql_blocks_mutations():
     ]
 
     for q in bad_queries:
-        is_valid, err = validate_sql_query(q)
+        is_valid, err, cat = validate_sql_query(q)
         assert is_valid is False
         assert err is not None
+        assert cat == "SECURITY_VIOLATION"
 
 
 def test_validate_sql_blocks_multiple_statements():
     """Injeção com múltiplos statements deve ser rejeitada."""
     multi = "SELECT * FROM dim_movies; DROP TABLE dim_movies;"
-    is_valid, err = validate_sql_query(multi)
+    is_valid, err, cat = validate_sql_query(multi)
     assert is_valid is False
     assert "Múltiplas instruções" in err
+    assert cat == "SECURITY_VIOLATION"
 
 
 def test_validate_sql_blocks_system_tables():
     """Acesso a tabelas internas do SQLite deve ser bloqueado."""
     sys_q = "SELECT name FROM sqlite_master WHERE type='table'"
-    is_valid, err = validate_sql_query(sys_q)
+    is_valid, err, cat = validate_sql_query(sys_q)
     assert is_valid is False
     assert "tabela de sistema" in err
+    assert cat == "SECURITY_VIOLATION"
+

@@ -102,6 +102,7 @@ async def sql_generator_node(
     thought, sql = extract_thought_and_sql(raw_content)
 
     last_error = None
+    error_category = None
     if not sql:
         # Verifica se o texto do usuário ou a resposta do modelo indica comando destrutivo / DDL / DML
         last_user_msg = ""
@@ -112,15 +113,17 @@ async def sql_generator_node(
 
         destructive_terms = [
             "limpar", "apagar", "deletar", "drop", "delete", "truncate",
-            "remover tabelas", "excluir", "zerar", "destruir"
+            "remover tabelas", "excluir", "zerar", "destruir", "modificar"
         ]
         if any(term in last_user_msg for term in destructive_terms):
+            error_category = "SECURITY_VIOLATION"
             last_error = (
                 "Operação não permitida por política de segurança: O banco CineData opera "
                 "estritamente em modo de leitura (Read-Only). Consultas destrutivas, de exclusão "
                 "ou de modificação (como DROP, DELETE, TRUNCATE) são bloqueadas."
             )
         else:
+            error_category = "UNSUPPORTED_REQUEST"
             # Se o modelo explicou no texto a recusa ou motivo
             clean_raw = raw_content.strip()
             if thought and len(clean_raw) > len(thought):
@@ -138,4 +141,5 @@ async def sql_generator_node(
         "generated_sql": sql,
         "error_count": 0,
         "last_error": last_error,
+        "error_category": error_category,
     }

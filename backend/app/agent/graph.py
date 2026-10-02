@@ -68,18 +68,22 @@ def route_decision(state: AgentState) -> Literal["sql_generator", "synthesizer"]
 def check_sql_execution(state: AgentState) -> Literal["sql_corrector", "synthesizer"]:
     """
     Decide se o fluxo segue para o sintetizador ou entra no loop de autocorreção.
-    Se o erro decorrer de violação de segurança/política de permissões 
-    (ex: comandos proibidos como DROP/DELETE), o fluxo vai direto para o sintetizador 
-    explicar a restrição em vez de tentar auto-corrigir.
+    Se o erro decorrer de violação de segurança/política de permissões (SECURITY_VIOLATION ou UNSUPPORTED_REQUEST),
+    o fluxo vai direto para o sintetizador explicar a restrição em vez de tentar auto-corrigir.
     """
     last_error = state.get("last_error")
     error_count = state.get("error_count", 0)
+    error_cat = state.get("error_category")
 
     if not last_error:
         return "synthesizer"
 
+    # Verificação canônica baseada na categoria tipada do erro
+    if error_cat in ("SECURITY_VIOLATION", "UNSUPPORTED_REQUEST"):
+        return "synthesizer"
+
+    # Fallback defensivo caso a categoria não tenha sido preenchida explicitamente
     error_lower = last_error.lower()
-    # Casos de violação de segurança e regras restritivas não devem tentar gerar SQL alternativo
     is_security_or_forbidden = (
         "política de segurança" in error_lower
         or "comando proibido" in error_lower
@@ -88,7 +92,6 @@ def check_sql_execution(state: AgentState) -> Literal["sql_corrector", "synthesi
         or "tipo de instrução não permitida" in error_lower
         or "não foi possível gerar consulta sql para este pedido" in error_lower
     )
-
     if is_security_or_forbidden:
         return "synthesizer"
 

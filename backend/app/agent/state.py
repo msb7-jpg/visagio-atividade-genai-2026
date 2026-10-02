@@ -25,6 +25,7 @@ class AgentState(TypedDict):
     query_result: list[dict[str, Any]] | None
     error_count: int
     last_error: str | None
+    error_category: Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX", "UNSUPPORTED_REQUEST"] | None
     title: str | None
     steps: list[AgentStepInfo]
 

@@ -66,7 +66,7 @@ def test_check_sql_execution_security_bypass():
     """Verifica se erros de violação de segurança/comandos proibidos pulam o corretor e vão para o sintetizador."""
     from app.agent.graph import check_sql_execution
 
-    # Caso de erro de segurança / comando proibido
+    # Caso de erro de segurança / comando proibido tipado via error_category
     state_security: AgentState = {
         "messages": [HumanMessage(content="Limpar todas as tabelas")],
         "route": "sql",
@@ -75,12 +75,13 @@ def test_check_sql_execution_security_bypass():
         "query_result": None,
         "error_count": 1,
         "last_error": "Operação não permitida por política de segurança: O banco CineData opera estritamente em modo de leitura (Read-Only).",
+        "error_category": "SECURITY_VIOLATION",
         "title": None,
         "steps": [],
     }
     assert check_sql_execution(state_security) == "synthesizer"
 
-    # Caso de AST proibindo DROP
+    # Caso de AST proibindo DROP via error_category
     state_ast_drop: AgentState = {
         "messages": [HumanMessage(content="Drop table dim_movies")],
         "route": "sql",
@@ -89,6 +90,7 @@ def test_check_sql_execution_security_bypass():
         "query_result": None,
         "error_count": 1,
         "last_error": "Falha na validação AST: Comando proibido detectado na consulta: DROP",
+        "error_category": "SECURITY_VIOLATION",
         "title": None,
         "steps": [],
     }
@@ -103,6 +105,7 @@ def test_check_sql_execution_security_bypass():
         "query_result": None,
         "error_count": 1,
         "last_error": "Erro de execução SQL: no such column: foo",
+        "error_category": "RECOVERABLE_SYNTAX",
         "title": None,
         "steps": [],
     }
