@@ -10,11 +10,13 @@ def test_llm_factory_groq_instantiation():
     """Verifica instanciação correta do ChatGroq com parâmetros padrão e customizados."""
     model = get_chat_model(
         provider="groq",
+        model="openai/gpt-oss-120b",
         api_key="gsk_mock_test_key_12345",
     )
     assert isinstance(model, ChatGroq)
     assert model.model_name == "openai/gpt-oss-120b"
     assert model.temperature == pytest.approx(0.0, abs=1e-5)
+
 
 
 def test_llm_factory_local_instantiation():
@@ -57,7 +59,13 @@ def test_llm_factory_google_instantiation():
 def test_llm_factory_invalid_provider_raises_error():
     """Garante que provedor desconhecido lança ValueError explicativo."""
     with pytest.raises(ValueError, match="não suportado"):
-        get_chat_model(provider="unknown_provider_xyz")
+        get_chat_model(provider="unknown_provider_xyz", model="dummy-model")
+
+
+def test_llm_factory_missing_model_raises_error():
+    """Garante que ausência de modelo lança ValueError."""
+    with pytest.raises(ValueError, match="Modelo não especificado"):
+        get_chat_model(provider="groq", model=None, api_key="test")
 
 
 def test_llm_factory_local_thinking_disabled_kwargs():
@@ -77,13 +85,14 @@ def test_llm_factory_ocp_custom_provider_extension():
 
     class CustomMockProvider(LLMProviderStrategy):
         def create_model(self, **kwargs):
-            return ChatOpenAI(model="custom-mock-v1", api_key="mock", base_url="http://mock")
+            return ChatOpenAI(model=kwargs.get("model", "custom-mock-v1"), api_key="mock", base_url="http://mock")
 
     provider_registry.register("custom_mock", CustomMockProvider())
 
-    model = get_chat_model(provider="custom_mock")
+    model = get_chat_model(provider="custom_mock", model="custom-mock-v1")
     assert isinstance(model, ChatOpenAI)
     assert model.model_name == "custom-mock-v1"
+
 
 
 @pytest.mark.asyncio

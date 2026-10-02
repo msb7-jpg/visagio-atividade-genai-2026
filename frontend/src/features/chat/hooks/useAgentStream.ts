@@ -4,6 +4,7 @@ import type { AgentStepItem, ChatMessageItem } from '@/features/chat/types/chat.
 interface SendMessageOptions {
   message: string
   threadId?: string
+  provider?: string
   model?: string
 }
 
@@ -12,7 +13,7 @@ export function useAgentStream() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
 
-  const sendMessage = async ({ message, threadId, model }: SendMessageOptions) => {
+  const sendMessage = async ({ message, threadId, provider, model }: SendMessageOptions) => {
     if (!message.trim() || isStreaming) return
 
     const userMessageId = `user-${Date.now()}`
@@ -24,8 +25,7 @@ export function useAgentStream() {
       content: message,
       blocks: [{ id: `block-${Date.now()}-1`, type: 'text', content: message }],
       steps: [],
-      timestamp: Date.now(),
-      model
+      timestamp: Date.now()
     }
 
     const assistantMsg: ChatMessageItem = {
@@ -35,7 +35,9 @@ export function useAgentStream() {
       blocks: [],
       steps: [],
       timestamp: Date.now(),
-      isStreaming: true
+      isStreaming: true,
+      provider,
+      model
     }
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
@@ -50,7 +52,9 @@ export function useAgentStream() {
         },
         body: JSON.stringify({
           message,
-          thread_id: threadId ?? activeThreadId
+          thread_id: threadId ?? activeThreadId,
+          provider,
+          model
         })
       })
 
@@ -87,6 +91,19 @@ export function useAgentStream() {
 
               if (currentEvent === 'session' && parsed.thread_id) {
                 setActiveThreadId(parsed.thread_id)
+                if (parsed.model || parsed.provider) {
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? {
+                            ...msg,
+                            provider: parsed.provider ?? msg.provider,
+                            model: parsed.model ?? msg.model
+                          }
+                        : msg
+                    )
+                  )
+                }
               } else if (currentEvent === 'step_end') {
                 const stepItem: AgentStepItem = {
                   step: parsed.step,
@@ -178,6 +195,49 @@ export function useAgentStream() {
                       : msg
                   )
                 )
+              } else if (currentEvent === 'error') {
+                const errorMsg = parsed.message || parsed.error || 'Erro no processamento da solicitação.'
+                const errorCode = parsed.error_code || 'AGENT_ERROR'
+                const rawError = parsed.error || errorMsg
+
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== assistantMessageId) return msg
+
+                    let updatedSteps = msg.steps
+                    if (updatedSteps.length > 0) {
+                      updatedSteps = updatedSteps.map((stepItem, idx) =>
+                        idx === updatedSteps.length - 1
+                          ? { ...stepItem, status: 'error' as const }
+                          : stepItem
+                      )
+                    } else {
+                      updatedSteps = [
+                        {
+                          step: 'error',
+                          label: 'Falha na execução do modelo',
+                          status: 'error' as const
+                        }
+                      ]
+                    }
+
+                    return {
+                      ...msg,
+                      content: errorMsg,
+                      blocks: [
+                        ...msg.blocks.filter((blockItem) => blockItem.type !== 'error'),
+                        {
+                          id: `err-${Date.now()}`,
+                          type: 'error' as const,
+                          message: errorMsg,
+                          code: errorCode,
+                          rawError: rawError !== errorMsg ? rawError : undefined
+                        }
+                      ],
+                      steps: updatedSteps
+                    }
+                  })
+                )
               }
             } catch {
               // ignore parse errors for non-JSON lines
@@ -188,18 +248,38 @@ export function useAgentStream() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Falha na comunicação com o assistente.'
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-              ...msg,
-              content: `⚠️ ${errorMsg}`,
-              blocks: [
-                ...msg.blocks,
-                { id: `err-${Date.now()}`, type: 'text', content: `⚠️ ${errorMsg}` }
+        prev.map((msg) => {
+          if (msg.id !== assistantMessageId) return msg
+          const updatedSteps =
+            msg.steps.length > 0
+              ? msg.steps.map((stepItem, idx) =>
+                idx === msg.steps.length - 1
+                  ? { ...stepItem, status: 'error' as const }
+                  : stepItem
+              )
+              : [
+                {
+                  step: 'error',
+                  label: 'Falha de conexão',
+                  status: 'error' as const
+                }
               ]
-            }
-            : msg
-        )
+
+          return {
+            ...msg,
+            content: errorMsg,
+            blocks: [
+              ...msg.blocks.filter((blockItem) => blockItem.type !== 'error'),
+              {
+                id: `err-${Date.now()}`,
+                type: 'error' as const,
+                message: errorMsg,
+                code: 'NETWORK_ERROR'
+              }
+            ],
+            steps: updatedSteps
+          }
+        })
       )
     } finally {
       setIsStreaming(false)

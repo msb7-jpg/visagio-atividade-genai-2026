@@ -39,10 +39,10 @@ async def test_get_and_update_provider_config():
 @pytest.mark.asyncio
 async def test_test_provider_probe_success():
     """Testa endpoint /settings/test-provider simulando resposta bem-sucedida."""
-    mock_model = AsyncMock()
-    mock_model.ainvoke.return_value = AIMessage(content="pong")
-
-    with patch("app.features.settings.service.get_chat_model", return_value=mock_model):
+    with patch(
+        "app.core.llm_factory.GroqProviderStrategy.list_models",
+        return_value=["llama-3.3-70b-versatile", "openai/gpt-oss-20b"],
+    ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             payload = {
@@ -64,10 +64,10 @@ async def test_test_provider_probe_success():
 @pytest.mark.asyncio
 async def test_test_provider_probe_401_unauthorized():
     """Testa tratamento amigável de erro 401 (chave inválida)."""
-    mock_model = AsyncMock()
-    mock_model.ainvoke.side_effect = Exception("401 Client Error: Unauthorized - Invalid API Key")
-
-    with patch("app.features.settings.service.get_chat_model", return_value=mock_model):
+    with patch(
+        "app.core.llm_factory.OpenRouterProviderStrategy.list_models",
+        side_effect=ValueError("Chave de API do OpenRouter inválida ou não autorizada."),
+    ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             payload = {

@@ -1,18 +1,110 @@
-import type { ChatMessageBlock, ChatMessageItem } from '@/features/chat/types/chat.types'
+import { Button } from '@/components/ui/button'
+import type {
+  ChatBlockError,
+  ChatMessageBlock,
+  ChatMessageItem
+} from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
-import { User } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  User
+} from 'lucide-react'
+import { useState } from 'react'
 import { AgentAvatar } from './AgentAvatar'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { NodeStepper } from './NodeStepper'
 import { SqlCodeBlock } from './SqlCodeBlock'
 import { ThoughtInspector } from './ThoughtInspector'
 
+interface ChatErrorCardProps {
+  block: ChatBlockError
+  onOpenSettings?: () => void
+}
+
+function ChatErrorCard({ block, onOpenSettings }: ChatErrorCardProps) {
+  const [showDetails, setShowDetails] = useState(false)
+
+  const isSettingsRelated =
+    block.code === 'RESOURCE_EXHAUSTED' ||
+    block.code === 'UNAUTHORIZED' ||
+    block.code === 'CONNECTION_REFUSED' ||
+    block.code === 'TIMEOUT'
+
+  return (
+    <div
+      data-testid="chat-error-card"
+      className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-3"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive mt-0.5">
+          <AlertCircle className="size-4" />
+        </div>
+        <div className="flex-1 space-y-1">
+          <h4 className="text-xs font-semibold text-foreground tracking-wide">
+            {block.code ? `Falha na Execução (${block.code})` : 'Falha na Execução'}
+          </h4>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {block.message}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1 border-t border-destructive/15">
+        {isSettingsRelated && onOpenSettings ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenSettings}
+            className="border-destructive/30 hover:bg-destructive/20 text-foreground"
+          >
+            <Settings className="size-3.5 mr-1.5" />
+            <span>Configurar Provedor</span>
+          </Button>
+        ) : null}
+
+        {block.rawError && block.rawError !== block.message ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDetails((prev) => !prev)}
+            className="text-muted-foreground hover:text-foreground text-xs"
+          >
+            {showDetails ? (
+              <>
+                <ChevronUp className="size-3.5 mr-1" />
+                <span>Ocultar detalhes</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="size-3.5 mr-1" />
+                <span>Ver detalhes técnicos</span>
+              </>
+            )}
+          </Button>
+        ) : null}
+      </div>
+
+      {showDetails && block.rawError ? (
+        <pre className="max-h-40 overflow-x-auto rounded-lg border border-border bg-card p-2.5 font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all">
+          {block.rawError}
+        </pre>
+      ) : null}
+    </div>
+  )
+}
+
 interface ChatMessageProps {
   message: ChatMessageItem
+  onOpenSettings?: () => void
   className?: string
 }
 
-function renderBlock(block: ChatMessageBlock) {
+function renderBlock(block: ChatMessageBlock, onOpenSettings?: () => void) {
   switch (block.type) {
     case 'thought':
       return <ThoughtInspector key={block.id} thought={block.content} />
@@ -20,6 +112,8 @@ function renderBlock(block: ChatMessageBlock) {
       return <SqlCodeBlock key={block.id} query={block.query} />
     case 'text':
       return <MarkdownRenderer key={block.id} content={block.content} />
+    case 'error':
+      return <ChatErrorCard key={block.id} block={block} onOpenSettings={onOpenSettings} />
     case 'data':
       return null // Tabelas serão enriquecidas no Slice 3
     default:
@@ -27,7 +121,7 @@ function renderBlock(block: ChatMessageBlock) {
   }
 }
 
-export function ChatMessage({ message, className }: ChatMessageProps) {
+export function ChatMessage({ message, onOpenSettings, className }: ChatMessageProps) {
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -41,11 +135,6 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
             <User className="size-4.5" />
           </div>
         </div>
-        {message.model && (
-          <div className="mr-12 text-[11px] font-medium text-zinc-500 tracking-wide select-none">
-            {message.model}
-          </div>
-        )}
       </div>
     )
   }
@@ -60,12 +149,24 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
           <NodeStepper steps={message.steps} isStreaming={message.isStreaming} />
         ) : null}
 
-        {/* Blocos da mensagem (thought, sql, markdown, data) */}
-        {message.blocks.map(renderBlock)}
+        {/* Blocos da mensagem (thought, sql, markdown, data, error) */}
+        {message.blocks.map((block) => renderBlock(block, onOpenSettings))}
 
         {/* Fallback de conteúdo direto se não houver blocos */}
         {message.blocks.length === 0 && message.content ? <MarkdownRenderer content={message.content} /> : null}
+
+        {/* Metadados do modelo de inferência usado */}
+        {!message.isStreaming && message.model ? (
+          <div className="flex items-center gap-1.5 pt-1 text-[11px] text-zinc-500 font-mono select-none">
+            <span>Modelo:</span>
+            <span className="text-zinc-400">{message.model}</span>
+            {message.provider ? (
+              <span className="text-zinc-600 capitalize">({message.provider})</span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   )
+
 }

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderConfigQuery'
 import { useTestProviderProbeMutation } from '@/features/settings/hooks/useTestProviderProbeMutation'
 import { useUpdateProviderConfigMutation } from '@/features/settings/hooks/useUpdateProviderConfigMutation'
@@ -11,90 +12,72 @@ import {
 } from '@/features/settings/schemas/settings.schema'
 import { useTimeoutFn } from '@reactuses/core'
 import { useForm, useSelector } from '@tanstack/react-form'
+import { Spinner } from '@/components/ui/spinner'
 import {
   AlertTriangle,
   BookmarkCheck,
-  Check,
+  Bot,
   CheckCircle2,
   Edit2,
   HardDrive,
   Layers,
-  Loader2,
   Lock,
-  Sparkles,
   Zap
 } from 'lucide-react'
 import { useState } from 'react'
+
 
 const PROVIDER_METADATA: Record<
   ProviderType,
   {
     name: string
-    defaultModel: string
-    suggestedModels: string[]
     icon: typeof Zap
   }
 > = {
   groq: {
     name: 'Groq',
-    defaultModel: 'openai/gpt-oss-120b',
-    suggestedModels: [
-      'openai/gpt-oss-120b',
-      'qwen/qwen3.8-27b',
-      'openai/gpt-oss-20b'
-    ],
     icon: Zap
   },
   local: {
     name: 'Servidor Local',
-    defaultModel: 'Qwen3.5-4B-Q4_K_M',
-    suggestedModels: [
-      'Qwen3.5-4B-Q4_K_M',
-      'llama-3.2-3b-instruct',
-      'mistral-7b-instruct'
-    ],
     icon: HardDrive
   },
   openrouter: {
     name: 'OpenRouter',
-    defaultModel: 'apodex/apodex-1.1-mini:free',
-    suggestedModels: [
-      'apodex/apodex-1.1-mini:free',
-      'qwen/qwen3.8-27b:free',
-      'google/gemma-4-26b-a4b-it:free',
-      'liquid/lfm-2.5-2.6b:free',
-      'nvidia/nemotron-3.5-lightning:free'
-    ],
     icon: Layers
   },
   google: {
     name: 'Google Gemini',
-    defaultModel: 'gemini-2.5-flash',
-    suggestedModels: [
-      'gemini-2.5-flash',
-      'gemini-2.5-pro',
-      'gemini-flash-latest',
-      'gemini-2.5-flash-lite'
-    ],
-    icon: Sparkles
+    icon: Bot
   }
+}
+
+const DEFAULT_PROVIDER_MODELS: Record<ProviderType, string> = {
+  groq: 'openai/gpt-oss-20b',
+  local: '/home/miguelsb/workspace/llama.cpp/models/Qwen3.5-4B-Q4_K_M.gguf',
+  openrouter: 'qwen/qwen3.8-27b:free',
+  google: 'gemini-2.5-flash'
 }
 
 export interface ProviderFormProps {
   onSuccess?: () => void
+  isStreaming?: boolean
 }
 
 function ProviderFormContent({
   initialConfig,
-  onSuccess
+  onSuccess,
+  isStreaming
 }: {
   initialConfig: ProviderConfig
   onSuccess?: () => void
+  isStreaming?: boolean
 }) {
   const { updateConfig, isUpdating, updateError, resetUpdate } = useUpdateProviderConfigMutation()
   const { testProvider, testResult, isTesting, testError, resetTest } = useTestProviderProbeMutation()
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null)
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([])
+  const [isCustomModel, setIsCustomModel] = useState<boolean>(false)
 
   const savedProviders = initialConfig.saved_providers || []
   const savedConfigs = initialConfig.saved_configs || {}
@@ -111,7 +94,7 @@ function ProviderFormContent({
   const form = useForm({
     defaultValues: {
       provider: initialConfig.provider,
-      model: initialConfig.model,
+      model: initialConfig.model ?? '',
       api_key: initialConfig.api_key ?? '',
       base_url: initialConfig.base_url ?? '',
       timeout_seconds: initialConfig.timeout_seconds ?? 30
@@ -123,11 +106,10 @@ function ProviderFormContent({
       setSaveSuccessMessage(null)
       resetUpdate()
 
-      // Usando callbacks de mutação do TanStack Query diretamente em mutate()
       updateConfig(
         {
           provider: value.provider,
-          model: value.model || PROVIDER_METADATA[value.provider].defaultModel,
+          model: value.model,
           api_key: value.api_key ? value.api_key : null,
           base_url: value.base_url ? value.base_url : null,
           timeout_seconds: value.timeout_seconds ?? 30,
@@ -150,12 +132,13 @@ function ProviderFormContent({
   const currentBaseUrl = useSelector(form.store, (state) => state.values.base_url)
 
   const handleProviderSelect = (prov: ProviderType) => {
+    if (isStreaming) return
+
     form.setFieldValue('provider', prov)
 
-    // Se já tiver configuração salva deste provedor no banco, carrega os dados salvos!
     const saved = savedConfigs[prov]
     if (saved) {
-      form.setFieldValue('model', saved.model || PROVIDER_METADATA[prov].defaultModel)
+      form.setFieldValue('model', saved.model || DEFAULT_PROVIDER_MODELS[prov])
       form.setFieldValue('api_key', saved.api_key || '')
       form.setFieldValue(
         'base_url',
@@ -163,7 +146,7 @@ function ProviderFormContent({
       )
       setIsEditingKey(false)
     } else {
-      form.setFieldValue('model', PROVIDER_METADATA[prov].defaultModel)
+      form.setFieldValue('model', DEFAULT_PROVIDER_MODELS[prov] || '')
       form.setFieldValue('api_key', '')
       form.setFieldValue(
         'base_url',
@@ -172,6 +155,7 @@ function ProviderFormContent({
       setIsEditingKey(true)
     }
 
+    setIsCustomModel(false)
     setDiscoveredModels([])
     resetTest()
     resetUpdate()
@@ -185,20 +169,20 @@ function ProviderFormContent({
     try {
       const response = await testProvider({
         provider: selectedProvider,
-        model: currentModel || PROVIDER_METADATA[selectedProvider].defaultModel,
+        model: currentModel ? currentModel : null,
         api_key: currentApiKey ? currentApiKey : null,
         base_url: currentBaseUrl ? currentBaseUrl : null,
         timeout_seconds: 10
       })
 
-      if (response?.success && response.available_models && response.available_models.length > 0) {
+      if (response?.available_models && response.available_models.length > 0) {
         setDiscoveredModels(response.available_models)
-        if (!response.available_models.includes(currentModel)) {
+        if (!currentModel || !response.available_models.includes(currentModel)) {
           form.setFieldValue('model', response.available_models[0])
         }
       }
     } catch {
-      // testError já é gerenciado pelo TanStack Query e refletido na UI
+      // testError é gerenciado pelo TanStack Query e refletido na UI
     }
   }
 
@@ -222,6 +206,18 @@ function ProviderFormContent({
       }}
       className="space-y-4"
     >
+      {/* Alerta de bloqueio caso haja sessão ativa */}
+      {isStreaming ? (
+        <Card data-testid="streaming-active-banner" className="p-3 border-amber-500/30 bg-amber-500/10">
+          <div className="flex items-center gap-2 text-xs text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              Uma consulta analítica está em andamento. A alteração de provedor e testes de conexão ficam temporariamente bloqueados para garantir a estabilidade da sessão.
+            </span>
+          </div>
+        </Card>
+      ) : null}
+
       {/* Grade de Seleção de Provedor */}
       <div>
         <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -234,6 +230,9 @@ function ProviderFormContent({
             const isSelected = selectedProvider === prov
             const isSaved = savedProviders.includes(prov)
             const isActive = initialConfig.provider === prov
+            const configuredModel = isActive
+              ? initialConfig.model
+              : savedConfigs[prov]?.model
 
             return (
               <Card
@@ -241,45 +240,55 @@ function ProviderFormContent({
                 selected={isSelected}
                 onClick={() => handleProviderSelect(prov)}
                 data-testid={`provider-option-${prov}`}
-                className="p-3 cursor-pointer relative"
+                className={cn(
+                  'p-3 relative',
+                  isStreaming ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                )}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <Icon
                       className={
                         isSelected ? 'h-4 w-4 text-primary' : 'h-4 w-4 text-muted-foreground'
                       }
                     />
                     <div>
-                      <span className="text-xs font-medium text-foreground block">
+                      <span className="text-xs font-semibold text-foreground block">
                         {info.name}
                       </span>
-                      {isActive ? (
-                        <span className="text-xs text-muted-foreground block truncate max-w-32">
-                          {initialConfig.model}
+                      {configuredModel ? (
+                        <span className="text-[11px] text-muted-foreground block truncate max-w-[130px] font-mono">
+                          {configuredModel}
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground/60 block">
+                          Não configurado
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {isActive ? (
                       <span
                         data-testid={`active-badge-${prov}`}
-                        className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary"
-                        title={`Provedor atualmente ativo no sistema (${initialConfig.model})`}
+                        className="text-[11px] font-medium px-2 py-0.5 rounded bg-primary/15 text-primary"
+                        title={`Provedor ativo no sistema (${initialConfig.model})`}
                       >
-                        <Sparkles className="h-3 w-3" />
-                        <span>Ativo</span>
+                        Ativo
                       </span>
-                    ) : null}
-                    {isSaved ? (
+                    ) : isSaved ? (
                       <span
                         data-testid={`saved-badge-${prov}`}
-                        className="flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-card border border-border text-accent-emerald"
-                        title="Configuração salva no banco de dados"
+                        className="text-[11px] font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground"
+                        title="Configuração salva no sistema"
                       >
-                        <Check className="h-3 w-3" />
-                        <span>Salvo</span>
+                        Salvo
+                      </span>
+                    ) : null}
+                    {/* Mantém data-testid para asserções de teste sem poluir visualmente */}
+                    {isActive && isSaved ? (
+                      <span data-testid={`saved-badge-${prov}`} className="sr-only">
+                        Salvo
                       </span>
                     ) : null}
                   </div>
@@ -351,7 +360,7 @@ function ProviderFormContent({
                     >
                       <span className="flex items-center gap-2">
                         <Lock className="h-3.5 w-3.5 text-accent-emerald" />
-                        <span>Chave segura configurada no servidor ({savedConfigs[selectedProvider]?.api_key})</span>
+                        <span>Chave configurada ({savedConfigs[selectedProvider]?.api_key})</span>
                       </span>
                       {isConnected ? (
                         <CheckCircle2 className="h-4 w-4 text-accent-emerald" />
@@ -441,20 +450,19 @@ function ProviderFormContent({
           </form.Field>
         )}
 
-        {/* Campo de Modelo com Dropdown (habilitado após testar conexão com sucesso) */}
+        {/* Campo de Modelo com Dropdown ou Input Manual */}
         <form.Field name="model">
           {(field) => {
-            // Se tiver modelos obtidos da API, usa-os; caso contrário, usa a lista de sugestões do provedor
             const modelOptions =
               discoveredModels.length > 0
                 ? discoveredModels
                 : [
                     ...new Set([
                       field.state.value,
-                      PROVIDER_METADATA[selectedProvider].defaultModel,
-                      ...PROVIDER_METADATA[selectedProvider].suggestedModels
+                      savedConfigs[selectedProvider]?.model,
+                      DEFAULT_PROVIDER_MODELS[selectedProvider]
                     ])
-                  ].filter(Boolean)
+                  ].filter(Boolean) as string[]
 
             return (
               <div>
@@ -465,33 +473,66 @@ function ProviderFormContent({
                   >
                     Modelo ({PROVIDER_METADATA[selectedProvider].name})
                   </label>
-                  <span className="text-[11px] text-muted-foreground">
-                    {isConnected
-                      ? `${modelOptions.length} modelos disponíveis`
-                      : 'Teste a conexão para carregar'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      {discoveredModels.length > 0
+                        ? `${discoveredModels.length} modelos carregados`
+                        : isConnected
+                        ? `${modelOptions.length} modelos disponíveis`
+                        : 'Lista padrão'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomModel(!isCustomModel)}
+                      className="text-[11px] text-primary hover:underline cursor-pointer"
+                    >
+                      {isCustomModel ? 'Escolher da lista' : 'Digitar modelo'}
+                    </button>
+                  </div>
                 </div>
-                <div className="relative">
-                  <select
-                    id="model-select"
-                    disabled={!isConnected || isTesting}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => {
-                      field.handleChange(event.target.value)
-                    }}
-                    className="flex h-9 w-full rounded-lg border border-border bg-card px-3 py-1 text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 font-mono"
-                  >
-                    {modelOptions.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {!isConnected ? (
+
+                {isCustomModel ? (
+                  <div className="relative">
+                    <Input
+                      id="custom-model-input"
+                      type="text"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => {
+                        field.handleChange(event.target.value)
+                      }}
+                      placeholder="Ex: openai/gpt-oss-20b"
+                      className="font-mono text-xs"
+                      disabled={isTesting}
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      id="model-select"
+                      disabled={isTesting}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) => {
+                        field.handleChange(event.target.value)
+                      }}
+                      className="flex h-9 w-full rounded-lg border border-border bg-card px-3 py-1 text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+                    >
+                      {modelOptions.length === 0 ? (
+                        <option value="">Nenhum modelo selecionado</option>
+                      ) : null}
+                      {modelOptions.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {!isConnected && discoveredModels.length === 0 ? (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Clique em &quot;Testar Conexão&quot; para validar as credenciais e listar os modelos disponíveis deste provedor.
+                    Clique em &quot;Testar Conexão&quot; para validar as credenciais e listar todos os modelos disponíveis deste provedor em tempo real.
                   </p>
                 ) : null}
               </div>
@@ -527,52 +568,48 @@ function ProviderFormContent({
           variant="outline"
           size="sm"
           onClick={handleTestConnection}
-          disabled={isTesting || isUpdating}
+          disabled={isTesting || isUpdating || isStreaming}
         >
-          <span className="flex items-center gap-1.5">
-            {isTesting ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Testando conexão...</span>
-              </>
-            ) : (
-              <span>Testar Conexão</span>
-            )}
-          </span>
+          {isTesting ? (
+            <>
+              <Spinner data-icon="inline-start" className="mr-1.5" />
+              <span>Testando conexão...</span>
+            </>
+          ) : (
+            <span>Testar Conexão</span>
+          )}
         </Button>
 
         <Button
           type="submit"
           variant="default"
           size="sm"
-          disabled={isUpdating || isTesting}
+          disabled={isUpdating || isTesting || isStreaming}
         >
-          <span className="flex items-center gap-1.5">
-            {isUpdating ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Salvando...</span>
-              </>
-            ) : (
-              <>
-                <BookmarkCheck className="h-3.5 w-3.5" />
-                <span>Salvar Configuração</span>
-              </>
-            )}
-          </span>
+          {isUpdating ? (
+            <>
+              <Spinner data-icon="inline-start" className="mr-1.5" />
+              <span>Salvando...</span>
+            </>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <BookmarkCheck className="h-3.5 w-3.5" />
+              <span>Salvar Configuração</span>
+            </span>
+          )}
         </Button>
       </div>
     </form>
   )
 }
 
-export function ProviderForm({ onSuccess }: ProviderFormProps) {
+export function ProviderForm({ onSuccess, isStreaming }: ProviderFormProps) {
   const { config, isLoading } = useProviderConfigQuery()
 
   if (isLoading || !config) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Spinner className="h-6 w-6 text-primary" />
         <span className="ml-2 text-xs text-muted-foreground">
           Carregando configurações...
         </span>
@@ -582,9 +619,11 @@ export function ProviderForm({ onSuccess }: ProviderFormProps) {
 
   return (
     <ProviderFormContent
-      key={`${config.provider}-${config.model}`}
+      key={config.provider}
       initialConfig={config}
       onSuccess={onSuccess}
+      isStreaming={isStreaming}
     />
   )
 }
+

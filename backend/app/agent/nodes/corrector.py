@@ -1,6 +1,7 @@
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 
 from app.agent.nodes.sql_generator import CINEDATA_CATALOG_PROMPT, extract_thought_and_sql
 from app.agent.state import AgentState
@@ -17,7 +18,9 @@ REGRAS:
 """
 
 
-async def sql_corrector_node(state: AgentState) -> dict[str, Any]:
+async def sql_corrector_node(
+    state: AgentState, config: RunnableConfig | None = None
+) -> dict[str, Any]:
     """
     Nó de auto-recuperação (self-correction): analisa o erro e gera nova tentativa de SQL.
     """
@@ -25,7 +28,16 @@ async def sql_corrector_node(state: AgentState) -> dict[str, Any]:
     error_msg = state.get("last_error", "Erro desconhecido")
     error_count = state.get("error_count", 0)
 
-    llm = get_chat_model(temperature=0.0)
+    configurable = (config or {}).get("configurable", {})
+    llm = get_chat_model(
+        provider=configurable.get("provider"),
+        model=configurable.get("model"),
+        api_key=configurable.get("api_key"),
+        base_url=configurable.get("base_url"),
+        timeout_seconds=configurable.get("timeout_seconds") or 30,
+        temperature=0.0,
+    )
+
 
     messages = [
         SystemMessage(content=f"{CINEDATA_CATALOG_PROMPT}\n\n{CORRECTOR_PROMPT}"),

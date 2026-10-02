@@ -99,9 +99,10 @@ describe('SettingsModal', () => {
       expect(screen.getByTestId('saved-badge-local')).toBeInTheDocument()
     })
 
-    // O select de modelos deve estar inicialmente desabilitado
-    const selectBefore = screen.getByRole('combobox')
-    expect(selectBefore).toBeDisabled()
+    // O select de modelos agora permanece sempre acessível para o usuário trocar de modelo
+    const select = screen.getByRole('combobox')
+    expect(select).toBeInTheDocument()
+    expect(select).not.toBeDisabled()
 
     const testBtn = screen.getByText('Testar Conexão')
     fireEvent.click(testBtn)
@@ -111,7 +112,7 @@ describe('SettingsModal', () => {
       expect(screen.getByText(/45.2 ms/)).toBeInTheDocument()
     })
 
-    // O select de modelos deve estar habilitado após a conexão ser bem-sucedida
+    // O select de modelos continua habilitado após a conexão ser bem-sucedida
     expect(screen.getByRole('combobox')).not.toBeDisabled()
   })
 

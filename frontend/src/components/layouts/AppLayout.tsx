@@ -9,16 +9,19 @@ import {
   Settings
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 export interface AppLayoutProps {
   children?: ReactNode
   activeThreadId?: string | null
+  isStreaming?: boolean
   onNewChat?: () => void
   onOpenSettings?: () => void
 }
 
 export function AppLayout({
   children,
+  isStreaming = false,
   onNewChat,
   onOpenSettings
 }: AppLayoutProps) {
@@ -115,11 +118,13 @@ export function AppLayout({
             <Button
               variant="ghost"
               onClick={onOpenSettings}
-              aria-label="Configurações"
+              disabled={isStreaming}
+              aria-label={isStreaming ? 'Configurações (bloqueado durante análise)' : 'Configurações'}
+              title={isStreaming ? 'Uma análise analítica está em andamento...' : undefined}
             >
               <span className="flex items-center gap-2">
-                <Settings className="h-3.5 w-3.5" />
-                <span>Configurações</span>
+                <Settings className={cn('h-3.5 w-3.5', isStreaming && 'animate-spin text-primary')} />
+                <span>{isStreaming ? 'Analisando...' : 'Configurações'}</span>
               </span>
             </Button>
           ) : (
@@ -127,9 +132,11 @@ export function AppLayout({
               variant="ghost"
               size="icon"
               onClick={onOpenSettings}
-              aria-label="Configurações"
+              disabled={isStreaming}
+              aria-label={isStreaming ? 'Configurações (bloqueado durante análise)' : 'Configurações'}
+              title={isStreaming ? 'Uma análise analítica está em andamento...' : undefined}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className={cn('h-4 w-4', isStreaming && 'animate-spin text-primary')} />
             </Button>
           )}
         </div>
@@ -168,9 +175,11 @@ export function AppLayout({
               variant="ghost"
               size="icon"
               onClick={onOpenSettings}
-              aria-label="Abrir configurações de provedor"
+              disabled={isStreaming}
+              aria-label={isStreaming ? 'Abrir configurações (bloqueado durante análise)' : 'Abrir configurações de provedor'}
+              title={isStreaming ? 'Uma análise analítica está em andamento...' : undefined}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className={cn('h-4 w-4', isStreaming && 'animate-spin text-primary')} />
             </Button>
           </div>
         </header>

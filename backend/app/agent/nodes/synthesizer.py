@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 
 from app.agent.state import AgentState
 from app.core.llm_factory import get_chat_model
@@ -26,7 +27,9 @@ DIRETRIZES:
 """
 
 
-async def synthesizer_node(state: AgentState) -> dict[str, Any]:
+async def synthesizer_node(
+    state: AgentState, config: RunnableConfig | None = None
+) -> dict[str, Any]:
     """
     Sintetiza a resposta executiva final em Markdown para o usuário.
     """
@@ -36,7 +39,16 @@ async def synthesizer_node(state: AgentState) -> dict[str, Any]:
     last_error = state.get("last_error")
     route = state.get("route", "sql")
 
-    llm = get_chat_model(temperature=0.3)
+    configurable = (config or {}).get("configurable", {})
+    llm = get_chat_model(
+        provider=configurable.get("provider"),
+        model=configurable.get("model"),
+        api_key=configurable.get("api_key"),
+        base_url=configurable.get("base_url"),
+        timeout_seconds=configurable.get("timeout_seconds") or 30,
+        temperature=0.3,
+    )
+
 
     context_info = f"Rota: {route}\n"
     if generated_sql:

@@ -9,6 +9,7 @@ import { ChatContainer } from '@/features/chat/ChatContainer'
 export function App() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
 
   const handleNewChat = () => {
     setActiveThreadId(null)
@@ -26,14 +27,19 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <AppLayout
         activeThreadId={activeThreadId}
+        isStreaming={isStreaming}
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
       >
-        <ChatContainer />
+        <ChatContainer
+          onOpenSettings={handleOpenSettings}
+          onStreamingChange={setIsStreaming}
+        />
       </AppLayout>
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={handleCloseSettings}
+        isStreaming={isStreaming}
       />
     </QueryClientProvider>
   )

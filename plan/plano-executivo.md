@@ -222,27 +222,34 @@ Implementar o fluxo nuclear da CineData Analytics: o usuário faz perguntas em l
 * `backend/app/agent/nodes/corrector.py` — Nó `sql_corrector_node` com loop fechado de auto-recuperação (até 3 tentativas).
 * `backend/app/agent/nodes/synthesizer.py` — Nó sintetizador que formata a resposta executiva final em Markdown legível.
 * `backend/app/agent/graph.py` — Montagem completa do subgrafo Text-to-SQL com conexões condicionais de auto-correção.
+* `backend/app/core/session_manager.py` — Gerenciador singleton thread-safe `ActiveSessionManager` para rastrear sessões analíticas em execução.
 * `backend/app/features/chat/schemas.py` — DTOs de streaming SSE (`step_start`, `step_end`, `sql`, `thought`, `token`, `data`, `error`, `done`).
-* `backend/app/features/chat/service.py` — `AgentService` formatando SQL com `sqlparse` e despachando eventos tipados.
+* `backend/app/features/chat/service.py` — `AgentService` formatando SQL com `sqlparse`, registrando sessões ativas com limpeza no `finally:` e categorizando erros via `format_stream_error`.
 * `backend/app/features/chat/router.py` — Endpoint SSE `POST /chat/stream`.
 * `backend/app/features/chat/router_metadata.py` — Metadados do Swagger para o endpoint de streaming.
-* `frontend/src/features/chat/types/chat.types.ts` — Tipos dos eventos SSE, estados dos nós e blocos polimórficos de mensagem.
-* `frontend/src/features/chat/hooks/useAgentStream.ts` — Hook customizado de streaming SSE com montagem de blocos polimórficos.
+* `backend/app/features/settings/router.py` — Bloqueio concorrente em `POST /settings/provider` via `HTTP 409 Conflict` durante sessões ativas.
+* `frontend/src/features/chat/types/chat.types.ts` — Tipos dos eventos SSE, estados dos nós e adição do bloco `ChatBlockError`.
+* `frontend/src/features/chat/hooks/useAgentStream.ts` — Hook customizado de streaming SSE com tratamento de `event: error` e nós de erro.
 * `frontend/src/features/chat/components/AgentAvatar.tsx` — PFP exclusivo do assistente com glow cinematográfico suave e live badge.
-* `frontend/src/features/chat/components/NodeStepper.tsx` — Trilha sequencial dos passos do LangGraph com duração em ms e status dinâmico.
+* `frontend/src/features/chat/components/NodeStepper.tsx` — Trilha sequencial dos passos com preservação de expansão em nós com erro.
 * `frontend/src/features/chat/components/ThoughtInspector.tsx` — Accordion recolhível de raciocínio intermediário.
 * `frontend/src/features/chat/components/SqlCodeBlock.tsx` — Bloco de visualização SQL com Shiki dark glass, botão de copiar e badge "Read-Only".
 * `frontend/src/features/chat/components/MarkdownRenderer.tsx` — Renderizador `react-markdown` + `remark-gfm` + tipografia refinada.
-* `frontend/src/features/chat/components/ChatMessage.tsx` — Agrupador polimórfico de blocos de mensagem.
+* `frontend/src/features/chat/components/ChatMessage.tsx` — Agrupador polimórfico de blocos incluindo o `ChatErrorCard` com atalho de configuração e detalhes técnicos.
 * `frontend/src/features/chat/components/ChatInput.tsx` — Campo de input com botão de envio, atalho `Enter` e estado de desativação durante streaming.
-* `frontend/src/features/chat/ChatContainer.tsx` — Container integrador da tela principal do chat.
+* `frontend/src/features/chat/ChatContainer.tsx` — Container integrador da tela principal do chat sincronizado com o estado de streaming.
+* `frontend/src/components/layouts/AppLayout.tsx` — Bloqueio e indicador visual nos botões de configurações durante análise ativa.
+* `frontend/src/features/settings/components/SettingsModal.tsx` & `ProviderForm.tsx` — Banner informativo e bloqueio de alteração de provedor/submit durante streaming.
 * `backend/tests/agent/test_sql_tools.py` — Testes da tool `execute_sql_query` e rejeição de escritas.
 * `backend/tests/agent/test_sql_validator_ast.py` — Testes de AST rejeitando queries maliciosas (`DROP`, `DELETE`, injection).
 * `backend/tests/agent/test_sql_self_correction.py` — Teste do loop de auto-recuperação do agente diante de erro de sintaxe.
 * `backend/tests/agent/test_canonical_queries.py` — Validação das queries das perguntas Q1 a Q10 do desafio.
 * `backend/tests/features/test_chat_stream_endpoint.py` — Teste de integração do endpoint SSE do chat.
+* `backend/tests/features/test_session_lock.py` — Testes de bloqueio de concorrência HTTP 409 e categorização de erros SSE.
 * `frontend/src/features/chat/components/NodeStepper.test.tsx` — Teste unitário do Stepper de nós.
 * `frontend/src/features/chat/components/SqlCodeBlock.test.tsx` — Teste do bloco SQL e ação de cópia.
+* `frontend/src/features/chat/components/ChatMessageError.test.tsx` — Teste unitário do card de erro e botões de ação no chat.
+* `frontend/src/features/settings/components/SettingsModalStreaming.test.tsx` — Teste de bloqueio de formulário e botões durante streaming.
 
 ### 4. Descrição Detalhada das Tarefas
 * **Agente (LangGraph):**
@@ -252,27 +259,33 @@ Implementar o fluxo nuclear da CineData Analytics: o usuário faz perguntas em l
 * **Backend:**
   - Configurar `POST /chat/stream` com streaming SSE assíncrono via `EventSourceResponse` da biblioteca `sse-starlette`.
   - Aplicar `sqlparse.format(reindent=True, keyword_case='upper')` em todo SQL antes de emitir o evento `sql`.
+  - Implementar `ActiveSessionManager` para gerenciar sessões ativas com registro no início do stream e desregistro no `finally:`.
+  - Proteger `POST /settings/provider` com `HTTP 409 Conflict` contra bypass de UI durante sessões ativas.
+  - Criar `format_stream_error` categorizando falhas do LLM (`RESOURCE_EXHAUSTED` / 402, `UNAUTHORIZED` / 401, `CONNECTION_REFUSED`, `TIMEOUT`) e despachando evento SSE estruturado.
 * **Frontend:**
   - Implementar o hook `useAgentStream` processando o stream SSE e atualizando o estado da mensagem de forma reativa e imutável.
-  - Criar o componente `NodeStepper` mostrando o progresso nó a nó (`[Classificador] ➔ [Gerador SQL] ➔ [Executor SQLite] ➔ [Sintetizador]`).
+  - Escutar o evento `event: error` no stream SSE, marcar o último nó do `NodeStepper` com `status: 'error'` e anexar o bloco `ChatBlockError`.
+  - Criar o componente `NodeStepper` mostrando o progresso nó a nó (`[Classificador] ➔ [Gerador SQL] ➔ [Executor SQLite] ➔ [Sintetizador]`), mantendo-o visível caso ocorra erro.
   - Renderizar o bloco `SqlCodeBlock` com Shiki garantindo visual escuro de alto contraste (`#13171E`), botão de copiar com feedback de 2s e badge de segurança.
+  - Desenvolver `ChatErrorCard` exibindo ícone de alerta, motivo da falha em linguagem clara, detalhes técnicos colapsáveis e atalho "Configurar Provedor".
+  - Bloquear a abertura/alteração de configurações no `AppLayout`, `SettingsModal` e `ProviderForm` durante `isStreaming = true`, com banner de aviso informativo.
 * **Testes:**
   - Escrever testes automatizados validando as 10 perguntas canônicas do desafio (Top 10 receitas, lucro médio por gênero, diretores com melhor média, ator com mais filmes, etc.).
-  - Testar o comportamento do streaming e a montagem das mensagens no frontend.
+  - Testar o comportamento do streaming, bloqueio concorrente de sessões e a montagem das mensagens de erro no frontend e backend.
 
 ### 5. Comandos de Verificação
 ```bash
-# Backend: Testes do agente SQL, validações AST e streaming
+# Backend: Testes do agente SQL, validações AST, streaming e lock de sessões
 cd backend
 uv run ruff check .
-uv run pytest tests/agent/ tests/features/test_chat_stream_endpoint.py -v
+uv run pytest tests/agent/ tests/features/ -v
 cd ..
 
 # Frontend: Verificação de tipagem, regras do design system e testes unitários
 cd frontend
 bun run lint
 bun run build
-bun test src/features/chat/
+bun test
 cd ..
 ```
 
@@ -284,6 +297,9 @@ cd ..
 - [x] Endpoint `POST /chat/stream` emitindo eventos SSE com SQL formatado via `sqlparse`.
 - [x] `useAgentStream` processando eventos SSE e renderizando blocos polimórficos no frontend.
 - [x] Componentes `NodeStepper`, `ThoughtInspector`, `SqlCodeBlock` e `AgentAvatar` finalizados.
+- [x] `ActiveSessionManager` implementado bloqueando `POST /settings/provider` com `HTTP 409 Conflict` durante sessões ativas sem corromper a execução.
+- [x] Bloqueio e feedback de interface no frontend durante streaming ativo (`isStreaming = true`) no `AppLayout` e `SettingsModal`.
+- [x] Categorização inteligente de erros do LLM (402, 401, timeout, connection refused) e renderização do `ChatErrorCard`.
 - [x] Testes do Slice 2 validados no backend e frontend.
 - [x] Status da fatia: `[CONCLUÍDO - 02/10/2026]`
 

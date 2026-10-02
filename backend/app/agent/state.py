@@ -27,3 +27,4 @@ class AgentState(TypedDict):
     last_error: str | None
     title: str | None
     steps: list[AgentStepInfo]
+

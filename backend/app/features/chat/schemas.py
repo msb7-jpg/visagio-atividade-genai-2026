@@ -12,10 +12,17 @@ class ChatStreamRequestDTO(BaseModel):
     thread_id: str | None = Field(
         default=None, description="Identificador da sessão/thread para persistência"
     )
+    provider: str | None = Field(
+        default=None, description="Provedor selecionado na UI"
+    )
+    model: str | None = Field(
+        default=None, description="Modelo selecionado na UI"
+    )
     provider_override: ProviderConfigDTO | None = Field(
         default=None,
         description="Configuração de LLM personalizada opcional para esta requisição",
     )
+
 
 
 class StepEventDTO(BaseModel):

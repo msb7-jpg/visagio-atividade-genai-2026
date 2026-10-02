@@ -1,6 +1,7 @@
 from typing import Any, Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.nodes.corrector import sql_corrector_node
@@ -19,7 +20,9 @@ Responda unicamente com uma palavra: "sql" ou "direct".
 """
 
 
-async def router_node(state: AgentState) -> dict[str, Any]:
+async def router_node(
+    state: AgentState, config: RunnableConfig | None = None
+) -> dict[str, Any]:
     """
     Classifica a intenção do usuário para rotear para SQL ou Direct.
     """
@@ -36,7 +39,15 @@ async def router_node(state: AgentState) -> dict[str, Any]:
     if not last_user_message:
         return {"route": "direct"}
 
-    llm = get_chat_model(temperature=0.0)
+    configurable = (config or {}).get("configurable", {})
+    llm = get_chat_model(
+        provider=configurable.get("provider"),
+        model=configurable.get("model"),
+        api_key=configurable.get("api_key"),
+        base_url=configurable.get("base_url"),
+        timeout_seconds=configurable.get("timeout_seconds") or 30,
+        temperature=0.0,
+    )
     response = await llm.ainvoke([
         SystemMessage(content=ROUTER_PROMPT),
         HumanMessage(content=last_user_message),

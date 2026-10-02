@@ -4,10 +4,11 @@ import time
 from langchain_core.messages import HumanMessage
 
 from app.core.config import get_settings
-from app.core.llm_factory import PROVIDER_DEFAULTS, get_chat_model, provider_registry
+from app.core.llm_factory import get_chat_model, provider_registry
 import os
 from app.db.settings_db import (
     get_active_provider_config,
+    get_active_provider_config_sync,
     get_all_saved_providers,
     get_all_user_provider_configs,
     get_user_provider_config,
@@ -38,17 +39,31 @@ class SettingsService:
 
     def __init__(self, user_id: str = "default_user"):
         self.user_id = user_id
-        settings = get_settings()
-        self._current_config = ProviderConfigDTO(
-            provider=settings.llm_provider,  # type: ignore[arg-type]
-            model=settings.llm_model,
-            api_key=settings.llm_api_key,
-            base_url=settings.llm_base_url,
-            timeout_seconds=settings.llm_timeout_seconds,
-            saved_providers=[],
-            saved_configs={},
-        )
-        self._initialized_from_db = False
+        active = get_active_provider_config_sync(self.user_id)
+        if active:
+            self._current_config = ProviderConfigDTO(
+                provider=active["provider"],
+                model=active["model"],
+                api_key=active["api_key"],
+                base_url=active["base_url"],
+                timeout_seconds=active.get("timeout_seconds", 30),
+                saved_providers=[],
+                saved_configs={},
+            )
+            self._initialized_from_db = True
+        else:
+            settings = get_settings()
+            self._current_config = ProviderConfigDTO(
+                provider=settings.llm_provider,  # type: ignore[arg-type]
+                model=settings.llm_model,
+                api_key=settings.llm_api_key,
+                base_url=settings.llm_base_url,
+                timeout_seconds=settings.llm_timeout_seconds,
+                saved_providers=[],
+                saved_configs={},
+            )
+            self._initialized_from_db = False
+
 
     async def _ensure_db_loaded(self) -> None:
         """Carrega configuração inicial salva do banco caso exista."""
@@ -152,8 +167,6 @@ class SettingsService:
         """
         await self._ensure_db_loaded()
         provider = request.provider
-        defaults = PROVIDER_DEFAULTS.get(provider, {})
-        model_name = request.model or defaults.get("model", "unknown-model")
 
         # Resolve chave do provedor requisitado
         key_to_use = request.api_key
@@ -170,69 +183,62 @@ class SettingsService:
                 elif provider == "google":
                     key_to_use = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
+        # Resolve base_url caso não tenha sido passada
+        base_url_to_use = request.base_url
+        if not base_url_to_use and provider == "local":
+            saved_prov = await get_user_provider_config(self.user_id, provider)
+            if saved_prov and saved_prov.get("base_url"):
+                base_url_to_use = saved_prov["base_url"]
+            else:
+                base_url_to_use = "http://localhost:1234/v1"
+
         start_time = time.perf_counter()
 
-        # 1. Consulta modelos ativos disponíveis como primeira etapa da probe
+        # 1. Consulta modelos ativos disponíveis e valida credenciais via API do provedor
         available_models: list[str] = []
         strategy = provider_registry.get(provider) if provider_registry.is_registered(provider) else None
-        if strategy:
-            try:
-                available_models = await strategy.list_models(
-                    api_key=key_to_use,
-                    base_url=request.base_url,
-                    timeout_seconds=4.0,
-                )
-            except Exception as mod_exc:
-                logger.debug("Falha na consulta inicial de modelos: %s", mod_exc)
-
-        # Se o modelo solicitado não estiver na lista retornada e a lista contiver modelos, usa o primeiro
-        effective_model = model_name
-        if available_models and effective_model not in available_models:
-            effective_model = available_models[0]
-
-        # 2. Tentativa de Fast Probe via Strategy (ex: curl /health ou /v1/health no llama-server)
+        
         try:
             if strategy:
-                is_healthy, msg = await strategy.fast_probe(
-                    base_url=request.base_url,
+                # Caso especial para servidor local: fast_probe rápida de health check
+                if provider == "local":
+                    is_healthy, _ = await strategy.fast_probe(
+                        base_url=base_url_to_use,
+                        api_key=key_to_use,
+                        timeout_seconds=float(request.timeout_seconds),
+                    )
+                    if not is_healthy:
+                        raise ConnectionRefusedError(f"Não foi possível conectar ao servidor local em {base_url_to_use}")
+
+                # Valida a autenticação e obtém modelos do provedor
+                available_models = await strategy.list_models(
                     api_key=key_to_use,
+                    base_url=base_url_to_use,
                     timeout_seconds=float(request.timeout_seconds),
                 )
-                if is_healthy:
-                    latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-                    success_msg = (
-                        f"Conexão com '{provider}' ({effective_model}) estabelecida com sucesso!"
-                    )
-                    return TestProviderResponseDTO(
-                        success=True,
-                        latency_ms=latency_ms,
-                        model=effective_model,
-                        message=success_msg,
-                        error_code=None,
-                        available_models=available_models,
-                    )
-        except Exception as fast_exc:
-            logger.debug("Fast probe falhou ou não aplicável: %s", fast_exc)
 
-        # 3. Probe padrão via LLM invoke
-        try:
-            model_instance = get_chat_model(
-                provider=provider,
-                model=effective_model,
-                api_key=key_to_use,
-                base_url=request.base_url,
-                timeout_seconds=request.timeout_seconds,
-            )
-
-            # Probe efêmera com mensagem mínima
-            await model_instance.ainvoke([HumanMessage(content="ping")])
+            # Se conseguimos consultar os modelos ou passar no health check, as credenciais são 100% válidas!
             latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            effective_model = request.model
+            if not effective_model and available_models:
+                effective_model = available_models[0]
+            elif not effective_model:
+                saved_prov = await get_user_provider_config(self.user_id, provider)
+                effective_model = saved_prov["model"] if (saved_prov and saved_prov.get("model")) else "default"
+
+            model_count = len(available_models)
+            success_msg = (
+                f"Conexão com '{provider}' estabelecida com sucesso! "
+                f"({model_count} modelos disponíveis encontrados)"
+                if model_count > 0
+                else f"Conexão com '{provider}' estabelecida com sucesso!"
+            )
 
             return TestProviderResponseDTO(
                 success=True,
                 latency_ms=latency_ms,
                 model=effective_model,
-                message=f"Conexão com '{provider}' ({effective_model}) estabelecida com sucesso!",
+                message=success_msg,
                 error_code=None,
                 available_models=available_models,
             )
@@ -241,53 +247,50 @@ class SettingsService:
             latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
             error_str = str(exc).lower()
 
-            logger.warning("Falha na probe de conectividade para '%s': %s", provider, exc)
+            logger.warning("Falha na validação de conectividade para '%s': %s", provider, exc)
 
-            # Se conseguimos listar modelos com sucesso, a credencial é comprovadamente válida!
-            # Mas o modelo pode estar com limite de quota ou bloqueio temporário
-            if "402" in error_str or "resource_exhausted" in error_str or "credits are depleted" in error_str:
+            effective_model = request.model or "unknown-model"
+
+            if (
+                "401" in error_str
+                or "unauthorized" in error_str
+                or "invalid" in error_str
+                or "não autorizada" in error_str
+                or "403" in error_str
+            ):
+                return TestProviderResponseDTO(
+                    success=False,
+                    latency_ms=latency_ms,
+                    model=effective_model,
+                    message=f"Chave de API inválida ou não autorizada para o provedor '{provider}'.",
+                    error_code="UNAUTHORIZED",
+                    available_models=[],
+                )
+
+            if "402" in error_str or "resource_exhausted" in error_str:
                 return TestProviderResponseDTO(
                     success=False,
                     latency_ms=latency_ms,
                     model=effective_model,
                     message="Créditos ou cota da chave de API esgotados no provedor (402 Resource Exhausted).",
                     error_code="RESOURCE_EXHAUSTED",
-                    available_models=available_models,
-                )
-
-            if "401" in error_str or "unauthorized" in error_str or "invalid api key" in error_str:
-                return TestProviderResponseDTO(
-                    success=False,
-                    latency_ms=latency_ms,
-                    model=effective_model,
-                    message="Chave de API inválida ou não autorizada pelo provedor.",
-                    error_code="UNAUTHORIZED",
                     available_models=[],
-                )
-
-            if "429" in error_str or "quota" in error_str or "rate limit" in error_str:
-                return TestProviderResponseDTO(
-                    success=False,
-                    latency_ms=latency_ms,
-                    model=effective_model,
-                    message="Limite de taxa ou cota de requisições excedida no provedor.",
-                    error_code="RATE_LIMIT_EXCEEDED",
-                    available_models=available_models,
                 )
 
             if (
                 "connection refused" in error_str
                 or "connecterror" in error_str
                 or "failed to connect" in error_str
+                or isinstance(exc, ConnectionRefusedError)
             ):
-                url_tested = request.base_url or defaults.get("base_url") or "localhost"
+                url_tested = base_url_to_use or "localhost"
                 return TestProviderResponseDTO(
                     success=False,
                     latency_ms=latency_ms,
                     model=effective_model,
                     message=(
                         f"Não foi possível conectar ao endpoint local ({url_tested}). "
-                        "Verifique se o serviço (LM Studio/Ollama) está ativo."
+                        "Verifique se o serviço (LM Studio/Ollama/llama.cpp) está ativo."
                     ),
                     error_code="CONNECTION_REFUSED",
                     available_models=[],
@@ -298,12 +301,9 @@ class SettingsService:
                     success=False,
                     latency_ms=latency_ms,
                     model=effective_model,
-                    message=(
-                        f"Tempo limite de {request.timeout_seconds}s excedido "
-                        "ao tentar conectar ao provedor."
-                    ),
+                    message=f"Tempo limite de {request.timeout_seconds}s excedido ao tentar conectar ao provedor.",
                     error_code="TIMEOUT",
-                    available_models=available_models,
+                    available_models=[],
                 )
 
             return TestProviderResponseDTO(
@@ -312,7 +312,7 @@ class SettingsService:
                 model=effective_model,
                 message=f"Falha de comunicação: {str(exc)[:150]}",
                 error_code="PROVIDER_ERROR",
-                available_models=available_models,
+                available_models=[],
             )
 
 

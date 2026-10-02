@@ -6,9 +6,10 @@ import { Sliders, X } from 'lucide-react'
 export interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
+  isStreaming?: boolean
 }
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, isStreaming }: SettingsModalProps) {
 
   useKeyPress('Escape', onClose)
 
@@ -55,7 +56,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         {/* Corpo do Formulário */}
-        <ProviderForm onSuccess={onClose} />
+        <ProviderForm onSuccess={onClose} isStreaming={isStreaming} />
       </div>
     </div>
   )

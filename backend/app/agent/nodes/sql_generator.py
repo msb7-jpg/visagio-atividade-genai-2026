@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 
 from app.agent.state import AgentState
 from app.core.llm_factory import get_chat_model
@@ -73,12 +74,23 @@ def extract_thought_and_sql(text: str) -> tuple[str | None, str | None]:
 
     return thought, None
 
-async def sql_generator_node(state: AgentState) -> dict[str, Any]:
+async def sql_generator_node(
+    state: AgentState, config: RunnableConfig | None = None
+) -> dict[str, Any]:
     """
     Nó gerador de SQL que injeta o catálogo semântico compacto e gera o SQL.
     """
     messages = state["messages"]
-    llm = get_chat_model(temperature=0.0)
+    configurable = (config or {}).get("configurable", {})
+    llm = get_chat_model(
+        provider=configurable.get("provider"),
+        model=configurable.get("model"),
+        api_key=configurable.get("api_key"),
+        base_url=configurable.get("base_url"),
+        timeout_seconds=configurable.get("timeout_seconds") or 30,
+        temperature=0.0,
+    )
+
 
     system_msg = SystemMessage(content=CINEDATA_CATALOG_PROMPT)
     llm_input = [system_msg, *messages]

@@ -7,21 +7,32 @@ import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderCon
 import { cn } from '@/lib/utils'
 
 interface ChatContainerProps {
+  onOpenSettings?: () => void
+  onStreamingChange?: (isStreaming: boolean) => void
   className?: string
 }
 
-export function ChatContainer({ className }: ChatContainerProps) {
+export function ChatContainer({ onOpenSettings, onStreamingChange, className }: ChatContainerProps) {
   const { messages, isStreaming, sendMessage } = useAgentStream()
   const { config } = useProviderConfigQuery()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    onStreamingChange?.(isStreaming)
+  }, [isStreaming, onStreamingChange])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleSend = (text: string) => {
-    sendMessage({ message: text, model: config?.model })
+    sendMessage({
+      message: text,
+      provider: config?.provider,
+      model: config?.model
+    })
   }
+
 
   return (
     <div className={cn('flex flex-1 flex-col overflow-hidden', className)}>
@@ -60,7 +71,13 @@ export function ChatContainer({ className }: ChatContainerProps) {
               </div>
             </div>
           ) : (
-            messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+            messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                message={msg}
+                onOpenSettings={onOpenSettings}
+              />
+            ))
           )}
 
           <div ref={messagesEndRef} />

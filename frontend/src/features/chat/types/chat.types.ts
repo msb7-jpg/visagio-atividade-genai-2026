@@ -34,11 +34,20 @@ export interface ChatBlockData {
   rows: Record<string, unknown>[]
 }
 
+export interface ChatBlockError {
+  id: string
+  type: 'error'
+  message: string
+  code?: string
+  rawError?: string
+}
+
 export type ChatMessageBlock =
   | ChatBlockText
   | ChatBlockThought
   | ChatBlockSql
   | ChatBlockData
+  | ChatBlockError
 
 export interface ChatMessageItem {
   id: string
@@ -49,4 +58,6 @@ export interface ChatMessageItem {
   timestamp: number
   isStreaming?: boolean
   model?: string
+  provider?: string
 }
+

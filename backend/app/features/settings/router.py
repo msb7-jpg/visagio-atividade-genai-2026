@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.core.session_manager import get_session_manager
 
 from app.features.settings.router_metadata import (
     get_provider_doc,
@@ -39,6 +40,15 @@ async def update_provider(
     config: ProviderConfigDTO,
     service: SettingsService = Depends(get_settings_service),
 ) -> ProviderConfigDTO:
+    session_manager = get_session_manager()
+    if await session_manager.has_active_sessions():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Não é possível alterar as configurações de provedor enquanto houver "
+                "uma sessão analítica em andamento. Aguarde a conclusão da consulta atual."
+            ),
+        )
     return await service.update_config(config)
 
 
