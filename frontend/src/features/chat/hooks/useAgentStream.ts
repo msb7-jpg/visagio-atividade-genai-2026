@@ -4,6 +4,7 @@ import type { AgentStepItem, ChatMessageItem } from '@/features/chat/types/chat.
 interface SendMessageOptions {
   message: string
   threadId?: string
+  model?: string
 }
 
 export function useAgentStream() {
@@ -11,7 +12,7 @@ export function useAgentStream() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
 
-  const sendMessage = async ({ message, threadId }: SendMessageOptions) => {
+  const sendMessage = async ({ message, threadId, model }: SendMessageOptions) => {
     if (!message.trim() || isStreaming) return
 
     const userMessageId = `user-${Date.now()}`
@@ -23,7 +24,8 @@ export function useAgentStream() {
       content: message,
       blocks: [{ id: `block-${Date.now()}-1`, type: 'text', content: message }],
       steps: [],
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      model
     }
 
     const assistantMsg: ChatMessageItem = {

@@ -3,6 +3,7 @@ import { Clapperboard } from 'lucide-react'
 import { ChatInput } from './components/ChatInput'
 import { ChatMessage } from './components/ChatMessage'
 import { useAgentStream } from './hooks/useAgentStream'
+import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderConfigQuery'
 import { cn } from '@/lib/utils'
 
 interface ChatContainerProps {
@@ -11,11 +12,16 @@ interface ChatContainerProps {
 
 export function ChatContainer({ className }: ChatContainerProps) {
   const { messages, isStreaming, sendMessage } = useAgentStream()
+  const { config } = useProviderConfigQuery()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const handleSend = (text: string) => {
+    sendMessage({ message: text, model: config?.model })
+  }
 
   return (
     <div className={cn('flex flex-1 flex-col overflow-hidden', className)}>
@@ -45,7 +51,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
                   <button
                     key={suggestion}
                     type="button"
-                    onClick={() => sendMessage({ message: suggestion })}
+                    onClick={() => handleSend(suggestion)}
                     className="rounded-xl border border-white/10 bg-[#13171E]/60 px-3.5 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-[#FF5E2B]/40 hover:bg-[#FF5E2B]/10 hover:text-white"
                   >
                     {suggestion}
@@ -65,7 +71,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
       <div className="border-t border-white/5 bg-[#0E1217]/80 p-4 backdrop-blur-md sm:px-6">
         <div className="mx-auto max-w-4xl">
           <ChatInput
-            onSendMessage={(msg) => sendMessage({ message: msg })}
+            onSendMessage={handleSend}
             isStreaming={isStreaming}
           />
         </div>

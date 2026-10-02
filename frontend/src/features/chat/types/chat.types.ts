@@ -48,4 +48,5 @@ export interface ChatMessageItem {
   steps: AgentStepItem[]
   timestamp: number
   isStreaming?: boolean
+  model?: string
 }

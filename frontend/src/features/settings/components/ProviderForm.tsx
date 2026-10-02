@@ -233,6 +233,7 @@ function ProviderFormContent({
             const Icon = info.icon
             const isSelected = selectedProvider === prov
             const isSaved = savedProviders.includes(prov)
+            const isActive = initialConfig.provider === prov
 
             return (
               <Card
@@ -249,11 +250,28 @@ function ProviderFormContent({
                         isSelected ? 'h-4 w-4 text-primary' : 'h-4 w-4 text-muted-foreground'
                       }
                     />
-                    <span className="text-xs font-medium text-foreground">
-                      {info.name}
-                    </span>
+                    <div>
+                      <span className="text-xs font-medium text-foreground block">
+                        {info.name}
+                      </span>
+                      {isActive ? (
+                        <span className="text-xs text-muted-foreground block truncate max-w-32">
+                          {initialConfig.model}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    {isActive ? (
+                      <span
+                        data-testid={`active-badge-${prov}`}
+                        className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary"
+                        title={`Provedor atualmente ativo no sistema (${initialConfig.model})`}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <span>Ativo</span>
+                      </span>
+                    ) : null}
                     {isSaved ? (
                       <span
                         data-testid={`saved-badge-${prov}`}

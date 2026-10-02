@@ -32,13 +32,20 @@ export function ChatMessage({ message, className }: ChatMessageProps) {
 
   if (isUser) {
     return (
-      <div className={cn('flex justify-end gap-3', className)}>
-        <div className="max-w-[85%] rounded-2xl bg-[#FF5E2B]/10 border border-[#FF5E2B]/20 px-4 py-3 text-sm text-zinc-100 shadow-sm sm:max-w-[70%]">
-          {message.content}
+      <div className={cn('flex flex-col items-end gap-1.5', className)}>
+        <div className="flex justify-end gap-3 w-full">
+          <div className="max-w-[85%] rounded-2xl bg-[#FF5E2B]/10 border border-[#FF5E2B]/20 px-4 py-3 text-sm text-zinc-100 shadow-sm sm:max-w-[70%]">
+            {message.content}
+          </div>
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#1E2430] text-zinc-400">
+            <User className="size-4.5" />
+          </div>
         </div>
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#1E2430] text-zinc-400">
-          <User className="size-4.5" />
-        </div>
+        {message.model && (
+          <div className="mr-12 text-[11px] font-medium text-zinc-500 tracking-wide select-none">
+            {message.model}
+          </div>
+        )}
       </div>
     )
   }
