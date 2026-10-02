@@ -35,7 +35,7 @@ Se você é um agente de IA lendo este arquivo para iniciar ou continuar o desen
 
 | Slice | Nome da Fatia Vertical | Foco Funcional Principal | Status |
 | :---: | :--- | :--- | :---: |
-| **0** | **Fundação, Estruturação `backend/` & Pipeline Fullstack** | Mover backend para `backend/`, setup SQLite Read-Only, checkpointer, layout e testes | `[PENDENTE]` |
+| **0** | **Fundação, Estruturação `backend/` & Pipeline Fullstack** | Mover backend para `backend/`, setup SQLite Read-Only, checkpointer, layout e testes | `[CONCLUÍDO - 01/10/2026]` |
 | **1** | **Settings & Conectividade Multi-LLM** | Gestão e teste dinâmico de provedores (Groq, Local, OpenRouter, Google, OpenAI) | `[PENDENTE]` |
 | **2** | **Text-to-SQL Analítico & Auditoria Visual** | Core LangGraph, catálogo embutido, AST check, self-correction, SSE e Shiki | `[PENDENTE]` |
 | **3** | **Visualização Declarativa de Gráficos & Tabelas** | Chart.js declarativo (`ChartJsConfigDTO`), tabela analítica e exportação CSV | `[PENDENTE]` |
@@ -121,15 +121,15 @@ cd ..
 ```
 
 ### 6. Checklist Operacional
-- [ ] Código Python da raiz migrado para o diretório `backend/` (`backend/app`, `backend/main.py`, `backend/pyproject.toml`, etc.).
-- [ ] Dependências Python atualizadas e sincronizadas com `uv sync` em `backend/`.
-- [ ] Conexão `mode=ro` com SQLite implementada e testada contra tentativas de escrita.
-- [ ] Checkpointer assíncrono `AsyncSqliteSaver` configurado.
-- [ ] `AgentState` canônico implementado com `add_messages`.
-- [ ] Dependências frontend e vitest configurados no `frontend/package.json`.
-- [ ] Layout Dark Glassmorphism estruturado com `AppLayout.tsx`.
-- [ ] Testes do Slice 0 passando no backend e frontend.
-- [ ] Status da fatia: `[PENDENTE]`
+- [x] Código Python da raiz migrado para o diretório `backend/` (`backend/app`, `backend/main.py`, `backend/pyproject.toml`, etc.).
+- [x] Dependências Python atualizadas e sincronizadas com `uv sync` em `backend/`.
+- [x] Conexão `mode=ro` com SQLite implementada e testada contra tentativas de escrita.
+- [x] Checkpointer assíncrono `AsyncSqliteSaver` configurado.
+- [x] `AgentState` canônico implementado com `add_messages`.
+- [x] Dependências frontend e vitest configurados no `frontend/package.json`.
+- [x] Layout Dark Glassmorphism estruturado com `AppLayout.tsx`.
+- [x] Testes do Slice 0 passando no backend e frontend.
+- [x] Status da fatia: `[CONCLUÍDO - 01/10/2026]`
 
 ---
 

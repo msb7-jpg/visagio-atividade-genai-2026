@@ -1,23 +1,26 @@
 [project]
-name = "visagio-atividade-genai-2026"
+name = "visagio-atividade-genai-2026-backend"
 version = "1.0.0"
-description = "Add your description here"
+description = "CineData Analytics Backend & Agent Service"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.142.2",
-    "langchain>=1.3.11",
-    "langchain-core>=1.4.8",
-    "langchain-huggingface>=1.2.2",
-    "langchain-openai>=1.3.3",
-    "pydantic-settings>=2.15.0",
-    "python-dotenv>=1.2.2",
-    "ruff>=0.16.9",
+    "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
-    "sqlalchemy>=2.0.35",
-    "aiosqlite>=0.20.0",
     "pydantic-settings>=2.5.0",
-    "alembic>=1.19.2",
+    "python-dotenv>=1.0.1",
+    "langchain>=1.4.3",
+    "langchain-core>=1.6.6",
+    "langchain-openai>=1.3.3",
+    "langchain-google-genai>=4.4.0",
+    "langchain-huggingface>=1.2.2",
+    "langgraph>=1.2.12",
+    "langgraph-checkpoint-sqlite>=3.1.1",
+    "sentence-transformers>=3.0.0",
+    "sse-starlette>=2.1.0",
+    "sqlparse>=0.5.0",
+    "aiosqlite>=0.20.0",
+    "sqlalchemy>=2.0.35",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +44,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
