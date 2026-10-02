@@ -38,9 +38,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = 30
 
     # Embeddings locais (RAG)
-    embedding_model_name: str = (
-        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    )
+    embedding_model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
     # Logging
     log_level: str = "INFO"

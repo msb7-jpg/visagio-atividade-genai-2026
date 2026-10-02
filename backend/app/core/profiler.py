@@ -109,9 +109,7 @@ def analyze_queries_for_n_plus_one(records: list[QueryRecord]) -> list[tuple[str
     normalized = [" ".join(r.statement.split()) for r in records]
     counts = Counter(normalized)
     return [
-        (stmt, count)
-        for stmt, count in counts.items()
-        if count >= N_PLUS_ONE_DUPLICATE_THRESHOLD
+        (stmt, count) for stmt, count in counts.items() if count >= N_PLUS_ONE_DUPLICATE_THRESHOLD
     ]
 
 

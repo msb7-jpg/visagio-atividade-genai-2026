@@ -11,3 +11,4 @@
 --no-context-shift \
 
 
+#"chat_template_kwargs": { "enable_thinking": false }

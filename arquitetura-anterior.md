@@ -163,6 +163,8 @@ class UserDetailDTO(BaseModel):
   } as const
   ```
 - **Preservação de Estado na URL:** Filtros, ordenação, busca, página e visualizações (`?view=grid|list`, `?page=1`) sincronizados via query string no React Router para garantir compartilhamento de links e histórico do navegador funcional.
+- **Adoção de utilitários do `@reactuses/core` 
+
 
 ---
 

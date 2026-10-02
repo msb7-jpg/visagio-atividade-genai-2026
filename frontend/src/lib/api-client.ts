@@ -19,11 +19,15 @@ export class ApiError extends Error {
   }
 }
 
+type ApiClientOptions = Omit<RequestInit, 'body'> & {
+  body?: unknown
+}
+
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiClientOptions = {}
 ): Promise<T> {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
   const url = `${baseUrl}${endpoint}`
 
   const headers: HeadersInit = {
@@ -33,7 +37,8 @@ export async function apiClient<T>(
 
   const response = await fetch(url, {
     ...options,
-    headers
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
   })
 
   if (!response.ok) {

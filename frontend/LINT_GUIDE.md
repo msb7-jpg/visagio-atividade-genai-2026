@@ -145,6 +145,22 @@ import { Button } from '@/components/ui/button'
 * **Fragment Shorthand (`react/jsx-fragments`):** `<>...</>` em vez de `<React.Fragment>...</React.Fragment>`.
 * **Alinhamento de Fechamento (`jsx-closing-bracket-location`):** O `>` de tags multilinhas alinha com a abertura da tag.
 * **1 Prop por Linha em Multilinhas (`jsx-max-props-per-line`):** Quando props quebram linha, cada uma ganha sua própria linha para diffs limpos no Git.
-* **Espaçamento de Tags e Iguais (`jsx-tag-spacing`, `jsx-equals-spacing`):** `<Component prop="val" />`, sem espaços espúrios ao redor de `=` ou dentro das tags.
 * **Wrap de Multilinhas (`jsx-wrap-multilines`):** JSX multilinhas em returns e condicionais sempre envolvido em parênteses.
+
+---
+
+## 8. Padrão TanStack Query (Nomenclatura, Separação & Clean Hooks)
+
+1. **Sufixo Obrigatório:** Todo hook que utiliza `useQuery` deve terminar com `Query` (ex: `useProviderConfigQuery`). Todo hook com `useMutation` deve terminar com `Mutation` (ex: `useUpdateProviderConfigMutation`).
+2. **Separação Estrita:** Nunca junte `useQuery` e `useMutation` em um mesmo hook. Mantenha-os em arquivos e funções isoladas.
+3. **Query Keys Centralizadas:** Use sempre a fábrica de chaves da feature (ex: `settingsQueryKeys.provider()`).
+4. **Clean Hooks:** Exponha somente o que é utilizado. Se a tela não precisa de `isError` ou `error`, omita-os do retorno.
+
+---
+
+## 9. Anti-Bypass de Botões & Componentes de Ação
+
+* **A regra:** Ações interativas, seleções e cliques pertencem ao `<Button>`.
+* **Proibição estrita:** É vedado trocar um `<Button>` por `<span>` com `onClick` ou `<div>` para evitar mensagens do linter.
+* **Resolução correta:** Adicione as variantes necessárias (como `card-option` ou `pill`) em `src/components/ui/button.tsx` para manter o código 100% semântico e acessível.
 

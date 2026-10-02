@@ -36,7 +36,7 @@ Se você é um agente de IA lendo este arquivo para iniciar ou continuar o desen
 | Slice | Nome da Fatia Vertical | Foco Funcional Principal | Status |
 | :---: | :--- | :--- | :---: |
 | **0** | **Fundação, Estruturação `backend/` & Pipeline Fullstack** | Mover backend para `backend/`, setup SQLite Read-Only, checkpointer, layout e testes | `[CONCLUÍDO - 01/10/2026]` |
-| **1** | **Settings & Conectividade Multi-LLM** | Gestão e teste dinâmico de provedores (Groq, Local, OpenRouter, Google, OpenAI) | `[PENDENTE]` |
+| **1** | **Settings & Conectividade Multi-LLM** | Gestão e teste dinâmico de provedores (Groq, Local, OpenRouter, Google, OpenAI) | `[CONCLUÍDO - 01/10/2026]` |
 | **2** | **Text-to-SQL Analítico & Auditoria Visual** | Core LangGraph, catálogo embutido, AST check, self-correction, SSE e Shiki | `[PENDENTE]` |
 | **3** | **Visualização Declarativa de Gráficos & Tabelas** | Chart.js declarativo (`ChartJsConfigDTO`), tabela analítica e exportação CSV | `[PENDENTE]` |
 | **4** | **Histórico Persistente & Navegação de Threads** | `AsyncSqliteSaver`, titulação concorrente, reidratação e TimelineScrollSpy | `[PENDENTE]` |
@@ -151,14 +151,17 @@ Permitir que o usuário configure e alterne dinamicamente o provedor de IA diret
 * `backend/app/features/settings/router_metadata.py` — Metadados OpenAPI isolados com `EndpointDoc`.
 * `backend/app/features/settings/router.py` — Endpoints: `GET /settings/provider`, `POST /settings/provider`, `POST /settings/test-provider`.
 * `backend/main.py` — Registro do roteador de settings no aplicativo FastAPI.
-* `frontend/src/features/settings/types/settings.types.ts` — Tipagens TypeScript dos provedores e respostas de teste.
-* `frontend/src/features/settings/hooks/useSettings.ts` — Hook TanStack Query para leitura e mutação da configuração ativa.
-* `frontend/src/features/settings/hooks/useTestProvider.ts` — Hook de mutação para teste assíncrono de conectividade.
+* `frontend/src/features/settings/schemas/settings.schema.ts` — Schemas Zod (`ProviderConfigSchema`, `ProviderConfigFormSchema`, `TestProviderRequestSchema`).
+* `frontend/src/features/settings/types/settings.types.ts` — Tipagens TypeScript derivadas dos schemas Zod (SSOT).
+* `frontend/src/features/settings/api/settingsQueryKeys.ts` — Objeto centralizador de query keys canônicas (`settingsQueryKeys.provider()`).
+* `frontend/src/features/settings/hooks/useProviderConfigQuery.ts` — Hook atômico de consulta TanStack Query para leitura da configuração ativa.
+* `frontend/src/features/settings/hooks/useUpdateProviderConfigMutation.ts` — Hook atômico de mutação para salvar configuração com invalidação declarativa de queries.
+* `frontend/src/features/settings/hooks/useTestProviderProbeMutation.ts` — Hook atômico de mutação para teste assíncrono de conectividade probe.
 * `frontend/src/features/settings/components/SettingsModal.tsx` — Modal de configurações com design Dark Glassmorphism.
-* `frontend/src/features/settings/components/ProviderForm.tsx` — Formulário de seleção de provedor, input de chave de API e URL base.
+* `frontend/src/features/settings/components/ProviderForm.tsx` — Formulário reativo com `@tanstack/react-form` + `useSelector` + validação Zod.
 * `backend/tests/unit/test_llm_factory.py` — Teste unitário da fábrica de LLMs para cada provedor suportado.
 * `backend/tests/features/test_settings_router.py` — Testes de integração dos endpoints `/settings/provider` e `/settings/test-provider`.
-* `frontend/src/features/settings/components/SettingsModal.test.tsx` — Teste de interação e feedback do modal de configurações.
+* `frontend/src/features/settings/components/SettingsModal.test.tsx` — Teste de interação, probe de conectividade e submissão do formulário.
 
 ### 4. Descrição Detalhada das Tarefas
 * **Backend:**
@@ -189,12 +192,12 @@ cd ..
 ```
 
 ### 6. Checklist Operacional
-- [ ] `llm_factory.py` implementado com suporte a Groq, Local, OpenRouter, Google e OpenAI.
-- [ ] Endpoints `/settings/provider` e `/settings/test-provider` operacionais com `EndpointDoc`.
-- [ ] Diagnóstico de erros de provedor (401, 429, timeout) tratado amigavelmente.
-- [ ] Componente `SettingsModal.tsx` integrado com feedback de latência e validação.
-- [ ] Testes unitários e de integração do Slice 1 validados com sucesso.
-- [ ] Status da fatia: `[PENDENTE]`
+- [x] `llm_factory.py` implementado com suporte a Groq, Local, OpenRouter, Google e OpenAI.
+- [x] Endpoints `/settings/provider` e `/settings/test-provider` operacionais com `EndpointDoc`.
+- [x] Diagnóstico de erros de provedor (401, 429, timeout, connection refused) tratado amigavelmente.
+- [x] Componentes `SettingsModal.tsx` e `ProviderForm.tsx` integrados com feedback de latência e validação.
+- [x] Testes unitários e de integração do Slice 1 validados com sucesso no backend e frontend.
+- [x] Status da fatia: `[CONCLUÍDO - 01/10/2026]`
 
 ---
 

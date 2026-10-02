@@ -1,26 +1,23 @@
 import { useState } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from '@/lib/query-client'
 import { AppLayout } from '@/components/layouts/AppLayout'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1
-    }
-  }
-})
+import { SettingsModal } from '@/features/settings/components/SettingsModal'
 
 export function App() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const handleNewChat = () => {
     setActiveThreadId(null)
   }
 
   const handleOpenSettings = () => {
-    // Será integrado ao modal de settings no Slice 1
-    console.info('Configurações solicitadas')
+    setIsSettingsOpen(true)
+  }
+
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false)
   }
 
   return (
@@ -29,6 +26,10 @@ export function App() {
         activeThreadId={activeThreadId}
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
+      />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={handleCloseSettings}
       />
     </QueryClientProvider>
   )

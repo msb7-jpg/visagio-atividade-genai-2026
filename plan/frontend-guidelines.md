@@ -367,35 +367,46 @@ const isSubmitting = useSelector(form.store, (s) => s.isSubmitting)
 
 ---
 
-## 3. 🔄 TanStack Query: Single Source of Truth for Mutations
+## 3. 🔄 TanStack Query: Single Source of Truth & Callbacks de Mutação
 
 ### 🚫 The Rule
-> **Never repeat `useMutation` or create nested mutations when an upstream hook or provider already owns the mutation lifecycle.**
+> **Never repeat `useMutation` or create nested mutations when an upstream hook owns the mutation lifecycle. Além disso, aproveite o gerenciamento nativo de erros e estados do TanStack Query em vez de try/catch manuais redundantes.**
 
-If an application context or domain hook (such as `useAuth`) already manages the mutation (`loginMutation`, `logoutMutation`, token persistence, cache invalidation, and session state):
-- **Do NOT** wrap `login()` in another `useMutation` inside form hooks or components.
-- **Consume the existing mutation directly** (e.g., `await login(values)` inside form `onSubmit`).
-- Handle UI navigation and local feedback directly at the call-site or via declarative `MutationCache` meta options.
+1. **Gestão de Erros Nativa:** O TanStack Query atualiza automaticamente os estados reativos `error`, `isError`, `isPending` e `isSuccess`. Evite criar estados locais paralelos como `const [submitError, setSubmitError] = useState(...)` para replicar o que `mutation.error` já fornece.
+2. **Callbacks em `mutate(variables, options)`:** Para disparar ações efêmeras de UI acopladas à invocação (ex: exibir toast, fechar modal pós-sucesso, redirecionar), utilize o segundo argumento `options` de `mutate()`:
+   ```tsx
+   mutate(payload, {
+     onSuccess: (data) => {
+       notifySuccess()
+       closeModal()
+     },
+     onError: (error) => {
+       // Opcional caso necessite de tracking pontual,
+       // pois mutation.error já atualiza a UI reativamente
+     }
+   })
+   ```
+3. **`mutate` vs `mutateAsync`:**
+   - Prefira `mutate(variables, options)` na maioria dos formulários e handlers de eventos onde o TanStack Query gerencia o ciclo e os callbacks.
+   - Use `mutateAsync` somente quando for imperativo encadear promises com `Promise.all` ou quando um orquestrador precisar do valor resolvido diretamente.
 
 ```tsx
-// 🚫 BAD: Nested mutation - declaring useMutation around an existing useMutation!
-const { login } = useAuth()
-const loginMutation = useMutation({
-  mutationFn: (credentials) => login(credentials) // Duplicate cache & state!
-})
+// ✅ PREFERRED: Invocar mutate() com options no onSubmit e renderizar error do hook na UI
+const { updateConfig, isUpdating, updateError } = useUpdateProviderConfigMutation()
 
-// ✅ GOOD: Single source of truth. Invoke the provider's mutation directly in onSubmit
-const { login, isLoading } = useAuth()
 const form = useForm({
-  onSubmit: async ({ value }) => {
-    try {
-      await login(value)
-      navigateApp('/dashboard', { replace: true })
-    } catch (err) {
-      setServerError(getLoginErrorMessage(err))
-    }
+  onSubmit: ({ value }) => {
+    updateConfig(value, {
+      onSuccess: () => {
+        setSaveSuccessMessage('Salvo!')
+        setTimeout(onSuccess, 800)
+      }
+    })
   }
 })
+
+// Na renderização:
+{updateError ? <ErrorMessage message={updateError.message} /> : null}
 ```
 
 ---
@@ -460,5 +471,69 @@ export type { AppRoute } // Anti-padrão: poluindo a API pública da feature
 import type { AppRoute } from '@/routes/routes.types'
 export type CommandRouteAction = AppRoute
 ```
+
+---
+
+## 6. 🏷️ Padrão Canônico TanStack Query: Nomenclatura, Separação e QueryKeys
+
+### 🚫 As Regras de Ouro
+1. **Sufixos Obrigatórios de Nomenclatura:**
+   - Hooks de consulta (leitura) **devem** obrigatoriamente terminar com o sufixo `Query` (ex: `useProviderConfigQuery`, `useThreadHistoryQuery`).
+   - Hooks de mutação (escrita/ações) **devem** obrigatoriamente terminar com o sufixo `Mutation` (ex: `useUpdateProviderConfigMutation`, `useTestProviderProbeMutation`).
+2. **Separação Estrita (Sem Hooks Híbridos):**
+   - É **terminantemente proibido** misturar `useQuery` e `useMutation` no mesmo hook customizado (ex: um `useSettings` que retorna tanto `config` quanto `updateConfig`). Cada hook tem uma responsabilidade única e atômica.
+3. **Constantes de `queryKeys` por Feature Slice:**
+   - Cada slice deve exportar um objeto de chave canônica (ex: `settingsQueryKeys.provider()`, `chatQueryKeys.threads()`) em `api/[feature]QueryKeys.ts` ou arquivo dedicado, garantindo tipagem estrita com `as const` e evitando strings mágicas espalhadas pelo código.
+4. **Hooks Limpos e Enxutos (Clean Hooks):**
+   - **Exponha apenas o que os componentes realmente consomem.**
+   - Não repasse propriedades como `isError`, `error`, `refetch`, etc., se a view consumidora não as utiliza. Adicione propriedades ao retorno do hook somente sob demanda concreta de negócio.
+
+---
+
+## 7. 🛡️ Integridade de Componentes e Proibição de Desvios (Anti-Bypass de Botões)
+
+### 🚫 A Regra
+> **Nunca substitua elementos semânticos de ação/clique por `<span>`, `<div>` ou invólucros genéricos para tentar contornar regras do linter (`shadcn/no-restyle`).**
+
+Se um elemento executa ação, seleção ou clique:
+- Ele deve ser semanticamente um `<Button>`.
+- Caso seja necessário um novo tratamento visual (ex: opção selecionável em grade, botão com card-style, pílula de ordenação), **adicione a variante ou o tamanho oficial diretamente em `src/components/ui/button.tsx`**.
+- Nunca use `onClick` em `<span>` ou `<div>` quando a semântica for de um botão de ação.
+- Nunca envolva botões inteiros em `<span>` para escapar de verificações de botão.
+
+---
+
+## 8. 📝 Formulários Tipados: TanStack Form + Zod
+
+### Padrão Oficial:
+- Todo formulário com mais de 1 campo ou regras de validação deve ser construído com `@tanstack/react-form` integrado a schemas **Zod** (`src/features/[slice]/schemas/[nome].schema.ts`).
+- Validação no schema Zod com inferência automática de tipos via `z.infer<typeof schema>`.
+- Para ler valores ou estados do formulário de forma reativa e performática, utilize sempre `useSelector(form.store, (state) => ...)` (o método legado `useStore` é proibido).
+
+---
+
+## 9. 🧰 Adoção Mandatória e Preferência por Utilitários do `@reactuses/core`
+
+### 🚫 A Regra de Ouro
+> **Antes de implementar lógica manual de ciclo de vida (`useEffect`), manipuladores de eventos (`window.addEventListener`), timeouts, debounce ou estados de montagem, verifique e utilize os utilitários da biblioteca `@reactuses/core`.** 
+link: https://reactuse.com/effect/useeventlistener/
+tal nao deve ser confundidada com a legado `react-uses`
+
+Reinventar comportamentos comuns com `useEffect` imperativos na mão aumenta a chance de memory leaks, desmontagens incorretas e código boilerplate.
+
+### Utilitários recomendados por caso de uso:
+1. **Atalhos de teclado e eventos de janela:**
+   - Use `useKey('Escape', handler)` em vez de registrar `window.addEventListener('keydown', ...)`.
+2. **Timers e Atrasos Controlados:**
+   - Use `useTimeoutFn` ou `useInterval` em vez de chamar `setTimeout` / `setInterval` na mão com `clearTimeout` manual.
+3. **Prevenção de Race Conditions e Memory Leaks:**
+   - Use `useMountedState()` para checar se o componente continua montado antes de atualizar estados pós promises/ações assíncronas.
+4. **Entradas de Usuário e Debounce:**
+   - Use `useDebounce` para atrasar disparos de busca ou filtros em tempo real.
+5. **Fechamento ao clicar fora:**
+   - Use `useClickAway` em popovers, drawers ou menus flutuantes.
+6. **Área de Transferência:**
+   - Use `useCopyToClipboard` para ações de copiar chave/código com feedback imediato.
+
 
 
