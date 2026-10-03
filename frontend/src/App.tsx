@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from '@/lib/query-client'
 import { AppLayout } from '@/components/layouts/AppLayout'
-import { SettingsModal } from '@/features/settings/components/SettingsModal'
+import { SettingsModal } from '@/features/settings/components/modal/SettingsModal'
 
 import { ChatContainer } from '@/features/chat/ChatContainer'
 

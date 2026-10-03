@@ -14,11 +14,11 @@ import {
   User
 } from 'lucide-react'
 import { useState } from 'react'
+import { MarkdownRenderer } from '../renderers/MarkdownRenderer'
+import { SqlCodeBlock } from '../renderers/SqlCodeBlock'
+import { ThoughtInspector } from '../renderers/ThoughtInspector'
 import { AgentAvatar } from './AgentAvatar'
-import { MarkdownRenderer } from './MarkdownRenderer'
 import { NodeStepper } from './NodeStepper'
-import { SqlCodeBlock } from './SqlCodeBlock'
-import { ThoughtInspector } from './ThoughtInspector'
 
 interface ChatErrorCardProps {
   block: ChatBlockError

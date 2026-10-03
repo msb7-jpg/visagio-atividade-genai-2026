@@ -2,8 +2,8 @@ import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderCon
 import { cn } from '@/lib/utils'
 import { Clapperboard } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { ChatInput } from './components/ChatInput'
-import { ChatMessage } from './components/ChatMessage'
+import { ChatInput } from './components/input/ChatInput'
+import { ChatMessage } from './components/feed/ChatMessage'
 import { useAgentStream } from './hooks/useAgentStream'
 
 interface ChatContainerProps {

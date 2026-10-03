@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ChatMessage } from '@/features/chat/components/ChatMessage'
+import { ChatMessage } from '../ChatMessage'
 import type { ChatMessageItem } from '@/features/chat/types/chat.types'
 
 describe('ChatMessage with Error Block', () => {

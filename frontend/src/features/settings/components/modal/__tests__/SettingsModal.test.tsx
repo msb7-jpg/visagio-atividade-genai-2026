@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { SettingsModal } from '@/features/settings/components/SettingsModal'
+import { SettingsModal } from '../SettingsModal'
 import * as apiClientModule from '@/lib/api-client'
 
 function renderWithClient(ui: React.ReactElement) {

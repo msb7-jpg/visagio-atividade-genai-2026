@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { ProviderForm } from '@/features/settings/components/ProviderForm'
+import { ProviderForm } from '../form/ProviderForm'
 import { useKeyPress } from '@/hooks/useKeyPress'
 import { Sliders, X } from 'lucide-react'
 

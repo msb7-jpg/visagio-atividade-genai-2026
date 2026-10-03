@@ -2,7 +2,7 @@ import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ChartRenderer } from './ChartRenderer'
+import { ChartRenderer } from './charts/ChartRenderer'
 import { TableRenderer } from './TableRenderer'
 
 interface MarkdownRendererProps {
