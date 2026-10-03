@@ -74,7 +74,10 @@ def test_check_sql_execution_security_bypass():
         "generated_sql": None,
         "query_result": None,
         "error_count": 1,
-        "last_error": "Operação não permitida por política de segurança: O banco CineData opera estritamente em modo de leitura (Read-Only).",
+        "last_error": (
+            "Operação não permitida por política de segurança: "
+            "O banco CineData opera estritamente em modo de leitura (Read-Only)."
+        ),
         "error_category": "SECURITY_VIOLATION",
         "title": None,
         "steps": [],

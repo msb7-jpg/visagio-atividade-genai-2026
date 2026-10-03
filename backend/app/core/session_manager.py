@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from collections.abc import Set
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ class ActiveSessionManager:
     Permite bloquear alterações concorrentes que possam invalidar a execução in-flight.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._active_sessions: set[str] = set()
         self._lock = asyncio.Lock()
 
@@ -24,6 +25,17 @@ class ActiveSessionManager:
         async with self._lock:
             self._active_sessions.discard(session_id)
             logger.debug("Sessão ativa desregistrada: %s (Total: %d)", session_id, len(self._active_sessions))
+
+    @asynccontextmanager
+    async def session_scope(self, session_id: str) -> AsyncIterator[None]:
+        """
+        Context manager assíncrono garantindo registro e desregistro atômico da sessão.
+        """
+        await self.register_session(session_id)
+        try:
+            yield
+        finally:
+            await self.unregister_session(session_id)
 
     async def has_active_sessions(self) -> bool:
         async with self._lock:

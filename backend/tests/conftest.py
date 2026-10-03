@@ -1,6 +1,7 @@
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from app.core.config import Settings, get_settings
 

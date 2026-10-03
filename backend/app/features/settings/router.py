@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.core.session_manager import get_session_manager
 
+from app.core.session_manager import get_session_manager
 from app.features.settings.router_metadata import (
     get_provider_doc,
     test_provider_doc,
@@ -52,7 +52,6 @@ async def update_provider(
     return await service.update_config(config)
 
 
-
 @router.post(
     "/test-provider",
     response_model=TestProviderResponseDTO,
@@ -60,7 +59,7 @@ async def update_provider(
     description=test_provider_doc.description,
     response_description=test_provider_doc.response_description,
 )
-async def test_provider(
+async def probe_provider_endpoint(
     request: TestProviderRequestDTO,
     service: SettingsService = Depends(get_settings_service),
 ) -> TestProviderResponseDTO:

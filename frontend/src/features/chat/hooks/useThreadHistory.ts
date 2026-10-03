@@ -2,7 +2,30 @@ import { chatQueryKeys, deleteThreadApi, fetchThreads } from '@/features/chat/ap
 import type { ThreadSummary } from '@/features/chat/types/chat.types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-export function useThreadHistory() {
+/**
+ * Objeto de retorno do hook de histórico de conversas com listagem e mutação otimista de exclusão.
+ */
+export interface UseThreadHistoryResult {
+  /** Lista ordenada de conversas salvas no SQLite. */
+  threads: ThreadSummary[]
+  /** Indica se a consulta inicial de threads está em carregamento. */
+  isLoading: boolean
+  /** Indica se ocorreu erro ao carregar as threads. */
+  isError: boolean
+  /** Dispara a exclusão de uma conversa com atualização otimista da lista. */
+  deleteThread: (threadId: string) => void
+  /** Flag indicando que uma operação de exclusão está em execução. */
+  isDeleting: boolean
+  /** Atualiza diretamente o título de uma thread no cache do TanStack Query sem refetch imediato. */
+  updateThreadTitleInCache: (threadId: string, newTitle: string) => void
+}
+
+/**
+ * Hook para gerenciamento do catálogo de conversas com cache TanStack Query e exclusão otimista.
+ *
+ * @returns Objeto com lista de threads, flags de carregamento e métodos de manipulação de cache.
+ */
+export function useThreadHistory(): UseThreadHistoryResult {
   const queryClient = useQueryClient()
 
   const threadsQuery = useQuery({
@@ -48,7 +71,6 @@ export function useThreadHistory() {
     threads: threadsQuery.data ?? [],
     isLoading: threadsQuery.isLoading,
     isError: threadsQuery.isError,
-    refetch: threadsQuery.refetch,
     deleteThread: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
     updateThreadTitleInCache

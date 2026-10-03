@@ -44,12 +44,58 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 100
+preview = true
+line-length = 120
 target-version = "py312"
 extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = [
+    "E",    # pycodestyle Error (estilo padrão)
+    "F",    # Pyflakes (erros lógicos, variáveis não usadas)
+    "I",    # isort (organização limpa de imports)
+    "UP",   # pyupgrade (força sintaxe moderna do Python)
+    "B",    # flake8-bugbear (previne bugs de lógica e anti-padrões comuns)
+    "SIM",  # flake8-simplify (sugere simplificações de código)
+    "complex-structure", # mccabe (Complexidade Ciclomática - a que você já queria)
+    
+    "N",    # pep8-naming (garante padrões estritos de nomenclatura)
+    "C4",   # flake8-comprehensions (otimiza list/dict comprehensions)
+    "FA",   # flake8-future-annotations (melhora performance de type hinting)
+    "ISC",  # flake8-implicit-str-concat (evita bugs com strings implicitamente unidas)
+    "PIE",  # flake8-pie (regras gerais de qualidade e refinamento de código)
+    "PT",   # flake8-pytest-style (padroniza testes robustos e eficientes)
+    "RSE",  # flake8-raise (evita parênteses desnecessários em exceções)
+    "RET",  # flake8-return (força retornos lógicos mais limpos e legíveis)
+    "SLF",  # flake8-self (bloqueia acessos indevidos a métodos privados de outras classes)
+    "T20",  # flake8-print (proíbe `print` soltos no backend - exige logging correto)
+    "PERF", # Perflint (regras focadas estritamente em performance backend)
+    "FURB", # refurb (moderniza e refatora código antigo/ineficiente)
+    "RUF",  # Regras nativas do próprio Ruff (erros específicos e profundos de Python)
+    "ASYNC",# flake8-async (previne bugs clássicos em corotinas/código assíncrono)
+    "S",    # flake8-bandit (análise de vulnerabilidades de segurança - ex: SQLi, Hardcoded secrets)
+    "ambiguous-variable-name",
+]
+
+# Regras que você quer ignorar deliberadamente (evita alertas irritantes)
+ignore = [
+    "assert", # Permite usar `assert` (essencial para testes no pytest)
+    "yield-in-context-manager-in-async-generator", # Yield dentro de context manager em gerador assíncrono (necessário para streaming SSE)
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+]
+
+[tool.pyright]
+include = ["app"] # Substitua pelo nome da pasta do seu código fonte
+typeCheckingMode = "standard"
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = false # Evita alertas chatos de libs sem tipagem

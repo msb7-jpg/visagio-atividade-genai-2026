@@ -1,10 +1,10 @@
 import re
-from typing import Any
 
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentStateUpdate
+from app.core.constants import SqlErrorCategory
 from app.core.llm_factory import get_chat_model
 
 CINEDATA_CATALOG_PROMPT = """Você é o Agente Analítico Especialista em SQL do CineData Analytics.
@@ -49,40 +49,55 @@ INSTRUÇÕES DE RESPOSTA E CONTEXTO TEMPORAL:
 0. Pense brevemente sobre a consulta analítica e estruture a query.
 1. CONTEXTO TEMPORAL DO DATASET:
    - O catálogo histórico cobre principalmente produções lançadas entre 2016 e 2024 (com dados consolidados até 2024).
-   - Filmes com anos posteriores (2025 a 2029) representam projetos futuros em planejamento ou pós-produção cadastrados antecipadamente.
+   - Filmes com anos posteriores (2025 a 2029) representam projetos futuros em planejamento ou pós-produção
+     cadastrados antecipadamente.
 2. Formate sua resposta SEMPRE com o bloco de raciocínio delimitado por <thought>...</thought>
    e a query SQL delimitada por ```sql ... ```.
 3. Gere apenas consultas SELECT ou CTEs (WITH). O banco é ESTRITAMENTE DE LEITURA (READ-ONLY).
-4. Se o usuário solicitar qualquer operação de alteração, deleção, limpeza ou destruição de dados/tabelas (ex.: DELETE, DROP, TRUNCATE, UPDATE, ALTER), NUNCA gere o SQL. Em vez disso, explique no bloco <thought> e no texto que o CineData opera apenas em modo de consulta e que comandos de escrita/limpeza são expressamente proibidos por segurança.
+4. Se o usuário solicitar qualquer operação de alteração, deleção, limpeza ou destruição de dados/tabelas
+   (ex.: DELETE, DROP, TRUNCATE, UPDATE, ALTER), NUNCA gere o SQL. Em vez disso, explique no bloco <thought>
+   e no texto que o CineData opera apenas em modo de consulta e que comandos de escrita/limpeza são expressamente
+   proibidos por segurança.
 5. Inclua ordenações e LIMIT coerentes (padrão top 10 a 20 quando aplicável).
 """
 
 
-
 def extract_thought_and_sql(text: str) -> tuple[str | None, str | None]:
-    """Extrai blocos <thought> e ```sql do output do modelo."""
-    # Extrai o pensamento entre as tags <thought>
+    """
+    Extrai blocos <thought> e ```sql do output gerado pelo modelo.
+
+    Args:
+        text: Saída textual bruta emitida pelo LLM.
+
+    Returns:
+        Tupla (pensamento_extraido, codigo_sql_extraido).
+    """
     thought_match = re.search(r"<thought>(.*?)</thought>", text, re.DOTALL | re.IGNORECASE)
     thought = getattr(thought_match, "group", lambda _: "")(1).strip() or None
 
-    # Extrai o bloco de código Markdown ```sql ou genérico
     sql_match = re.search(r"```(?:sql)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
-    
     if sql_match:
         return thought, sql_match.group(1).strip() or None
 
-    # Fallback: Se não houver markdown, limpa o texto e valida se inicia com SELECT/WITH
     clean_text = text.strip()
     if clean_text.upper().startswith(("SELECT", "WITH")):
         return thought, clean_text
 
     return thought, None
 
+
 async def sql_generator_node(
     state: AgentState, config: RunnableConfig | None = None
-) -> dict[str, Any]:
+) -> AgentStateUpdate:
     """
-    Nó gerador de SQL que injeta o catálogo semântico compacto e gera o SQL.
+    Nó gerador de SQL que injeta o catálogo semântico compacto e sintetiza a consulta analítica.
+
+    Args:
+        state: Estado do LangGraph contendo o histórico de mensagens.
+        config: Configuração do runner com provedor e credenciais ativas.
+
+    Returns:
+        Atualização parcial do estado contendo thought, generated_sql e eventuais categorias de erro.
     """
     messages = state["messages"]
     configurable = (config or {}).get("configurable", {})
@@ -95,7 +110,6 @@ async def sql_generator_node(
         temperature=0.0,
     )
 
-
     system_msg = SystemMessage(content=CINEDATA_CATALOG_PROMPT)
     llm_input = [system_msg, *messages]
 
@@ -104,30 +118,29 @@ async def sql_generator_node(
 
     thought, sql = extract_thought_and_sql(raw_content)
 
-    last_error = None
-    error_category = None
+    last_error: str | None = None
+    error_category: SqlErrorCategory | None = None
+
     if not sql:
-        # Verifica se o texto do usuário ou a resposta do modelo indica comando destrutivo / DDL / DML
         last_user_msg = ""
         for m in reversed(messages):
             if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
                 last_user_msg = str(m.content).lower()
                 break
 
-        destructive_terms = [
+        destructive_terms = (
             "limpar", "apagar", "deletar", "drop", "delete", "truncate",
-            "remover tabelas", "excluir", "zerar", "destruir", "modificar"
-        ]
+            "remover tabelas", "excluir", "zerar", "destruir", "modificar",
+        )
         if any(term in last_user_msg for term in destructive_terms):
-            error_category = "SECURITY_VIOLATION"
+            error_category = SqlErrorCategory.SECURITY_VIOLATION
             last_error = (
                 "Operação não permitida por política de segurança: O banco CineData opera "
                 "estritamente em modo de leitura (Read-Only). Consultas destrutivas, de exclusão "
                 "ou de modificação (como DROP, DELETE, TRUNCATE) são bloqueadas."
             )
         else:
-            error_category = "UNSUPPORTED_REQUEST"
-            # Se o modelo explicou no texto a recusa ou motivo
+            error_category = SqlErrorCategory.UNSUPPORTED_REQUEST
             clean_raw = raw_content.strip()
             if thought and len(clean_raw) > len(thought):
                 explanation = re.sub(r"<thought>.*?</thought>", "", clean_raw, flags=re.DOTALL | re.IGNORECASE).strip()

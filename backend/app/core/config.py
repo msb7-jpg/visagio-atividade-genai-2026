@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
     port: int = 8000
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # ruff: ignore[hardcoded-bind-all-interfaces] - servidor FastAPI escuta em todas as interfaces locais/containers
 
     # Bancos de Dados
     # O cinerocket.db reside na raiz do repositório
@@ -50,4 +50,10 @@ Configuration = Settings
 
 @lru_cache
 def get_settings() -> Settings:
+    """
+    Retorna a instância singleton de configurações da aplicação com cache em memória.
+
+    Returns:
+        Objeto Settings populado com variáveis de ambiente ou valores padrão.
+    """
     return Settings()

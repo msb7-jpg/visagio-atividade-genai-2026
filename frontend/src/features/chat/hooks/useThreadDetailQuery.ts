@@ -1,8 +1,14 @@
 import { chatQueryKeys, fetchThreadDetail } from '@/features/chat/api/threadsApi'
 import type { ThreadDetail } from '@/features/chat/types/chat.types'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 
-export function useThreadDetailQuery(threadId: string | null | undefined) {
+/**
+ * Hook do TanStack Query para carregar os detalhes e checkpoints históricos de uma thread.
+ *
+ * @param threadId - Identificador único da conversa no SQLite.
+ * @returns Objeto de resultado da query do TanStack com estado de loading, erros e dados da thread.
+ */
+export function useThreadDetailQuery(threadId: string | null | undefined): UseQueryResult<ThreadDetail, Error> {
   return useQuery<ThreadDetail, Error>({
     queryKey: threadId ? chatQueryKeys.threadDetail(threadId) : ['chat', 'threads', 'empty'],
     queryFn: () => {

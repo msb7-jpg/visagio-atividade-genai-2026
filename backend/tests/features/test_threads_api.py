@@ -68,6 +68,7 @@ async def test_interrupted_thread_detail_synthesizes_error_step():
 
     await ThreadRepository.delete_thread(thread_id)
 
+
 @pytest.mark.asyncio
 async def test_running_thread_detail_does_not_synthesize_error_step():
     from unittest.mock import AsyncMock, MagicMock, patch

@@ -13,17 +13,37 @@ import {
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
+/**
+ * Propriedades para a estrutura de layout principal da aplicação CineData.
+ */
 export interface AppLayoutProps {
+  /** Conteúdo central da área de trabalho (feed de chat e input). */
   children?: ReactNode
+  /** Conteúdo da barra lateral esquerda (histórico de conversas). */
   sidebarContent?: ReactNode
+  /** Conteúdo da barra lateral direita (linha do tempo e sumário). */
   rightSidebarContent?: ReactNode
+  /** Título animado exibido no cabeçalho superior. */
   headerTitle?: ReactNode
+  /** Identificador da thread ativa. */
   activeThreadId?: string | null
+  /**
+   * Indica se há transmissão de streaming ativa.
+   * @defaultValue `false`
+   */
   isStreaming?: boolean
+  /** Callback para iniciar uma nova conversa vazia. */
   onNewChat?: () => void
+  /** Callback para abrir o modal de configurações de IA. */
   onOpenSettings?: () => void
 }
 
+/**
+ * Layout principal em tela cheia com barra lateral retrátil, cabeçalho e timeline lateral.
+ *
+ * @param props - Propriedades contendo áreas de conteúdo, estado de streaming e callbacks de navegação.
+ * @returns Elemento JSX do layout com painéis retráteis responsivos.
+ */
 export function AppLayout({
   children,
   sidebarContent,
@@ -65,7 +85,7 @@ export function AppLayout({
         </div>
 
         {/* Botão Novo Chat Único e Canônico */}
-        <div className="p-3 w-full flex justify-center">
+        <div className="p-3 w-full flex justify-center [&>button]:w-full">
           {sidebarOpen ? (
             <Button
               variant="outline"
@@ -74,9 +94,9 @@ export function AppLayout({
               disabled={isStreaming}
               aria-label="Novo Chat"
               title={isStreaming ? 'Aguarde a resposta em andamento' : undefined}
-              className="w-full justify-start border-white/10 bg-sidebar/60 hover:bg-primary/10 hover:border-primary/30 text-zinc-200"
+              className="justify-start"
             >
-              <Plus className="size-4 mr-2 text-primary" />
+              <Plus className="h-4 w-4 mr-2 text-primary" />
               <span>Novo Chat</span>
             </Button>
           ) : (
@@ -87,9 +107,8 @@ export function AppLayout({
               disabled={isStreaming}
               aria-label="Novo Chat"
               title={isStreaming ? 'Aguarde a resposta em andamento' : 'Novo Chat'}
-              className="size-9 border-white/10 bg-sidebar/60 hover:bg-primary/10 hover:border-primary/30 text-zinc-200"
             >
-              <Plus className="size-4 text-primary" />
+              <Plus className="h-4 w-4 text-primary" />
             </Button>
           )}
         </div>

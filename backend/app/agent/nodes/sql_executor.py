@@ -1,20 +1,27 @@
-from typing import Any
-
 from app.agent.nodes.sql_validator import validate_sql_query
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentStateUpdate
 from app.agent.tools.query_runner import execute_sql_query
+from app.core.constants import SqlErrorCategory
 from app.shared.exceptions import DatabaseReadError
 
 
-def sql_executor_node(state: AgentState) -> dict[str, Any]:
+def sql_executor_node(state: AgentState) -> AgentStateUpdate:
     """
-    Executa a consulta SQL gerada após validação AST.
-    Em caso de falha de validação ou de execução SQLite, registra o erro para o nó de correção.
+    Executa a consulta SQL gerada após validação sintática e de segurança na AST.
+
+    Em caso de falha de validação ou de execução SQLite, registra a mensagem de erro
+    e sua categoria para direcionamento posterior no grafo.
+
+    Args:
+        state: Estado atual contendo 'generated_sql' e histórico de erros.
+
+    Returns:
+        Atualização parcial do estado contendo query_result ou last_error / error_category.
     """
     sql = state.get("generated_sql")
     if not sql:
         existing_error = state.get("last_error")
-        existing_cat = state.get("error_category") or "UNSUPPORTED_REQUEST"
+        existing_cat = state.get("error_category") or SqlErrorCategory.UNSUPPORTED_REQUEST
         return {
             "query_result": None,
             "last_error": existing_error or "Nenhum código SQL foi gerado para execução.",
@@ -27,7 +34,7 @@ def sql_executor_node(state: AgentState) -> dict[str, Any]:
         return {
             "query_result": None,
             "last_error": f"Falha na validação AST: {validation_error}",
-            "error_category": error_cat or "SECURITY_VIOLATION",
+            "error_category": error_cat or SqlErrorCategory.SECURITY_VIOLATION,
             "error_count": state.get("error_count", 0) + 1,
         }
 
@@ -42,6 +49,6 @@ def sql_executor_node(state: AgentState) -> dict[str, Any]:
         return {
             "query_result": None,
             "last_error": f"Erro de execução SQL: {exc}",
-            "error_category": "RECOVERABLE_SYNTAX",
+            "error_category": SqlErrorCategory.RECOVERABLE_SYNTAX,
             "error_count": state.get("error_count", 0) + 1,
         }

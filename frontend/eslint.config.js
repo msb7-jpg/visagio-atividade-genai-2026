@@ -10,6 +10,7 @@ import stylistic from '@stylistic/eslint-plugin'
 import tsdoc from 'eslint-plugin-tsdoc'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import designSystemPolicy from './design-system.lint.json' with { type: 'json' }
+import jsdoc from 'eslint-plugin-jsdoc';
 
 export default defineConfig([
   globalIgnores(['dist', 'node_modules', '.tmp']),
@@ -46,6 +47,7 @@ export default defineConfig([
       shadcn: shadcnPlugin.default || shadcnPlugin,
       '@stylistic': stylistic,
       tsdoc,
+      jsdoc
     },
     rules: {
       // 1. Regras do Design System (@shadcn/lint)
@@ -245,6 +247,19 @@ export default defineConfig([
 
       // 11. TSDoc
       'tsdoc/syntax': 'warn',
+      'jsdoc/require-jsdoc': [
+        'warn',
+        {
+          publicOnly: true,
+          require: {
+            FunctionDeclaration: true,
+          },
+        },
+      ],
+      'jsdoc/require-param-description': 'warn',
+      'jsdoc/require-returns-description': 'warn',
+      'jsdoc/require-param-type': 'off', // Desativado: O TypeScript já resolve o tipo nativamente
+      'jsdoc/require-returns-type': 'off', // Desativado: O TypeScript já resolve o tipo de retorno
     },
   },
   // Overrides de design system e componentes UI

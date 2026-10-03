@@ -1,28 +1,39 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@reactuses/core'
-import { Check, ChevronRight, Copy, Database } from 'lucide-react'
+import { Check, Copy, Database, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { codeToHtml } from 'shiki'
 
-interface SqlCodeBlockProps {
+/**
+ * Propriedades para renderização do bloco de código SQL.
+ */
+export interface SqlCodeBlockProps {
+  /** Texto da consulta SQL formatada. */
   query: string
+  /** Classes CSS adicionais. */
   className?: string
 }
 
+/**
+ * Bloco colapsável com syntax highlighting (Shiki) e botão de cópia para consultas SQL.
+ *
+ * @param props - Propriedades com a query SQL e estilização.
+ * @returns Elemento JSX do card de código SQL interativo.
+ */
 export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [highlightedHtml, setHighlightedHtml] = useState<string>('')
   const [isCopied, setIsCopied] = useState(false)
   const [, copyToClipboard] = useCopyToClipboard()
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     let isMounted = true
     async function highlight() {
       try {
+        const { codeToHtml } = await import('shiki')
         const html = await codeToHtml(query, {
           lang: 'sql',
-          theme: 'vitesse-dark'
+          theme: 'github-dark-dimmed'
         })
         if (isMounted) {
           setHighlightedHtml(html)
@@ -49,7 +60,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg transition-all',
+        'group relative overflow-hidden rounded-xl border border-border bg-sidebar shadow-lg transition-all',
         className
       )}
     >
@@ -66,37 +77,38 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
             setIsExpanded((prev) => !prev)
           }
         }}
-        className="flex cursor-pointer select-none items-center justify-between border-b border-white/5 bg-[#171C25] px-3.5 py-2.5 transition-colors hover:bg-[#1D232F]"
+        className="flex cursor-pointer select-none items-center justify-between border-b border-border bg-sidebar px-3 py-2 transition-colors hover:bg-card-hover"
       >
         <div className="flex items-center gap-2">
           <ChevronRight
             className={cn(
-              'size-4 text-zinc-400 transition-transform duration-200',
+              'h-4 w-4 text-muted-foreground transition-transform duration-200',
               isExpanded && 'rotate-90'
             )}
           />
-          <Database className="size-3.5 text-primary" />
-          <span className="text-xs font-semibold text-zinc-300">Consulta SQL</span>
-          
-          <span className="text-[11px] text-zinc-500">
+          <Database className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-semibold text-foreground">Consulta SQL</span>
+
+          <span className="text-xs text-subtle-foreground">
             {isExpanded ? '(clique para recolher)' : '(clique para expandir)'}
           </span>
         </div>
 
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={handleCopy}
-          className="h-7 gap-1.5 px-2 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
         >
           {isCopied ? (
             <>
-              <Check className="size-3.5 text-emerald-400" />
-              <span className="text-emerald-400">Copiado!</span>
+              <Check className="h-3.5 w-3.5 text-accent-emerald" />
+              <span className="text-accent-emerald">Copiado!</span>
             </>
           ) : (
             <>
-              <Copy className="size-3.5" />
+              <Copy className="h-3.5 w-3.5" />
               <span>Copiar</span>
             </>
           )}
@@ -105,14 +117,14 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
 
       {/* Code Area (colapsável) */}
       {isExpanded ? (
-        <div className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-zinc-200 border-t border-white/5 bg-[#11151C]">
+        <div className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-foreground border-t border-border bg-card">
           {highlightedHtml ? (
             <div
               dangerouslySetInnerHTML={{ __html: highlightedHtml }}
               className="[&_pre]:bg-transparent! [&_pre]:p-0!"
             />
           ) : (
-            <pre className="text-zinc-400">{query}</pre>
+            <pre className="text-muted-foreground">{query}</pre>
           )}
         </div>
       ) : null}

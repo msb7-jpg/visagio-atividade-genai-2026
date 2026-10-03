@@ -17,6 +17,15 @@
   --color-muted-foreground: #9CA3AF;
   --color-subtle-foreground: #6B7280;
 
+  --color-secondary: #1B202B;
+  --color-secondary-foreground: #F3F4F6;
+
+  --color-accent: #232936;
+  --color-accent-foreground: #F3F4F6;
+
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
+
   --color-accent-cyan: #00D2FF;
   --color-accent-blue: #3B82F6;
   --color-accent-emerald: #10B981;

@@ -55,9 +55,9 @@ describe('TableRenderer', () => {
   })
 
   it('renders pagination when items exceed pageSize', () => {
-    const manyRows = Array.from({ length: 25 }, (_, i) => ({
-      id: i + 1,
-      nome: `Filme ${i + 1}`
+    const manyRows = Array.from({ length: 25 }, (_, index) => ({
+      id: index + 1,
+      nome: `Filme ${index + 1}`
     }))
 
     render(<TableRenderer rows={manyRows} pageSize={10} />)
@@ -67,7 +67,7 @@ describe('TableRenderer', () => {
     expect(screen.queryByText('Filme 11')).not.toBeInTheDocument()
 
     // Avança para a página 2
-    const nextBtn = screen.getAllByRole('button').find((b) => b.querySelector('svg.lucide-chevron-right'))
+    const nextBtn = screen.getAllByRole('button').find((btn) => btn.querySelector('svg.lucide-chevron-right'))
     if (nextBtn) {
       fireEvent.click(nextBtn)
       expect(screen.getByText(/página 2 de 3/i)).toBeInTheDocument()

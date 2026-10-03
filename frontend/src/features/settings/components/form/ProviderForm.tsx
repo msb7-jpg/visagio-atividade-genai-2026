@@ -1,25 +1,36 @@
-import { Card } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
+import { DEFAULT_PROVIDER_MODELS } from '@/features/settings/constants/providerDefaults'
+import { useCredentialEditor } from '@/features/settings/hooks/useCredentialEditor'
+import { useModelDiscovery } from '@/features/settings/hooks/useModelDiscovery'
+import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderConfigQuery'
+import { useProviderFormCore } from '@/features/settings/hooks/useProviderFormCore'
+import { useProviderProbe } from '@/features/settings/hooks/useProviderProbe'
+import type { ProviderConfig, ProviderType } from '@/features/settings/schemas/settings.schema'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
-import { DEFAULT_PROVIDER_MODELS } from '../../constants/providerDefaults'
-import { useCredentialEditor } from '../../hooks/useCredentialEditor'
-import { useModelDiscovery } from '../../hooks/useModelDiscovery'
-import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery'
-import { useProviderFormCore } from '../../hooks/useProviderFormCore'
-import { useProviderProbe } from '../../hooks/useProviderProbe'
-import type { ProviderConfig, ProviderType } from '../../schemas/settings.schema'
 
 import { ProviderCardGrid } from './ProviderCardGrid'
 import { ProviderFormActions } from './ProviderFormActions'
-import { ApiKeyField } from './fields/ApiKeyField'
-import { BaseUrlField } from './fields/BaseUrlField'
-import { ModelSelectorField } from './fields/ModelSelectorField'
+import { ProviderFieldsSection } from './fields/ProviderFieldsSection'
 
+/**
+ * Propriedades para renderização do formulário de configuração de provedores.
+ */
 export interface ProviderFormProps {
+  /** Callback executado após a conclusão com sucesso do salvamento. */
   onSuccess?: () => void
+  /**
+   * Indica se há streaming ativo bloqueando edições no momento.
+   * @defaultValue `false`
+   */
   isStreaming?: boolean
 }
 
+/**
+ * Conteúdo interno do formulário após o carregamento da configuração inicial.
+ *
+ * @param props - Propriedades contendo initialConfig, onSuccess e isStreaming.
+ * @returns Elemento JSX do formulário completo.
+ */
 function ProviderFormContent({
   initialConfig,
   onSuccess,
@@ -107,6 +118,7 @@ function ProviderFormContent({
 
   return (
     <form
+      data-testid="provider-form"
       onSubmit={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -116,14 +128,14 @@ function ProviderFormContent({
       className="space-y-4"
     >
       {isStreaming ? (
-        <Card data-testid="streaming-active-banner" className="p-3 border-amber-500/30 bg-amber-500/10">
-          <div className="flex items-center gap-2 text-xs text-amber-400">
+        <div data-testid="streaming-active-banner" className="rounded-xl border border-primary/30 bg-primary/10 p-3">
+          <div className="flex items-center gap-2 text-xs text-primary">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
               Uma consulta analítica está em andamento. A alteração de provedor e testes de conexão ficam temporariamente bloqueados para garantir a estabilidade da sessão.
             </span>
           </div>
-        </Card>
+        </div>
       ) : null}
 
       <ProviderCardGrid
@@ -135,87 +147,37 @@ function ProviderFormContent({
         onSelect={handleProviderSelect}
       />
 
-      <div className="space-y-3 pt-2">
-        {selectedProvider !== 'local' ? (
-          <form.Field name="api_key">
-            {(field) => (
-              <ApiKeyField
-                provider={selectedProvider}
-                value={field.state.value}
-                savedKey={savedConfigs[selectedProvider]?.api_key}
-                isSaved={savedProviders.includes(selectedProvider)}
-                isEditing={isEditingKey}
-                isConnected={isConnected}
-                isFailed={isFailed}
-                latencyMs={testResult?.latency_ms}
-                probeErrorMessage={probeErrorMessage}
-                inputStatus={inputStatus}
-                onEditChange={setIsEditingKey}
-                onChange={(val) => {
-                  resetTest()
-                  field.handleChange(val)
-                }}
-                onBlur={field.handleBlur}
-              />
-            )}
-          </form.Field>
-        ) : (
-          <form.Field name="base_url">
-            {(field) => (
-              <BaseUrlField
-                value={field.state.value}
-                isConnected={isConnected}
-                isFailed={isFailed}
-                latencyMs={testResult?.latency_ms}
-                probeErrorMessage={probeErrorMessage}
-                inputStatus={inputStatus}
-                onChange={(val) => {
-                  resetTest()
-                  field.handleChange(val)
-                }}
-                onBlur={field.handleBlur}
-              />
-            )}
-          </form.Field>
-        )}
-
-        <form.Field name="model">
-          {(field) => (
-            <ModelSelectorField
-              provider={selectedProvider}
-              value={field.state.value}
-              discoveredModels={discoveredModels}
-              fallbackModels={[
-                savedConfigs[selectedProvider]?.model || '',
-                DEFAULT_PROVIDER_MODELS[selectedProvider]
-              ]}
-              isCustomModel={isCustomModel}
-              isConnected={isConnected}
-              isTesting={isTesting}
-              onToggleCustomModel={() => setIsCustomModel(!isCustomModel)}
-              onChange={field.handleChange}
-              onBlur={field.handleBlur}
-            />
-          )}
-        </form.Field>
-      </div>
-
-      {updateError ? (
-        <Card data-testid="save-error-feedback" className="p-2.5">
-          <div className="flex items-center gap-2 text-xs text-primary">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>{updateError.message}</span>
-          </div>
-        </Card>
-      ) : null}
+      <ProviderFieldsSection
+        form={form}
+        selectedProvider={selectedProvider}
+        savedProviders={savedProviders}
+        savedConfigs={savedConfigs}
+        isEditingKey={isEditingKey}
+        discoveredModels={discoveredModels}
+        isCustomModel={isCustomModel}
+        isConnected={isConnected}
+        isFailed={isFailed}
+        isTesting={isTesting}
+        latencyMs={testResult?.latency_ms}
+        probeErrorMessage={probeErrorMessage}
+        inputStatus={inputStatus}
+        setIsEditingKey={setIsEditingKey}
+        setIsCustomModel={setIsCustomModel}
+        resetTest={resetTest}
+      />
 
       {saveSuccessMessage ? (
-        <Card data-testid="save-success-feedback" className="p-2.5">
-          <div className="flex items-center gap-2 text-xs text-primary">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>{saveSuccessMessage}</span>
-          </div>
-        </Card>
+        <div data-testid="save-success-feedback" className="flex items-center gap-2 p-2.5 rounded-lg border border-accent-emerald/30 bg-accent-emerald/10 text-xs font-medium text-accent-emerald animate-in fade-in">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{saveSuccessMessage}</span>
+        </div>
+      ) : null}
+
+      {updateError ? (
+        <div data-testid="save-error-feedback" className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/30 bg-primary/10 text-xs font-medium text-primary animate-in fade-in">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{updateError.message || 'Falha ao salvar configuração.'}</span>
+        </div>
       ) : null}
 
       <ProviderFormActions
@@ -229,13 +191,19 @@ function ProviderFormContent({
   )
 }
 
+/**
+ * Formulário completo de gerenciamento de provedores de IA com carregamento via React Query e feedback de validação.
+ *
+ * @param props - Propriedades de configuração do formulário.
+ * @returns Elemento JSX com spinner durante loading ou o formulário montado.
+ */
 export function ProviderForm({ onSuccess, isStreaming }: ProviderFormProps) {
   const { config, isLoading } = useProviderConfigQuery()
 
   if (isLoading || !config) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Spinner className="h-6 w-6 text-primary" />
+        <Spinner size="lg" />
         <span className="ml-2 text-xs text-muted-foreground">
           Carregando configurações...
         </span>
@@ -243,8 +211,6 @@ export function ProviderForm({ onSuccess, isStreaming }: ProviderFormProps) {
     )
   }
 
-  // Sem `key={config.provider}` para evitar que o React desmonte o formulário
-  // e cancele o timer de fechamento quando o React Query atualizar os dados em background.
   return (
     <ProviderFormContent
       initialConfig={config}

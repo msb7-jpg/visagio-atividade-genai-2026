@@ -1,18 +1,57 @@
 import { chatQueryKeys } from '@/features/chat/api/threadsApi'
+import { findPrecedingUserPrompt } from '@/features/chat/lib/chatHistorySearch'
 import { applyNetworkErrorToMessage, applySseEventToMessage } from '@/features/chat/lib/chatMessageReducer'
-import { parseSseStream } from '@/features/chat/lib/sseStreamParser'
+import { executeChatStream } from '@/features/chat/lib/chatStreamTransport'
 import type { ChatMessageItem } from '@/features/chat/types/chat.types'
-import { apiFetch } from '@/lib/api-client'
 import { queryClient } from '@/lib/query-client'
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 
-interface SendMessageOptions {
+/**
+ * Opções de configuração para envio de uma nova mensagem.
+ */
+export interface SendMessageOptions {
+  /** Texto da pergunta analítica enviada pelo usuário. */
   message: string
+  /** Identificador opcional da thread persistida. */
   threadId?: string
+  /** Provedor de LLM a ser utilizado. */
   provider?: string
+  /** Modelo de LLM a ser utilizado. */
   model?: string
 }
 
+/**
+ * Interface com todos os estados e métodos exportados pelo hook de streaming.
+ */
+export interface UseAgentStreamResult {
+  /** Histórico completo de mensagens em exibição. */
+  messages: ChatMessageItem[]
+  /** Flag indicando se há uma transmissão SSE ativa no momento. */
+  isStreaming: boolean
+  /** Identificador da thread ativa ou nulo. */
+  activeThreadId: string | null
+  /** Título atual da conversa sintetizado pelo backend. */
+  activeTitle: string | null
+  /** Atualiza diretamente o título ativo da conversa. */
+  setActiveTitle: Dispatch<SetStateAction<string | null>>
+  /** Dispara o envio de uma nova pergunta para a API e consome o stream SSE. */
+  sendMessage: (options: SendMessageOptions) => Promise<void>
+  /** Re-executa uma mensagem do assistente localizando a pergunta anterior. */
+  retryMessage: (assistantMessageId: string, options?: { provider?: string; model?: string }) => Promise<void>
+  /** Carrega mensagens de uma thread histórica salva no SQLite. */
+  loadThreadMessages: (threadId: string, title: string, loadedMessages: ChatMessageItem[]) => void
+  /** Limpa o histórico de mensagens e reseta a sessão. */
+  clearMessages: () => void
+}
+
+/**
+ * Atualiza um item específico na lista de mensagens sem mutação direta.
+ *
+ * @param list - Lista de mensagens.
+ * @param id - Identificador da mensagem a ser atualizada.
+ * @param updater - Função de transformação da mensagem.
+ * @returns Nova lista com a mensagem transformada.
+ */
 function updateMessageById(
   list: ChatMessageItem[],
   id: string,
@@ -23,7 +62,13 @@ function updateMessageById(
   return list.with(index, updater(list[index]))
 }
 
-export function useAgentStream(initialThreadId: string | null = null) {
+/**
+ * Hook central de streaming SSE que orquestra a comunicação bidirecional com o agente LangGraph.
+ *
+ * @param initialThreadId - Identificador opcional da thread inicial.
+ * @returns Objeto com o estado reativo do chat e métodos de envio e regeneração.
+ */
+export function useAgentStream(initialThreadId: string | null = null): UseAgentStreamResult {
   const [messages, setMessages] = useState<ChatMessageItem[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId)
@@ -65,50 +110,32 @@ export function useAgentStream(initialThreadId: string | null = null) {
     setIsStreaming(true)
 
     try {
-      const targetThreadId = threadId ?? activeThreadId
-      const response = await apiFetch('/chat/stream', {
-        method: 'POST',
-        headers: {
-          Accept: 'text/event-stream'
-        },
-        body: {
+      await executeChatStream(
+        {
           message,
-          thread_id: targetThreadId,
+          threadId: threadId ?? activeThreadId,
           provider,
           model
-        }
-      })
-
-      if (!response.body) {
-        throw new Error('Servidor retornou resposta sem corpo de stream.')
-      }
-
-      for await (const { event, data } of parseSseStream(response)) {
-        try {
-          const parsed = JSON.parse(data)
-
-          if (event === 'session' && parsed.thread_id) {
-            setActiveThreadId(parsed.thread_id)
-            // Invalida a lista para a nova conversa aparecer na barra lateral
+        },
+        {
+          onSession: (newThreadId) => {
+            setActiveThreadId(newThreadId)
             void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
-          }
-
-          if (event === 'title' && parsed.title) {
-            setActiveTitle(parsed.title)
+          },
+          onTitle: (newTitle) => {
+            setActiveTitle(newTitle)
             void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
-          }
-
-          setMessages((prev) =>
-            updateMessageById(prev, assistantMessageId, (msg) =>
-              applySseEventToMessage(msg, event, parsed)
+          },
+          onEvent: (event, parsed) => {
+            setMessages((prev) =>
+              updateMessageById(prev, assistantMessageId, (msg) =>
+                applySseEventToMessage(msg, event, parsed)
+              )
             )
-          )
-        } catch {
-          // Ignora payloads não-JSON
+          }
         }
-      }
+      )
 
-      // Ao finalizar com sucesso, garante que os dados da thread estejam frescos na sidebar
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Falha na comunicação com o assistente.'
@@ -134,21 +161,9 @@ export function useAgentStream(initialThreadId: string | null = null) {
   ) => {
     if (isStreaming) return
 
-    const assistantIndex = messages.findIndex((msg) => msg.id === assistantMessageId)
-    if (assistantIndex === -1) return
-
-    // Encontra a pergunta original do usuário associada
-    let userPrompt = ''
-    for (let index = assistantIndex - 1; index >= 0; index--) {
-      if (messages[index].role === 'user') {
-        userPrompt = messages[index].content
-        break
-      }
-    }
-
+    const userPrompt = findPrecedingUserPrompt(messages, assistantMessageId)
     if (!userPrompt) return
 
-    // Mantém a imutabilidade do histórico e despacha a nova tentativa como um novo turno de conversa
     await sendMessage({
       message: userPrompt,
       threadId: activeThreadId ?? undefined,
@@ -182,4 +197,4 @@ export function useAgentStream(initialThreadId: string | null = null) {
   }
 }
 
-export type AgentStream = ReturnType<typeof useAgentStream>
+export type AgentStream = UseAgentStreamResult

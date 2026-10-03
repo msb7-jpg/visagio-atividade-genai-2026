@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -19,7 +19,7 @@ class TitleGeneratorSubroutine:
     no primeiro turno, salvando na persistência sem impactar a latência do stream principal.
     """
 
-    _pending_tasks: set[asyncio.Task[Any]] = set()
+    _pending_tasks: ClassVar[set[asyncio.Task[Any]]] = set()
 
     @classmethod
     def spawn(

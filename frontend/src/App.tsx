@@ -12,6 +12,11 @@ import { queryClient } from '@/lib/query-client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+/**
+ * Componente interno de conteúdo que consome o contexto de queries e orquestra o estado global do app.
+ *
+ * @returns Elemento JSX com a estrutura do layout, container de chat e modal de configurações.
+ */
 function AppContent() {
   const { activeThreadId, setThreadId } = useThreadUrlSync()
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
@@ -32,17 +37,11 @@ function AppContent() {
     isDeleting
   } = useThreadHistory()
 
-  // Atualiza título quando a thread da lista de histórico muda
-  useEffect(() => {
-    if (activeThreadId) {
-      const current = threads.find((item) => item.thread_id === activeThreadId)
-      if (current) {
-        setActiveTitle(current.title)
-      }
-    } else {
-      setActiveTitle(null)
-    }
-  }, [activeThreadId, threads])
+  const activeThread = useMemo(
+    () => (activeThreadId ? threads.find((item) => item.thread_id === activeThreadId) : null),
+    [activeThreadId, threads]
+  )
+  const currentTitle = activeTitle || activeThread?.title || null
 
   // Alerta de confirmação caso o usuário tente fechar ou recarregar a página durante uma resposta em andamento
   useEffect(() => {
@@ -109,7 +108,7 @@ function AppContent() {
         isStreaming={isStreaming}
         onNewChat={handleNewChat}
         onOpenSettings={handleOpenSettings}
-        headerTitle={<AnimatedTitle title={activeTitle} />}
+        headerTitle={<AnimatedTitle title={currentTitle} />}
         sidebarContent={(
           <SidebarThreads
             threads={threads}
@@ -157,6 +156,11 @@ function AppContent() {
   )
 }
 
+/**
+ * Componente raiz da aplicação configurando o provedor do TanStack Query.
+ *
+ * @returns Elemento JSX raiz da aplicação.
+ */
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>

@@ -2,7 +2,23 @@ import { useCallback, useEffect, useState } from 'react'
 
 const THREAD_PARAM = 'thread'
 
-export function useThreadUrlSync(initialThreadId: string | null = null) {
+/**
+ * Objeto de retorno do hook useThreadUrlSync contendo a thread ativa e a função de navegação por URL.
+ */
+export interface UseThreadUrlSyncResult {
+  /** Identificador da thread ativa refletido na query string (?thread=xyz). */
+  activeThreadId: string | null
+  /** Atualiza o identificador da thread e sincroniza com a URL do navegador. */
+  setThreadId: (threadId: string | null, replace?: boolean) => void
+}
+
+/**
+ * Hook para sincronização bidirecional do ID da conversa ativa com a query string do navegador.
+ *
+ * @param initialThreadId - Identificador inicial caso a query string esteja vazia.
+ * @returns Objeto com o ID ativo e método para atualização da URL sem recarregar a página.
+ */
+export function useThreadUrlSync(initialThreadId: string | null = null): UseThreadUrlSyncResult {
   const getThreadFromUrl = (): string | null => {
     if (typeof window === 'undefined') return null
     const params = new URLSearchParams(window.location.search)

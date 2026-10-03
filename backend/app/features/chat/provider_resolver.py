@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 
+from app.core.constants import LLMProvider
 from app.features.chat.schemas import ChatStreamRequestDTO
 
 
 @dataclass
 class ResolvedProviderConfig:
+    """Configuração resolvida de provedor, modelo e credenciais para execução de inferência."""
+
     provider: str | None
     model: str | None
     api_key: str | None
@@ -20,6 +23,20 @@ class ChatProviderResolver:
 
     @classmethod
     async def resolve(cls, request: ChatStreamRequestDTO) -> ResolvedProviderConfig:
+        """
+        Determina as credenciais e o modelo ativo priorizando overrides de requisição.
+
+        Hierarquia:
+        1. provider_override explícito no payload.
+        2. provider e model da requisição combinados com credenciais salvas no banco.
+        3. Configuração ativa padrão do usuário no SQLite.
+
+        Args:
+            request: DTO de requisição de chat contendo seleções da UI ou overrides.
+
+        Returns:
+            ResolvedProviderConfig contendo provedor, modelo, chaves e timeouts.
+        """
         active_provider = None
         active_model = None
         active_key = None
@@ -56,7 +73,7 @@ class ChatProviderResolver:
                 active_base_url = active.get("base_url")
                 active_timeout = active.get("timeout_seconds", 30)
 
-        if active_provider == "local" and not active_base_url:
+        if active_provider == LLMProvider.LOCAL and not active_base_url:
             active_base_url = "http://localhost:1234/v1"
 
         return ResolvedProviderConfig(

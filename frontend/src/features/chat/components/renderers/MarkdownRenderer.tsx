@@ -1,31 +1,48 @@
+import { Spinner } from '@/components/ui/spinner'
 import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
+import { lazy, Suspense } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ChartRenderer } from './charts/ChartRenderer'
 import { TableRenderer } from './TableRenderer'
 
-interface MarkdownRendererProps {
+const ChartRenderer = lazy(() =>
+  import('./charts/ChartRenderer').then((module) => ({ default: module.ChartRenderer }))
+)
+
+/**
+ * Propriedades para renderização de conteúdo Markdown formatado.
+ */
+export interface MarkdownRendererProps {
+  /** Texto puro em Markdown formatado. */
   content: string
+  /** Configuração declarativa opcional para renderização de gráfico embutido. */
   chartConfig?: ChartJsConfigDTO
+  /** Classes CSS adicionais. */
   className?: string
 }
 
+/**
+ * Renderizador de Markdown enriquecido com suporte a tabelas analíticas (TableRenderer) e gráficos Chart.js.
+ *
+ * @param props - Propriedades com conteúdo textual e gráficos opcionais.
+ * @returns Elemento JSX contendo o Markdown processado e estilizado.
+ */
 export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRendererProps) {
   const hasInlineChartMarker = /```chart\b/i.test(content)
 
   return (
     <div
       className={cn(
-        'prose prose-invert max-w-none text-base leading-relaxed text-zinc-200',
-        'prose-headings:font-semibold prose-headings:text-zinc-100 prose-headings:tracking-tight',
-        'prose-h1:text-2xl prose-h1:border-b prose-h1:border-white/10 prose-h1:pb-2.5 prose-h1:mt-7 prose-h1:mb-3.5',
+        'prose prose-invert max-w-none text-base leading-relaxed text-foreground',
+        'prose-headings:font-semibold prose-headings:text-foreground prose-headings:tracking-tight',
+        'prose-h1:text-2xl prose-h1:border-b prose-h1:border-border prose-h1:pb-2.5 prose-h1:mt-7 prose-h1:mb-3.5',
         'prose-h2:text-xl prose-h2:mt-6 prose-h2:mb-3',
-        'prose-h3:text-lg prose-h3:mt-5 prose-h3:mb-2.5 text-zinc-100',
-        'prose-h4:text-base prose-h4:mt-4 prose-h4:mb-2 text-zinc-200',
+        'prose-h3:text-lg prose-h3:mt-5 prose-h3:mb-2.5 text-foreground',
+        'prose-h4:text-base prose-h4:mt-4 prose-h4:mb-2 text-foreground',
         'prose-p:my-3 prose-p:leading-relaxed',
         'prose-ul:my-3 prose-li:my-1',
-        'prose-strong:text-white prose-strong:font-semibold',
+        'prose-strong:text-foreground prose-strong:font-semibold',
         'prose-table:w-full prose-table:border-collapse prose-table:text-left prose-table:my-0',
         className
       )}
@@ -53,7 +70,15 @@ export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRe
               if (chartConfig) {
                 return (
                   <div className="not-prose my-4">
-                    <ChartRenderer config={chartConfig} />
+                    <Suspense
+                      fallback={(
+                        <div className="flex h-48 w-full items-center justify-center rounded-lg border border-border bg-card">
+                          <Spinner size="lg" variant="muted" />
+                        </div>
+                      )}
+                    >
+                      <ChartRenderer config={chartConfig} />
+                    </Suspense>
                   </div>
                 )
               }
@@ -74,7 +99,15 @@ export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRe
       {/* Fallback gracioso: se o gráfico existe mas o modelo não emitiu o marcador ```chart``` */}
       {chartConfig && !hasInlineChartMarker ? (
         <div className="not-prose mt-4">
-          <ChartRenderer config={chartConfig} />
+          <Suspense
+            fallback={(
+              <div className="flex h-48 w-full items-center justify-center rounded-lg border border-border bg-card">
+                <Spinner size="lg" variant="muted" />
+              </div>
+            )}
+          >
+            <ChartRenderer config={chartConfig} />
+          </Suspense>
         </div>
       ) : null}
     </div>

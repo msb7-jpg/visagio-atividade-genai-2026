@@ -1,7 +1,10 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
+from app.agent.schemas.chart_schema import ChartJsConfigDTO
+from app.core.constants import SSEEventType, StepStatus, StreamErrorCode
 from app.features.settings.schemas import ProviderConfigDTO
 
 
@@ -24,7 +27,6 @@ class ChatStreamRequestDTO(BaseModel):
     )
 
 
-
 class ThreadSummaryDTO(BaseModel):
     """Resumo de uma conversa para exibição em listas e sidebar."""
 
@@ -34,6 +36,32 @@ class ThreadSummaryDTO(BaseModel):
     updated_at: float
 
 
+class StepEventDTO(BaseModel):
+    """Evento de início ou fim de nó do LangGraph."""
+
+    step: str
+    status: StepStatus | Literal["pending", "active", "done", "error"]
+    label: str
+    duration_ms: int | None = None
+
+
+class ThreadMessageDTO(BaseModel):
+    """Representação estruturada de uma mensagem individual dentro do histórico da thread."""
+
+    id: str = Field(..., description="Identificador único da mensagem no histórico")
+    role: Literal["user", "assistant"] = Field(..., description="Papel do remetente da mensagem")
+    content: str = Field(default="", description="Conteúdo textual principal da mensagem")
+    type: str = Field(default="ai", description="Tipo interno da mensagem (ex: 'human', 'ai')")
+    thought: str | None = Field(default=None, description="Raciocínio interno emitido pelo agente")
+    generated_sql: str | None = Field(default=None, description="Consulta SQL gerada para a resposta")
+    chart_spec: ChartJsConfigDTO | dict[str, Any] | None = Field(
+        default=None, description="Configuração declarativa de gráfico Chart.js"
+    )
+    steps: list[StepEventDTO] | None = Field(
+        default=None, description="Lista de etapas executadas para gerar esta resposta"
+    )
+
+
 class ThreadDetailDTO(BaseModel):
     """Detalhes completos de uma conversa persistida com seu histórico de mensagens."""
 
@@ -41,32 +69,20 @@ class ThreadDetailDTO(BaseModel):
     title: str
     created_at: float
     updated_at: float
-    messages: list[dict[str, Any]] = Field(default_factory=list)
+    messages: list[ThreadMessageDTO] = Field(default_factory=list)
     is_running: bool = False
 
 
-class StepEventDTO(BaseModel):
-    """Evento de início ou fim de nó do LangGraph."""
+class StreamErrorPayload(TypedDict):
+    """Payload estruturado do evento SSE de erro despachado ao cliente."""
 
-    step: str
-    status: Literal["active", "done", "error"]
-    label: str
-    duration_ms: int | None = None
+    error: str
+    error_code: StreamErrorCode | str
+    message: str
 
 
 class StreamEventDTO(BaseModel):
     """Payload padronizado de eventos SSE despachados ao cliente."""
 
-    type: Literal[
-        "step_start",
-        "step_end",
-        "thought",
-        "sql",
-        "chart",
-        "token",
-        "data",
-        "title",
-        "error",
-        "done",
-    ]
+    type: SSEEventType | str
     data: Any

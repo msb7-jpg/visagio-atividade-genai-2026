@@ -1,3 +1,4 @@
+import { CHART_TYPE, type ChartType } from '@/features/chat/types/chat.types'
 import {
   ArcElement,
   BarElement,
@@ -24,6 +25,7 @@ ChartJS.register(
   Legend
 )
 
+/** Paleta cromática cinematográfica otimizada para alto contraste em fundo escuro. */
 export const CHART_PALETTE = [
   '#FF5E2B',
   '#00D2FF',
@@ -35,9 +37,15 @@ export const CHART_PALETTE = [
   '#14B8A6'
 ]
 
+/**
+ * Constrói a configuração visual do Chart.js parametrizada para o tema escuro.
+ *
+ * @param type - Tipo de visualização gráfica ('bar', 'line', 'pie' ou 'doughnut').
+ * @returns Objeto de opções ChartOptions customizado para o tema.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getChartOptions(type: string): ChartOptions<any> {
-  const isRadial = type === 'pie' || type === 'doughnut'
+export function getChartOptions(type: ChartType | string): ChartOptions<any> {
+  const isRadial = type === CHART_TYPE.PIE || type === CHART_TYPE.DOUGHNUT
 
   return {
     responsive: true,

@@ -1,5 +1,5 @@
 import { Bot, HardDrive, Layers, Zap } from 'lucide-react'
-import type { ProviderType } from '../schemas/settings.schema'
+import type { ProviderType } from '@/features/settings/schemas/settings.schema'
 
 export const PROVIDER_METADATA: Record<ProviderType, { name: string; icon: typeof Zap }> = {
   groq: { name: 'Groq', icon: Zap },

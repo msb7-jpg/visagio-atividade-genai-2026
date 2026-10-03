@@ -9,15 +9,22 @@ from app.agent.prompts.synthesizer_prompt import (
     SYNTHESIZER_PROMPT,
     TABLE_PRESENT_PROMPT,
 )
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
 
 
 async def synthesizer_node(
     state: AgentState, config: RunnableConfig | None = None
-) -> dict[str, Any]:
+) -> AgentStateUpdate:
     """
     Sintetiza a resposta executiva final em Markdown para o usuário.
+
+    Args:
+        state: Estado consolidado contendo histórico, query_result, chart_spec e last_error.
+        config: Configuração do runner com provedor e credenciais.
+
+    Returns:
+        Atualização parcial do estado contendo a mensagem AIMessage sintetizada.
     """
     messages = state["messages"]
     query_result = state.get("query_result")
@@ -48,9 +55,8 @@ async def synthesizer_node(
         chart_type = chart_spec.get("type", "bar")
         visualization_guideline = CHART_PRESENT_PROMPT.format(
             chart_title=chart_title, 
-            chart_type=chart_type
+            chart_type=chart_type,
         )
-
     else:
         visualization_guideline = TABLE_PRESENT_PROMPT
 
@@ -89,5 +95,5 @@ async def synthesizer_node(
         additional_kwargs["steps"] = steps
 
     return {
-        "messages": [AIMessage(content=ai_content, additional_kwargs=additional_kwargs)],
+        "messages": [AIMessage(content=ai_content, additional_kwargs=additional_kwargs)]
     }

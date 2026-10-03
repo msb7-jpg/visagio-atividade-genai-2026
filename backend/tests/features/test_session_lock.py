@@ -1,12 +1,13 @@
+import asyncio
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, patch
 from httpx import ASGITransport, AsyncClient
 
 from app.core.session_manager import get_session_manager
 from app.features.chat.error_handler import StreamErrorHandler
 from app.features.chat.schemas import ChatStreamRequestDTO
 from app.features.chat.service import AgentChatService
-from app.features.settings.schemas import ProviderConfigDTO
 from main import app
 
 
@@ -48,8 +49,7 @@ async def test_settings_provider_blocked_when_session_active():
     await mgr.clear_all()
 
 
-@pytest.mark.asyncio
-async def test_format_stream_error_categorization():
+def test_format_stream_error_categorization():
     err_402 = Exception(
         "Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 402 RESOURCE_EXHAUSTED. "
         "{'error': {'code': 402, 'message': 'Your prepayment credits are depleted.'}}"
@@ -81,14 +81,13 @@ async def test_stream_chat_cleans_up_session_on_error():
 
     # Simula erro no astream do LangGraph
     async def mock_error_astream(*args, **kwargs):
+        await asyncio.sleep(0)
         raise RuntimeError("Falha simulada durante o streaming")
         yield  # Make it an async generator
 
     with patch.object(chat_service.graph, "astream", side_effect=mock_error_astream):
         req = ChatStreamRequestDTO(message="Qual o filme mais lucrativo?", provider="groq", model="test")
-        events = []
-        async for evt in chat_service.stream_chat(req):
-            events.append(evt)
+        events = [evt async for evt in chat_service.stream_chat(req)]
 
         # Deve ter emitido session e error
         event_names = [e["event"] for e in events]

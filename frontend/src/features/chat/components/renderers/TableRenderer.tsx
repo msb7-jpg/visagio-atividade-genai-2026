@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useClickAway, useCopyToClipboard } from '@reactuses/core'
 import {
   ArrowDown,
   ArrowUp,
@@ -12,189 +11,87 @@ import {
   Download,
   MoreHorizontal
 } from 'lucide-react'
-import { Children, isValidElement, type ReactNode, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useMemo, useRef } from 'react'
+import { useTableExport } from './table/hooks/useTableExport'
+import { useTablePagination } from './table/hooks/useTablePagination'
+import { useTableSort } from './table/hooks/useTableSort'
+import { extractTableFromChildren, extractTableFromRows } from './table/lib/tableParsers'
 
+/**
+ * Propriedades para renderização da tabela rica analítica com ordenação e paginação.
+ */
 export interface TableRendererProps {
-  rows?: Record<string, unknown>[]
+  /** Nós filhos React contendo a tabela HTML ou Markdown compilada. */
   children?: ReactNode
+  /** Registros brutos do SQLite para renderização direta. */
+  rows?: Record<string, unknown>[]
+  /**
+   * Quantidade de linhas por página.
+   * @defaultValue `10`
+   */
   pageSize?: number
+  /** Classes CSS adicionais. */
   className?: string
 }
 
-type SortDirection = 'asc' | 'desc' | null
-
-interface ExtractedRow {
-  cells: string[]
-}
-
+/**
+ * Componente de tabela rica interativa com ordenação por coluna, paginação e exportação TSV/CSV.
+ *
+ * @param props - Propriedades de configuração dos dados e paginação da tabela.
+ * @returns Elemento JSX da tabela estilizada com barra de ferramentas e paginação.
+ */
 export function TableRenderer({
-  rows,
   children,
+  rows,
   pageSize = 10,
   className
 }: TableRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isCopied, setIsCopied] = useState(false)
-  const [, copyToClipboard] = useCopyToClipboard()
 
-  const [currentPage, setCurrentPage] = useState(1)
-  const [sortColIndex, setSortColIndex] = useState<number | null>(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
-
-  useClickAway(menuRef, () => {
-    setIsMenuOpen(false)
-  })
-
-  // 1. Extração uniforme de Headers e Linhas, seja vindo de props.rows ou de markdown JSX (children)
   const { headers, tableData } = useMemo(() => {
     if (rows && rows.length > 0) {
-      const keys = Object.keys(rows[0])
-      const extracted: ExtractedRow[] = rows.map((row) => ({
-        cells: keys.map((k) => (row[k] !== null && row[k] !== undefined ? String(row[k]) : ''))
-      }))
-      return { headers: keys, tableData: extracted }
+      return extractTableFromRows(rows)
     }
-
-    // Se veio via children de ReactMarkdown (thead/tbody/tr/th/td)
-    const headerList: string[] = []
-    const rowList: ExtractedRow[] = []
-
-    const extractText = (node: ReactNode): string => {
-      if (typeof node === 'string' || typeof node === 'number') {
-        return String(node).trim()
-      }
-      if (Array.isArray(node)) {
-        return node.map(extractText).join('')
-      }
-      if (isValidElement(node) && node.props && 'children' in (node.props as Record<string, unknown>)) {
-        return extractText((node.props as { children?: ReactNode }).children)
-      }
-      return ''
+    if (children) {
+      return extractTableFromChildren(children)
     }
-
-    Children.forEach(children, (child) => {
-      if (!isValidElement(child)) return
-      const childType = (child.type as { name?: string })?.name || String(child.type)
-
-      // thead
-      if (childType === 'thead' || child.type === 'thead') {
-        const theadChildren = (child.props as { children?: ReactNode }).children
-        Children.forEach(theadChildren, (trNode) => {
-          if (!isValidElement(trNode)) return
-          const trProps = trNode.props as { children?: ReactNode }
-          Children.forEach(trProps.children, (thNode) => {
-            if (!isValidElement(thNode)) return
-            headerList.push(extractText((thNode.props as { children?: ReactNode }).children))
-          })
-        })
-      }
-
-      // tbody
-      if (childType === 'tbody' || child.type === 'tbody') {
-        const tbodyChildren = (child.props as { children?: ReactNode }).children
-        Children.forEach(tbodyChildren, (trNode) => {
-          if (!isValidElement(trNode)) return
-          const trProps = trNode.props as { children?: ReactNode }
-          const cells: string[] = []
-          Children.forEach(trProps.children, (tdNode) => {
-            if (!isValidElement(tdNode)) return
-            cells.push(extractText((tdNode.props as { children?: ReactNode }).children))
-          })
-          if (cells.length > 0) {
-            rowList.push({ cells })
-          }
-        })
-      }
-    })
-
-    return { headers: headerList, tableData: rowList }
+    return { headers: [], tableData: [] }
   }, [rows, children])
 
-  // 2. Ordenação
-  const sortedData = useMemo(() => {
-    if (sortColIndex === null || !sortDirection) return tableData
+  const { sortColIndex, sortDirection, sortedData, handleSort } = useTableSort(tableData)
 
-    return [...tableData].sort((a, b) => {
-      const valA = a.cells[sortColIndex] ?? ''
-      const valB = b.cells[sortColIndex] ?? ''
+  const {
+    currentPage,
+    totalPages,
+    paginatedData,
+    goToPrevPage,
+    goToNextPage,
+    resetPage
+  } = useTablePagination(sortedData, pageSize)
 
-      const numA = Number(valA.replace(/[^0-9.-]+/g, ''))
-      const numB = Number(valB.replace(/[^0-9.-]+/g, ''))
-      const isNumComparison = !isNaN(numA) && !isNaN(numB) && valA.trim() !== '' && valB.trim() !== ''
+  const {
+    menuRef,
+    isMenuOpen,
+    isCopied,
+    setIsMenuOpen,
+    handleCopy,
+    handleExportCsv
+  } = useTableExport(headers, sortedData)
 
-      if (isNumComparison) {
-        return sortDirection === 'asc' ? numA - numB : numB - numA
-      }
-
-      return sortDirection === 'asc'
-        ? valA.localeCompare(valB, undefined, { numeric: true })
-        : valB.localeCompare(valA, undefined, { numeric: true })
-    })
-  }, [tableData, sortColIndex, sortDirection])
-
-  // 3. Paginação (padrão 10 elementos)
-  const totalPages = Math.ceil(sortedData.length / pageSize) || 1
-  const paginatedData = useMemo(() => {
-    const startIdx = (currentPage - 1) * pageSize
-    return sortedData.slice(startIdx, startIdx + pageSize)
-  }, [sortedData, currentPage, pageSize])
-
-  const handleSort = (idx: number) => {
-    if (sortColIndex !== idx) {
-      setSortColIndex(idx)
-      setSortDirection('asc')
-    } else if (sortDirection === 'asc') {
-      setSortDirection('desc')
-    } else {
-      setSortColIndex(null)
-      setSortDirection(null)
-    }
-    setCurrentPage(1)
+  const handleColumnHeaderClick = (columnIndex: number) => {
+    handleSort(columnIndex)
+    resetPage()
   }
 
-  // 4. Copiar para Clipboard (TSV)
-  const handleCopy = () => {
-    const headerLine = headers.join('\t')
-    const lines = sortedData.map((row) => row.cells.join('\t'))
-    const tsvContent = [headerLine, ...lines].filter(Boolean).join('\n')
-
-    copyToClipboard(tsvContent)
-    setIsCopied(true)
-    setTimeout(() => {
-      setIsCopied(false)
-      setIsMenuOpen(false)
-    }, 1500)
-  }
-
-  // 5. Exportar CSV
-  const handleExportCsv = () => {
-    const headerLine = headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(';')
-    const lines = sortedData.map((row) =>
-      row.cells.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(';')
-    )
-    const csvContent = '\uFEFF' + [headerLine, ...lines].join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `cinedata-export-${Date.now()}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    setIsMenuOpen(false)
-  }
-
-  const renderSortIcon = (idx: number) => {
-    if (sortColIndex !== idx) {
-      return <ArrowUpDown className="size-3 text-zinc-500 opacity-40 group-hover/col:opacity-100" />
+  const renderSortIcon = (columnIndex: number) => {
+    if (sortColIndex !== columnIndex) {
+      return <ArrowUpDown className="h-3 w-3 text-subtle-foreground opacity-40 group-hover/col:opacity-100" />
     }
     if (sortDirection === 'asc') {
-      return <ArrowUp className="size-3 text-primary" />
+      return <ArrowUp className="h-3 w-3 text-primary" />
     }
-    return <ArrowDown className="size-3 text-primary" />
+    return <ArrowDown className="h-3 w-3 text-primary" />
   }
 
   if (headers.length === 0 && tableData.length === 0) {
@@ -210,7 +107,7 @@ export function TableRenderer({
       ref={containerRef}
       data-testid="table-renderer-container"
       className={cn(
-        'group relative my-4 overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg backdrop-blur-sm',
+        'group relative my-4 overflow-hidden rounded-xl border border-border bg-sidebar shadow-lg backdrop-blur-sm',
         className
       )}
     >
@@ -218,30 +115,30 @@ export function TableRenderer({
       <div ref={menuRef} className="absolute right-2 top-2.5 z-20">
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           aria-label="Opções da tabela"
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          className="h-7 w-7 p-0 text-zinc-400 opacity-70 transition-opacity hover:bg-[#1B202B] hover:text-zinc-200 group-hover:opacity-100"
+          className="text-muted-foreground opacity-70 transition-opacity hover:bg-card hover:text-foreground group-hover:opacity-100"
         >
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal className="h-4 w-4" />
         </Button>
 
         {isMenuOpen ? (
-          <div className="absolute right-0 mt-1 min-w-[150px] rounded-lg border border-white/10 bg-[#1B202B] p-1 shadow-2xl backdrop-blur-md">
+          <div className="absolute right-0 mt-1 min-w-40 rounded-lg border border-border bg-card p-1 shadow-2xl backdrop-blur-md">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCopy}
-              className="flex w-full items-center justify-start gap-2 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-white/5 hover:text-white"
+              className="flex w-full items-center justify-start gap-2 px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary"
             >
               {isCopied ? (
                 <>
-                  <Check className="size-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Copiado!</span>
+                  <Check className="h-3.5 w-3.5 text-accent-emerald" />
+                  <span className="text-accent-emerald">Copiado!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="size-3.5 text-zinc-400" />
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Copiar tabela</span>
                 </>
               )}
@@ -251,9 +148,9 @@ export function TableRenderer({
               variant="ghost"
               size="sm"
               onClick={handleExportCsv}
-              className="flex w-full items-center justify-start gap-2 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-white/5 hover:text-white"
+              className="flex w-full items-center justify-start gap-2 px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary"
             >
-              <Download className="size-3.5 text-zinc-400" />
+              <Download className="h-3.5 w-3.5 text-muted-foreground" />
               <span>Exportar CSV</span>
             </Button>
           </div>
@@ -263,34 +160,34 @@ export function TableRenderer({
       {/* Grid da Tabela */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          {headers.length > 0 && (
-            <thead className="border-b border-white/10 bg-[#1B202B]/90 font-semibold text-zinc-300">
+          {headers.length > 0 ? (
+            <thead className="border-b border-border bg-card font-semibold text-foreground">
               <tr>
-                {headers.map((header, idx) => (
+                {headers.map((header, columnIndex) => (
                   <th
-                    key={idx}
-                    onClick={() => handleSort(idx)}
-                    className="group/col cursor-pointer select-none px-4 py-3 text-sm font-semibold capitalize tracking-normal text-zinc-200 transition-colors hover:text-white"
+                    key={columnIndex}
+                    onClick={() => handleColumnHeaderClick(columnIndex)}
+                    className="group/col cursor-pointer select-none px-4 py-3 text-sm font-semibold capitalize tracking-normal text-foreground transition-colors hover:text-primary"
                   >
                     <div className="flex items-center gap-1.5">
                       <span>{header}</span>
-                      {renderSortIcon(idx)}
+                      {renderSortIcon(columnIndex)}
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
-          )}
+          ) : null}
 
-          <tbody className="divide-y divide-white/5">
-            {paginatedData.map((row, rowIdx) => (
+          <tbody className="divide-y border-border">
+            {paginatedData.map((rowItem, rowIdx) => (
               <tr
                 key={rowIdx}
-                className="transition-colors odd:bg-transparent even:bg-white/1.5 hover:bg-white/3"
+                className="transition-colors hover:bg-card-hover"
               >
-                {row.cells.map((cell, colIdx) => (
-                  <td key={colIdx} className="px-4 py-3 text-sm text-zinc-200 whitespace-nowrap">
-                    {cell !== '' ? cell : <span className="text-zinc-600">NULL</span>}
+                {rowItem.cells.map((cell, colIdx) => (
+                  <td key={colIdx} className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
+                    {cell !== '' ? cell : <span className="text-subtle-foreground">NULL</span>}
                   </td>
                 ))}
               </tr>
@@ -299,9 +196,9 @@ export function TableRenderer({
         </table>
       </div>
 
-      {/* Barra de Paginação inferior (só exibe se total de itens > pageSize) */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-white/10 bg-[#1B202B]/40 px-4 py-2 text-xs text-zinc-400">
+      {/* Barra de Paginação inferior */}
+      {totalPages > 1 ? (
+        <div className="flex items-center justify-between border-t border-border bg-card px-4 py-2 text-xs text-muted-foreground">
           <span>
             Página {currentPage} de {totalPages} ({sortedData.length} registros)
           </span>
@@ -309,26 +206,24 @@ export function TableRenderer({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon"
               disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              className="size-7 p-0 text-zinc-400 hover:text-white disabled:opacity-30"
+              onClick={goToPrevPage}
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon"
               disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              className="size-7 p-0 text-zinc-400 hover:text-white disabled:opacity-30"
+              onClick={goToNextPage}
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

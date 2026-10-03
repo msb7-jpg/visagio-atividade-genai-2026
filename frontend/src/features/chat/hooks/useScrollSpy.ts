@@ -1,11 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 
-export function useScrollSpy(itemIds: string[], containerSelector = '[data-chat-scroll-container]') {
-  const [activeId, setActiveId] = useState<string | null>(null)
+/**
+ * Objeto de retorno do hook useScrollSpy contendo o elemento ativo e método de rolagem.
+ */
+export interface UseScrollSpyResult {
+  /** Identificador do item atualmente visível na viewport ou o mais recente. */
+  activeId: string | null
+  /** Rola suavemente até o elemento identificado pelo ID. */
+  scrollToItem: (id: string) => void
+  /** Força programaticamente a definição do ID ativo. */
+  setActiveId: Dispatch<SetStateAction<string | null>>
+}
+
+/**
+ * Hook para espionar a rolagem de mensagens utilizando IntersectionObserver e sincronizar a linha do tempo ativa.
+ *
+ * @param itemIds - Lista de identificadores de elementos a serem observados no container.
+ * @param containerSelector - Seletor CSS do elemento container com rolagem.
+ * @returns Objeto com o identificador ativo e funções de navegação suave.
+ */
+export function useScrollSpy(
+  itemIds: string[],
+  containerSelector = '[data-chat-scroll-container]'
+): UseScrollSpyResult {
+  const [internalActiveId, setInternalActiveId] = useState<string | null>(null)
 
   useEffect(() => {
     if (itemIds.length === 0) {
-      setActiveId(null)
       return
     }
 
@@ -15,8 +36,6 @@ export function useScrollSpy(itemIds: string[], containerSelector = '[data-chat-
       .filter((el): el is HTMLElement => el !== null)
 
     if (elements.length === 0) {
-      // Se os elementos ainda não renderizaram, marca por padrão o último item enviado
-      setActiveId(itemIds[itemIds.length - 1])
       return
     }
 
@@ -28,11 +47,11 @@ export function useScrollSpy(itemIds: string[], containerSelector = '[data-chat-
         if (visibleEntries.length > 0) {
           // Pega a entrada visível mais próxima do topo da área de visualização
           const sorted = [...visibleEntries].sort(
-            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+            (entryA, entryB) => entryA.boundingClientRect.top - entryB.boundingClientRect.top
           )
           const targetId = sorted[0].target.id
           if (targetId) {
-            setActiveId(targetId)
+            setInternalActiveId(targetId)
           }
         }
       },
@@ -45,21 +64,27 @@ export function useScrollSpy(itemIds: string[], containerSelector = '[data-chat-
 
     elements.forEach((el) => observer.observe(el))
 
-    // Se nenhum item estiver ativo ou se o activeId atual não existir nos itemIds, ativa o último item
-    setActiveId((prev) => (prev && itemIds.includes(prev) ? prev : itemIds[itemIds.length - 1]))
-
     return () => {
       observer.disconnect()
     }
   }, [itemIds, containerSelector])
 
+  let activeId: string | null = null
+  if (itemIds.length > 0) {
+    if (internalActiveId && itemIds.includes(internalActiveId)) {
+      activeId = internalActiveId
+    } else {
+      activeId = itemIds[itemIds.length - 1]
+    }
+  }
+
   const scrollToItem = (id: string) => {
     const element = document.getElementById(id)
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      setActiveId(id)
+      setInternalActiveId(id)
     }
   }
 
-  return { activeId, scrollToItem, setActiveId }
+  return { activeId, scrollToItem, setActiveId: setInternalActiveId }
 }

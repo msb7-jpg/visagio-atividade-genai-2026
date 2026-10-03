@@ -6,31 +6,28 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.schemas.chart_schema import ChartDataset, ChartJsConfigDTO
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentStateUpdate
+from app.core.constants import ChartType, QueryResultRow
 from app.core.llm_factory import get_chat_model
 
 logger = logging.getLogger(__name__)
 
-CHART_DECISION_SYSTEM_PROMPT = """Você é o Especialista em Visualização de Dados do CineData Analytics.
-Sua missão é avaliar a pergunta do usuário e os dados analíticos obtidos para decidir se a intenção do usuário pede ou se beneficia de uma representação visual (gráfico), e caso positivo, gerar a especificação Chart.js.
+CHART_DECISION_SYSTEM_PROMPT = """
+Você é um especialista em visualização de dados corporativos e Business Intelligence.
+Sua missão é avaliar se a resposta para a consulta analítica do usuário se beneficia de um gráfico visual.
 
-IMPORTANTE SOBRE INTENÇÃO DO USUÁRIO:
-- Se o usuário fez uma pergunta que é puramente tabular ou objetiva (ex: "quais filmes", "liste os diretores", "me mostre a tabela", "tabela de lucro"), retorne "should_visualize": false. Nem toda tabela deve virar gráfico.
-- Se o usuário pediu explicitamente um gráfico (ex: "faça um gráfico", "gere um gráfico", "mostre visualmente", "/chart", "pizza", "barras", "evolução visual", "gráfico de linhas"), ou se expressou desejo explícito de comparar visualmente dados agregados, retorne "should_visualize": true.
-- Caso o usuário não tenha expressado intenção visual, retorne "should_visualize": false.
-
-REGRAS DE RESPOSTA:
-1. Responda ESTRITAMENTE em formato JSON com a seguinte estrutura:
+DIRETRIZES DE DECISÃO:
+1. Retorne SEMPRE um JSON válido estrito no seguinte formato:
    {
-     "should_visualize": true ou false,
+     "should_visualize": true | false,
      "chart": {
-       "type": "bar", "line", "pie" ou "doughnut",
-       "title": "título descritivo e claro para o gráfico",
-       "labels": ["label1", "label2", ...],
+       "type": "bar" | "line" | "pie" | "doughnut",
+       "title": "Título Claro e Conciso do Gráfico",
+       "labels": ["Item 1", "Item 2"],
        "datasets": [
          {
-           "label": "Nome da Métrica",
-           "data": [10.5, 20.0, ...]
+           "label": "Métrica em R$ ou Qtd",
+           "data": [10.5, 20.0]
          }
        ]
      }
@@ -43,21 +40,21 @@ REGRAS DE RESPOSTA:
 """
 
 
-def _heuristic_chart_builder(
-    user_query: str, query_result: list[dict[str, Any]]
-) -> dict[str, Any] | None:
-    """
-    Constrói a especificação do gráfico de forma determinística caso os dados sejam adequados.
-    Usado como fallback caso a chamada ao LLM falhe.
-    """
-    if not query_result or not isinstance(query_result, list):
-        return None
+def _detect_chart_type(query_lower: str) -> ChartType:
+    """Determina o tipo de gráfico baseado em palavras-chave na consulta."""
+    if "linha" in query_lower or "temporal" in query_lower or "evolução" in query_lower:
+        return ChartType.LINE
+    if "rosca" in query_lower:
+        return ChartType.DOUGHNUT
+    if "pizza" in query_lower or "distribuição" in query_lower:
+        return ChartType.PIE
+    return ChartType.BAR
 
-    first_row = query_result[0]
-    keys = list(first_row.keys())
-    if len(keys) < 2:
-        return None
 
+def _extract_columns(
+    first_row: QueryResultRow, keys: list[str]
+) -> tuple[str | None, str | None]:
+    """Identifica heuristicamente colunas de rótulo e de métrica numérica."""
     label_col = None
     metric_col = None
 
@@ -68,32 +65,52 @@ def _heuristic_chart_builder(
         elif isinstance(sample_val, (int, float)) and metric_col is None:
             metric_col = k
 
-    if not label_col:
+    if not label_col and keys:
         label_col = keys[0]
+
     if not metric_col:
         for k in keys:
             if k != label_col and isinstance(first_row[k], (int, float)):
                 metric_col = k
                 break
 
-    if not metric_col:
+    return label_col, metric_col
+
+
+def _heuristic_chart_builder(
+    user_query: str, query_result: list[QueryResultRow]
+) -> dict[str, Any] | None:
+    """
+    Constrói a especificação do gráfico de forma determinística caso os dados sejam adequados.
+
+    Args:
+        user_query: Consulta original do usuário.
+        query_result: Linhas retornadas pela execução da consulta SQL.
+
+    Returns:
+        Dicionário serializado da especificação do gráfico ou None caso os dados sejam insuficientes.
+    """
+    if not query_result or not isinstance(query_result, list):
+        return None
+
+    first_row = query_result[0]
+    keys = list(first_row.keys())
+    if len(keys) < 2:
+        return None
+
+    label_col, metric_col = _extract_columns(first_row, keys)
+    if not label_col or not metric_col:
         return None
 
     labels = [str(row.get(label_col, "")) for row in query_result[:15]]
     data = [float(row.get(metric_col, 0) or 0) for row in query_result[:15]]
 
-    query_lower = user_query.lower()
-    chart_type = "bar"
-    if "linha" in query_lower or "temporal" in query_lower or "evolução" in query_lower:
-        chart_type = "line"
-    elif "pizza" in query_lower or "distribuição" in query_lower or "rosca" in query_lower:
-        chart_type = "doughnut" if "rosca" in query_lower else "pie"
-
+    chart_type = _detect_chart_type(user_query.lower())
     metric_name = metric_col.replace("_", " ").title()
     title = f"{metric_name} por {label_col.replace('_', ' ').title()}"
 
     dto = ChartJsConfigDTO(
-        type=chart_type,
+        type=chart_type.value,
         title=title,
         labels=labels,
         datasets=[ChartDataset(label=metric_name, data=data)],
@@ -102,11 +119,19 @@ def _heuristic_chart_builder(
 
 
 def check_explicit_chart_intent(query: str) -> bool:
-    """Verifica se há intenção explícita no texto ou comando /chart."""
+    """
+    Verifica se há intenção explícita de visualização gráfica no texto ou comando /chart.
+
+    Args:
+        query: Mensagem de texto enviada pelo usuário.
+
+    Returns:
+        True se houver intenção explícita detectada, False caso contrário.
+    """
     q = query.lower()
     if "/chart" in q:
         return True
-    keywords = [
+    keywords = (
         "gráfico",
         "grafico",
         "chart",
@@ -119,16 +144,57 @@ def check_explicit_chart_intent(query: str) -> bool:
         "visualização",
         "visualizacao",
         "visualmente",
-    ]
+    )
     return any(k in q for k in keywords)
+
+
+def _clean_markdown_code_block(raw_content: str) -> str:
+    """Remove delimitadores markdown ```json de saídas do modelo."""
+    content = raw_content.strip()
+    if not content.startswith("```"):
+        return content
+
+    lines = content.splitlines()
+    if lines and lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].startswith("```"):
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def _resolve_chart_spec(
+    parsed: dict[str, Any],
+    explicit_intent: bool,
+    last_user_query: str,
+    query_result: list[QueryResultRow],
+) -> dict[str, Any] | None:
+    """Valida o payload parseado do LLM e aplica fallback heurístico se necessário."""
+    if not parsed.get("should_visualize") and not explicit_intent:
+        return None
+
+    chart_data = parsed.get("chart")
+    if not chart_data:
+        if explicit_intent:
+            return _heuristic_chart_builder(last_user_query, query_result)
+        return None
+
+    dto = ChartJsConfigDTO(**chart_data)
+    return dto.model_dump()
 
 
 async def chart_generator_node(
     state: AgentState, config: RunnableConfig | None = None
-) -> dict[str, Any]:
+) -> AgentStateUpdate:
     """
     Nó do LangGraph responsável por avaliar se há intenção e valor em gerar gráfico
     e estruturar o ChartJsConfigDTO correspondente.
+
+    Args:
+        state: Estado atual do grafo do agente.
+        config: Configuração opcional de execução com credenciais ativas do modelo.
+
+    Returns:
+        Atualização parcial do estado contendo 'chart_spec' configurado ou None.
     """
     query_result = state.get("query_result")
     if not query_result or not isinstance(query_result, list):
@@ -142,7 +208,6 @@ async def chart_generator_node(
             last_user_query = str(msg.content)
             break
 
-    # Se houver comando explícito /chart ou intenção expressa no state
     explicit_intent = check_explicit_chart_intent(last_user_query) or bool(
         state.get("requires_chart")
     )
@@ -170,30 +235,10 @@ async def chart_generator_node(
             HumanMessage(content=user_prompt),
         ])
 
-        raw_content = str(response.content).strip()
-        if raw_content.startswith("```"):
-            lines = raw_content.splitlines()
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].startswith("```"):
-                lines = lines[:-1]
-            raw_content = "\n".join(lines).strip()
-
+        raw_content = _clean_markdown_code_block(str(response.content))
         parsed = json.loads(raw_content)
-
-        # Se o modelo avaliar que não deve gerar gráfico
-        if not parsed.get("should_visualize", False) and not explicit_intent:
-            return {"chart_spec": None}
-
-        chart_data = parsed.get("chart")
-        if not chart_data:
-            if explicit_intent:
-                # Se era explícito mas o modelo omitiu o objeto chart, aciona o fallback heurístico
-                return {"chart_spec": _heuristic_chart_builder(last_user_query, query_result)}
-            return {"chart_spec": None}
-
-        dto = ChartJsConfigDTO(**chart_data)
-        return {"chart_spec": dto.model_dump()}
+        spec = _resolve_chart_spec(parsed, explicit_intent, last_user_query, query_result)
+        return {"chart_spec": spec}
 
     except Exception as exc:
         logger.warning(
@@ -201,8 +246,6 @@ async def chart_generator_node(
             exc,
             explicit_intent,
         )
-        # Fallback inteligente: se o usuário tinha intenção de gráfico, aplica a heurística
         if explicit_intent:
-            fallback = _heuristic_chart_builder(last_user_query, query_result)
-            return {"chart_spec": fallback}
+            return {"chart_spec": _heuristic_chart_builder(last_user_query, query_result)}
         return {"chart_spec": None}

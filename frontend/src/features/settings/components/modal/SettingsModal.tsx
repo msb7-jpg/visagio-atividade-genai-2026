@@ -1,16 +1,31 @@
 import { Button } from '@/components/ui/button'
-import { ProviderForm } from '../form/ProviderForm'
+import { ProviderForm } from '@/features/settings/components/form/ProviderForm'
 import { useKeyPress } from '@/hooks/useKeyPress'
 import { Sliders, X } from 'lucide-react'
+import type { JSX } from 'react'
 
+/**
+ * Propriedades para exibição do modal de configurações de provedores de IA.
+ */
 export interface SettingsModalProps {
+  /** Indica se o modal está atualmente aberto na tela. */
   isOpen: boolean
+  /** Callback para fechar o modal. */
   onClose: () => void
+  /**
+   * Indica se há streaming ativo bloqueando edições no momento.
+   * @defaultValue `false`
+   */
   isStreaming?: boolean
 }
 
-export function SettingsModal({ isOpen, onClose, isStreaming }: SettingsModalProps) {
-
+/**
+ * Modal flutuante de configurações de provedor com backdrop, fechamento por tecla Escape e formulário integrado.
+ *
+ * @param props - Propriedades de controle de abertura e fechamento do modal.
+ * @returns Elemento JSX do modal com backdrop ou nulo se fechado.
+ */
+export function SettingsModal({ isOpen, onClose, isStreaming }: SettingsModalProps): JSX.Element | null {
   useKeyPress('Escape', onClose)
 
   if (!isOpen) return null

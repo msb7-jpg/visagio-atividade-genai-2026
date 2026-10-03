@@ -1,16 +1,27 @@
-import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
+import { CHART_TYPE, type ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { BarChart3, LineChart, PieChart } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, type JSX } from 'react'
 import { Bar, Doughnut, Line, Pie } from 'react-chartjs-2'
 import { CHART_PALETTE, getChartOptions } from './chart.config'
 
-interface ChartRendererProps {
+/**
+ * Propriedades para renderização do componente visual de gráfico.
+ */
+export interface ChartRendererProps {
+  /** Configuração declarativa estruturada contendo datasets, labels e tipo de gráfico. */
   config: ChartJsConfigDTO
 }
 
-export function ChartRenderer({ config }: ChartRendererProps) {
+/**
+ * Renderizador reativo de gráficos Chart.js com temas escuros e paleta cinematográfica.
+ *
+ * @param props - Propriedades contendo a especificação do gráfico.
+ * @returns Elemento JSX do gráfico encapsulado em um card estruturado.
+ */
+export function ChartRenderer({ config }: ChartRendererProps): JSX.Element {
   const chartData = useMemo(() => {
-    const isMultiColorType = config.type === 'pie' || config.type === 'doughnut'
+    const isMultiColorType =
+      config.type === CHART_TYPE.PIE || config.type === CHART_TYPE.DOUGHNUT
 
     const styledDatasets = config.datasets.map((dataset, dsIndex) => {
       if (isMultiColorType) {
@@ -32,8 +43,8 @@ export function ChartRenderer({ config }: ChartRendererProps) {
         backgroundColor: `${baseColor}CC`, // ~80% opacidade
         borderColor: baseColor,
         borderWidth: 1.5,
-        borderRadius: config.type === 'bar' ? 4 : 0,
-        tension: config.type === 'line' ? 0.35 : 0,
+        borderRadius: config.type === CHART_TYPE.BAR ? 4 : 0,
+        tension: config.type === CHART_TYPE.LINE ? 0.35 : 0,
         pointBackgroundColor: baseColor,
         pointBorderColor: '#0E1217',
         pointHoverRadius: 6
@@ -49,19 +60,19 @@ export function ChartRenderer({ config }: ChartRendererProps) {
   const options = useMemo(() => getChartOptions(config.type), [config.type])
 
   const ChartIcon = useMemo(() => {
-    if (config.type === 'line') return LineChart
-    if (config.type === 'pie' || config.type === 'doughnut') return PieChart
+    if (config.type === CHART_TYPE.LINE) return LineChart
+    if (config.type === CHART_TYPE.PIE || config.type === CHART_TYPE.DOUGHNUT) return PieChart
     return BarChart3
   }, [config.type])
 
   const renderChartContent = () => {
-    if (config.type === 'bar') {
+    if (config.type === CHART_TYPE.BAR) {
       return <Bar data={chartData} options={options} />
     }
-    if (config.type === 'line') {
+    if (config.type === CHART_TYPE.LINE) {
       return <Line data={chartData} options={options} />
     }
-    if (config.type === 'doughnut') {
+    if (config.type === CHART_TYPE.DOUGHNUT) {
       return <Doughnut data={chartData} options={options} />
     }
     return <Pie data={chartData} options={options} />
@@ -70,16 +81,16 @@ export function ChartRenderer({ config }: ChartRendererProps) {
   return (
     <div
       data-testid="chart-renderer-container"
-      className="overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg backdrop-blur-sm"
+      className="overflow-hidden rounded-xl border border-border bg-sidebar shadow-lg backdrop-blur-sm"
     >
-      <div className="flex items-center justify-between border-b border-white/5 bg-[#171C25] px-3.5 py-2.5">
+      <div className="flex items-center justify-between border-b border-border bg-sidebar px-3 py-2">
         <div className="flex items-center gap-2">
-          <ChartIcon className="size-3.5 text-primary" />
-          <h4 className="text-xs font-semibold text-zinc-300 tracking-wide">
+          <ChartIcon className="h-3.5 w-3.5 text-primary" />
+          <h4 className="text-xs font-semibold text-foreground tracking-wide">
             {config.title}
           </h4>
         </div>
-        <span className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider text-zinc-400">
+        <span className="rounded border border-border bg-card px-2 py-0.5 text-xs font-mono font-medium uppercase tracking-wider text-muted-foreground">
           {config.type}
         </span>
       </div>
@@ -90,4 +101,5 @@ export function ChartRenderer({ config }: ChartRendererProps) {
     </div>
   )
 }
+
 export default ChartRenderer

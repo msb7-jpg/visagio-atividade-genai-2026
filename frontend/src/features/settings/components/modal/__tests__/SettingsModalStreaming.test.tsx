@@ -28,7 +28,7 @@ describe('Streaming Lock in Settings and AppLayout', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <SettingsModal isOpen={true} onClose={vi.fn()} isStreaming={true} />
+        <SettingsModal isOpen onClose={vi.fn()} isStreaming />
       </QueryClientProvider>
     )
 
@@ -47,7 +47,7 @@ describe('Streaming Lock in Settings and AppLayout', () => {
   })
 
   it('disables Settings buttons in AppLayout when isStreaming is true', () => {
-    render(<AppLayout isStreaming={true} />)
+    render(<AppLayout isStreaming />)
 
     const buttons = screen.getAllByRole('button', { name: /Configurações \(bloqueado durante análise\)/i })
     expect(buttons.length).toBeGreaterThan(0)

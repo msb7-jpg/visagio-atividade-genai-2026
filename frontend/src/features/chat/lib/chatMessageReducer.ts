@@ -1,35 +1,61 @@
-import type {
-  AgentStepItem,
-  ChartJsConfigDTO,
-  ChatMessageBlock,
-  ChatMessageItem
+import {
+  CHAT_BLOCK_TYPE,
+  SSE_EVENT,
+  STEP_STATUS,
+  type AgentStepItem,
+  type ChatJsConfigDTO,
+  type ChatMessageBlock,
+  type ChatMessageItem,
+  type SseChartPayload,
+  type SseDataPayload,
+  type SseErrorPayload,
+  type SseEventType,
+  type SseSessionPayload,
+  type SseSqlPayload,
+  type SseStepEndPayload,
+  type SseThoughtPayload,
+  type SseTokenPayload
 } from '@/features/chat/types/chat.types'
 
+/**
+ * Insere ou substitui um bloco de conteúdo na mensagem baseado no tipo discriminado.
+ *
+ * @param blocks - Lista atual de blocos da mensagem.
+ * @param newBlock - Novo bloco a ser inserido ou atualizado.
+ * @returns Nova lista de blocos com o elemento atualizado.
+ */
 function upsertBlock(blocks: ChatMessageBlock[], newBlock: ChatMessageBlock): ChatMessageBlock[] {
   return [...blocks.filter(block => block.type !== newBlock.type), newBlock]
 }
 
+/**
+ * Marca a última etapa do agente como falha ou cria uma etapa de erro caso a lista esteja vazia.
+ *
+ * @param steps - Lista de etapas do agente observadas até o momento.
+ * @param fallbackLabel - Rótulo a ser exibido caso nenhuma etapa anterior exista.
+ * @returns Nova lista de etapas com o último item em estado de erro.
+ */
 function markLastStepFailed(steps: AgentStepItem[], fallbackLabel: string): AgentStepItem[] {
-  if (steps.length === 0) 
-    return [{ 
-      step: 'error', 
-      label: fallbackLabel, 
-      status: 'error' 
+  if (steps.length === 0) {
+    return [{
+      step: 'error',
+      label: fallbackLabel,
+      status: STEP_STATUS.ERROR
     }]
-  
-  return steps.with(-1, { ...steps.at(-1)!, status: 'error' })
+  }
+
+  return steps.with(-1, { ...steps.at(-1)!, status: STEP_STATUS.ERROR })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EventHandler = (msg: ChatMessageItem, payload: any) => ChatMessageItem
+type EventHandler<TPayload> = (msg: ChatMessageItem, payload: TPayload) => ChatMessageItem
 
-const handleSession: EventHandler = (msg, payload) => ({
+const handleSession: EventHandler<SseSessionPayload> = (msg, payload) => ({
   ...msg,
   provider: payload.provider ?? msg.provider,
   model: payload.model ?? msg.model
 })
 
-const handleStepEnd: EventHandler = (msg, payload) => {
+const handleStepEnd: EventHandler<SseStepEndPayload> = (msg, payload) => {
   const stepItem: AgentStepItem = {
     step: payload.step,
     label: payload.label,
@@ -42,69 +68,69 @@ const handleStepEnd: EventHandler = (msg, payload) => {
   }
 }
 
-const handleThought: EventHandler = (msg, payload) => {
+const handleThought: EventHandler<SseThoughtPayload> = (msg, payload) => {
   if (!payload.thought) return msg
   return {
     ...msg,
     blocks: upsertBlock(msg.blocks, {
       id: `th-${Date.now()}`,
-      type: 'thought',
+      type: CHAT_BLOCK_TYPE.THOUGHT,
       content: payload.thought
     })
   }
 }
 
-const handleSql: EventHandler = (msg, payload) => {
+const handleSql: EventHandler<SseSqlPayload> = (msg, payload) => {
   if (!payload.sql) return msg
   return {
     ...msg,
     blocks: upsertBlock(msg.blocks, {
       id: `sql-${Date.now()}`,
-      type: 'sql',
+      type: CHAT_BLOCK_TYPE.SQL,
       query: payload.sql,
       rawQuery: payload.raw
     })
   }
 }
 
-const handleChart: EventHandler = (msg, payload: ChartJsConfigDTO) => {
+const handleChart: EventHandler<SseChartPayload | ChatJsConfigDTO> = (msg, payload) => {
   if (!payload.type || !payload.datasets) return msg
   return {
     ...msg,
     blocks: upsertBlock(msg.blocks, {
       id: `chart-${Date.now()}`,
-      type: 'chart',
+      type: CHAT_BLOCK_TYPE.CHART,
       config: payload
     })
   }
 }
 
-const handleData: EventHandler = (msg, payload) => {
+const handleData: EventHandler<SseDataPayload> = (msg, payload) => {
   if (!payload.rows) return msg
   return {
     ...msg,
     blocks: upsertBlock(msg.blocks, {
       id: `data-${Date.now()}`,
-      type: 'data',
+      type: CHAT_BLOCK_TYPE.DATA,
       rows: payload.rows
     })
   }
 }
 
-const handleToken: EventHandler = (msg, payload) => {
+const handleToken: EventHandler<SseTokenPayload> = (msg, payload) => {
   if (!payload.token) return msg
   return {
     ...msg,
     content: payload.token,
     blocks: upsertBlock(msg.blocks, {
       id: `text-${Date.now()}`,
-      type: 'text',
+      type: CHAT_BLOCK_TYPE.TEXT,
       content: payload.token
     })
   }
 }
 
-const handleError: EventHandler = (msg, payload) => {
+const handleError: EventHandler<SseErrorPayload> = (msg, payload) => {
   const errorMsg = payload.message || payload.error || 'Erro no processamento da solicitação.'
   const errorCode = payload.error_code || 'AGENT_ERROR'
   const rawError = payload.error || errorMsg
@@ -114,7 +140,7 @@ const handleError: EventHandler = (msg, payload) => {
     content: errorMsg,
     blocks: upsertBlock(msg.blocks, {
       id: `err-${Date.now()}`,
-      type: 'error',
+      type: CHAT_BLOCK_TYPE.ERROR,
       message: errorMsg,
       code: errorCode,
       rawError: rawError !== errorMsg ? rawError : undefined
@@ -123,27 +149,41 @@ const handleError: EventHandler = (msg, payload) => {
   }
 }
 
-const EVENT_HANDLERS: Record<string, EventHandler> = {
-  session: handleSession,
-  step_end: handleStepEnd,
-  thought: handleThought,
-  sql: handleSql,
-  chart: handleChart,
-  data: handleData,
-  token: handleToken,
-  error: handleError
+const EVENT_HANDLERS: Partial<Record<SseEventType, (msg: ChatMessageItem, payload: unknown) => ChatMessageItem>> = {
+  [SSE_EVENT.SESSION]: (msg, payload) => handleSession(msg, payload as SseSessionPayload),
+  [SSE_EVENT.STEP_END]: (msg, payload) => handleStepEnd(msg, payload as SseStepEndPayload),
+  [SSE_EVENT.THOUGHT]: (msg, payload) => handleThought(msg, payload as SseThoughtPayload),
+  [SSE_EVENT.SQL]: (msg, payload) => handleSql(msg, payload as SseSqlPayload),
+  [SSE_EVENT.CHART]: (msg, payload) => handleChart(msg, payload as SseChartPayload),
+  [SSE_EVENT.DATA]: (msg, payload) => handleData(msg, payload as SseDataPayload),
+  [SSE_EVENT.TOKEN]: (msg, payload) => handleToken(msg, payload as SseTokenPayload),
+  [SSE_EVENT.ERROR]: (msg, payload) => handleError(msg, payload as SseErrorPayload)
 }
 
+/**
+ * Aplica um evento SSE individual à mensagem em progresso, delegando para o manipulador correspondente.
+ *
+ * @param msg - Mensagem de chat atual no estado do cliente.
+ * @param event - Nome do evento SSE recebido do servidor.
+ * @param parsed - Dados decodificados do evento em JSON.
+ * @returns Mensagem atualizada com os novos blocos ou metadados de execução.
+ */
 export function applySseEventToMessage(
   msg: ChatMessageItem,
-  event: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parsed: any
+  event: SseEventType | string,
+  parsed: unknown
 ): ChatMessageItem {
-  const handler = EVENT_HANDLERS[event]
+  const handler = EVENT_HANDLERS[event as SseEventType]
   return handler ? handler(msg, parsed) : msg
 }
 
+/**
+ * Atualiza a mensagem anexando um bloco de erro de rede e marcando a timeline com falha.
+ *
+ * @param msg - Mensagem atual do chat.
+ * @param errorMsg - Mensagem descritiva do erro de conexão ocorrido no transporte HTTP.
+ * @returns Mensagem com o bloco de erro adicionado.
+ */
 export function applyNetworkErrorToMessage(
   msg: ChatMessageItem,
   errorMsg: string
@@ -153,7 +193,7 @@ export function applyNetworkErrorToMessage(
     content: errorMsg,
     blocks: upsertBlock(msg.blocks, {
       id: `err-${Date.now()}`,
-      type: 'error',
+      type: CHAT_BLOCK_TYPE.ERROR,
       message: errorMsg,
       code: 'NETWORK_ERROR'
     }),

@@ -1,12 +1,12 @@
-import { useEventListener } from "@reactuses/core"
+import { useEventListener } from '@reactuses/core'
 
 /**
- * Registers a keydown listener for a specific key and invokes the callback when it matches.
+ * Registra um ouvinte de evento keydown para uma tecla específica e executa o callback ao ser pressionada.
  *
- * @param targetKey - The keyboard key to listen for.
- * @param callback - The function to call when the target key is pressed.
+ * @param targetKey - Identificador da tecla do teclado (ex: 'Escape', 'Enter').
+ * @param callback - Função a ser executada quando a tecla alvo for acionada.
  */
-export const useKeyPress = (targetKey: string, callback: () => void) => {
+export function useKeyPress(targetKey: string, callback: () => void): void {
   const handleKeyPress = (event: KeyboardEvent) => {
     if (event.key === targetKey) {
       callback()

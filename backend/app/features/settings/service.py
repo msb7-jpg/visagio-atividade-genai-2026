@@ -1,4 +1,5 @@
 import logging
+
 from app.core.config import get_settings
 from app.db.settings_db import (
     get_active_provider_config,
@@ -26,7 +27,13 @@ class SettingsService:
     Delega testes de conectividade ao ProviderProbeService e mascaramento ao security.py.
     """
 
-    def __init__(self, user_id: str = "default_user"):
+    def __init__(self, user_id: str = "default_user") -> None:
+        """
+        Inicializa o serviço de configurações para o usuário especificado.
+
+        Args:
+            user_id: Identificador de usuário para o qual carregar preferências salvas.
+        """
         self.user_id = user_id
         active = get_active_provider_config_sync(self.user_id)
         if active:
@@ -75,7 +82,15 @@ class SettingsService:
             logger.warning("Não foi possível carregar configurações iniciais do SQLite: %s", exc)
 
     async def get_current_config(self, masked: bool = True) -> ProviderConfigDTO:
-        """Retorna a configuração ativa e a lista de provedores salvos no SQLite com detalhes mascarados."""
+        """
+        Retorna a configuração ativa e a lista de provedores salvos no SQLite com detalhes mascarados.
+
+        Args:
+            masked: Se True, oculta a chave de API substituindo por máscara de segurança.
+
+        Returns:
+            ProviderConfigDTO com a configuração ativa e mapa de configurações salvas.
+        """
         await self._ensure_db_loaded()
         saved_providers = []
         saved_configs_map: dict[str, SavedProviderSummaryDTO] = {}
@@ -103,7 +118,15 @@ class SettingsService:
         )
 
     async def update_config(self, new_config: ProviderConfigDTO) -> ProviderConfigDTO:
-        """Atualiza a configuração em memória e persiste no SQLite."""
+        """
+        Atualiza a configuração em memória e persiste no SQLite.
+
+        Args:
+            new_config: Novos parâmetros de provedor, modelo e chave a serem salvos.
+
+        Returns:
+            ProviderConfigDTO atualizado com chave mascarada para exibição.
+        """
         await self._ensure_db_loaded()
         updated_key = new_config.api_key
 
@@ -139,7 +162,15 @@ class SettingsService:
         return await self.get_current_config(masked=True)
 
     async def test_provider(self, request: TestProviderRequestDTO) -> TestProviderResponseDTO:
-        """Delega teste de conectividade ao ProviderProbeService."""
+        """
+        Delega teste de conectividade ao ProviderProbeService.
+
+        Args:
+            request: Parâmetros do teste de conectividade e timeout.
+
+        Returns:
+            TestProviderResponseDTO com resultado, tempo de resposta e modelos encontrados.
+        """
         await self._ensure_db_loaded()
         return await ProviderProbeService.test_provider(self.user_id, request)
 
@@ -148,6 +179,12 @@ _global_settings_service: SettingsService | None = None
 
 
 def get_settings_service() -> SettingsService:
+    """
+    Fornece a instância singleton de SettingsService utilizada na injeção de dependências FastAPI.
+
+    Returns:
+        Instância compartilhada de SettingsService.
+    """
     global _global_settings_service
     if _global_settings_service is None:
         _global_settings_service = SettingsService()

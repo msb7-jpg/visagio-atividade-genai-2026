@@ -18,7 +18,6 @@ def test_llm_factory_groq_instantiation():
     assert model.temperature == pytest.approx(0.0, abs=1e-5)
 
 
-
 def test_llm_factory_local_instantiation():
     """Verifica instanciação correta para modo local (LM Studio/Ollama)."""
     model = get_chat_model(
@@ -53,7 +52,6 @@ def test_llm_factory_google_instantiation():
     )
     assert isinstance(model, ChatGoogleGenerativeAI)
     assert model.model == "gemini-2.0-flash"
-
 
 
 def test_llm_factory_invalid_provider_raises_error():
@@ -92,7 +90,6 @@ def test_llm_factory_ocp_custom_provider_extension():
     model = get_chat_model(provider="custom_mock", model="custom-mock-v1")
     assert isinstance(model, ChatOpenAI)
     assert model.model_name == "custom-mock-v1"
-
 
 
 @pytest.mark.asyncio

@@ -146,6 +146,38 @@ function Component({ visible }: { visible: boolean }) {
 
 ---
 
+### 1.7 `setState` Síncrono em `useEffect` vs. Estado Derivado na Renderização (You Might Not Need an Effect)
+
+Nunca chame `setState` síncrono dentro do corpo de um `useEffect` para recalcular dados ou títulos derivados de outras variáveis reativas (`props`, outros `states` ou dados do React Query). Isso causa *cascading renders* (renderizações em cascata), penaliza a performance e é bloqueado pelas regras estritas do React Compiler / linter.
+
+```tsx
+// ✅ GOOD — computação derivada pura e instantânea durante o render
+function ChatHeader({ activeThreadId, threads }: ChatHeaderProps) {
+  const currentTitle = useMemo(() => {
+    if (!activeThreadId) return null
+    return threads.find((t) => t.thread_id === activeThreadId)?.title || null
+  }, [activeThreadId, threads])
+
+  return <h1>{currentTitle ?? 'Nova Conversa'}</h1>
+}
+
+// ❌ BAD — efeito síncrono desnecessário disparando segundo ciclo de renderização
+function ChatHeader({ activeThreadId, threads }: ChatHeaderProps) {
+  const [title, setTitle] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (activeThreadId) {
+      const match = threads.find((t) => t.thread_id === activeThreadId)
+      setTitle(match?.title || null) // 💥 Cascading render warning
+    }
+  }, [activeThreadId, threads])
+
+  return <h1>{title ?? 'Nova Conversa'}</h1>
+}
+```
+
+---
+
 ## 2. Guia de Referência Rápida (Quick Reference)
 
 | Padrão | Quando Usar | Risco Mitigado |
@@ -490,16 +522,22 @@ export type CommandRouteAction = AppRoute
 
 ---
 
-## 7. 🛡️ Integridade de Componentes e Proibição de Desvios (Anti-Bypass de Botões)
+## 7. 🛡️ Integridade de Componentes e Proibição de Desvios (Anti-Bypass de Design System)
 
-### 🚫 A Regra
-> **Nunca substitua elementos semânticos de ação/clique por `<span>`, `<div>` ou invólucros genéricos para tentar contornar regras do linter (`shadcn/no-restyle`).**
+### 🚫 A Regra de Ouro
+> **Nunca substitua elementos semânticos de ação/clique por `<span>`, `<div>` ou invólucros genéricos para tentar contornar regras do linter (`react/forbid-elements`, `shadcn/no-restyle`).**
 
 Se um elemento executa ação, seleção ou clique:
 - Ele deve ser semanticamente um `<Button>`.
-- Caso seja necessário um novo tratamento visual (ex: opção selecionável em grade, botão com card-style, pílula de ordenação), **adicione a variante ou o tamanho oficial diretamente em `src/components/ui/button.tsx`**.
-- Nunca use `onClick` em `<span>` ou `<div>` quando a semântica for de um botão de ação.
-- Nunca envolva botões inteiros em `<span>` para escapar de verificações de botão.
+- Caso seja necessário um novo tratamento visual (ex: links em texto inline, botões pequenos de cabeçalho, opções selecionáveis), **utilize as variantes e tamanhos oficiais da primitiva**:
+  - `variant="link"` para botões de texto discretos (ex: "Alterar chave", "Digitar modelo").
+  - `size="icon-sm"` (`h-7 w-7`) para botões de ícone compactos.
+- **Largura total em botões (`w-full`):** O linter proíbe `w-*` diretamente na prop `className` do `<Button>` (`deny: ["w-*", "h-*", "p-*", "bg-*"]`). Quando um botão precisar ocupar 100% da largura, configure a classe no container pai (ex: `<div className="w-full [&>button]:w-full">`) ou componha com um wrapper de layout.
+- **Primitivas de formulário encapsulated:**
+  - É proibido usar `<select>` nativo nas features. Utilize `<Select>` de `@/components/ui/select`.
+  - `<Card>`: estados de desabilitado ou selecionado devem ser passados via props oficiais (`<Card disabled={...} selected={...}>`), evitando injeções ad-hoc de `opacity-60` via `className`.
+  - `<Spinner>`: variantes semânticas (`primary`, `default`, `muted`) e tamanhos (`sm`, `default`, `lg`) devem ser controlados via props oficiais, nunca por classes de cor sobrescritas.
+- **Base-UI vs Radix:** O projeto utiliza `@base-ui/react/dialog`. Primitivas como `<DialogTrigger>` não utilizam a prop legada `asChild` do Radix; estilize e adicione conteúdo diretamente ao trigger ou utilize a composição nativa do Base-UI.
 
 ---
 
@@ -534,6 +572,99 @@ Reinventar comportamentos comuns com `useEffect` imperativos na mão aumenta a c
    - Use `useClickAway` em popovers, drawers ou menus flutuantes.
 6. **Área de Transferência:**
    - Use `useCopyToClipboard` para ações de copiar chave/código com feedback imediato.
+
+---
+
+## 10. 🎨 Tokens Semânticos & Escala Tailwind (Zero Raw Colors & Zero Arbitrary Values)
+
+### 🚫 A Regra de Ouro
+> **Nunca use classes de cores brutas da paleta padrão do Tailwind (`text-zinc-*`, `border-white/*`, `text-emerald-*`, `bg-amber-*`, etc.) ou colchetes arbitrários fora da escala (`max-w-[130px]`, `px-3.5`, `text-[11px]`, `size-*`).**
+
+### Padrão Estabelecido:
+1. **Declaração Centralizada no `@theme` (`frontend/src/index.css`):**
+   Todos os tokens semânticos suportados pelo design system devem estar registrados no bloco `@theme`:
+   - Canvas: `bg-background`, `bg-sidebar`, `bg-card`, `bg-card-hover`
+   - Bordas: `border-border`
+   - Tipografia: `text-foreground`, `text-muted-foreground`, `text-subtle-foreground`
+   - Acento Principal: `text-primary`, `bg-primary`, `text-primary-foreground`
+   - Estados: `text-destructive`, `bg-destructive`, `text-accent-emerald`, `text-accent-blue`
+2. **Substituição da Escala de Medidas:**
+   - `max-w-[130px]` ➔ `max-w-32`
+   - `max-h-[85vh]` / `max-h-[50vh]` ➔ `max-h-screen` / `max-h-96`
+   - `px-3.5` ➔ `px-3`
+   - `text-[11px]` / `text-[10px]` ➔ `text-xs`
+   - `size-4.5` / `size-3.5` ➔ `h-4 w-4` / `h-3.5 w-3.5`
+
+---
+
+## 11. ⚡ Code-Splitting Polimórfico de Renderizadores Pesados (`React.lazy` + `Suspense`)
+
+### 🚫 A Regra de Ouro
+> **Bibliotecas volumosas (como `chart.js` e `shiki`) nunca devem ser importadas estaticamente na árvore principal de renderização de mensagens (`ChatMessage.tsx`).**
+
+### Arquitetura de Renderização:
+- Utilize um compositor dedicado (`ContentRenderer.tsx`) com `React.lazy()` e `<Suspense fallback={<Spinner ... />}>` para carregar sob demanda:
+  - `ChartRenderer` (`chart.js`, `react-chartjs-2`).
+  - `SqlCodeBlock` (`shiki` syntax highlighter).
+- Componentes tabulares e textuais leves (`TableRenderer`, `MarkdownRenderer`) permanecem síncronos para manter performance imediata e total estabilidade na suíte de testes unitários.
+- **Resultado Prático:** Mensagens puramente textuais ou tabulares renderizam instantaneamente sem consumir memória ou baixar pacotes de compilação gráfica.
+
+---
+
+## 12. 🛠️ Utilitários Canônicos e Formatação de Dados (`src/lib/utils.ts`)
+
+Centralize formatadores e classes utilitárias no ponto único de verdade (`@/lib/utils`):
+
+```ts
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+/** Fusão canônica de classes Tailwind sem duplicações */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+/** Formatação monetária em Reais (BRL) */
+export function formatBRL(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value)
+}
+
+/** Formatação monetária em Dólares (USD) */
+export function formatUSD(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value)
+}
+
+/** Formatação numérica padrão brasileira */
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat('pt-BR').format(value)
+}
+```
+
+---
+
+## 13. 🏷️ Nomenclatura Descritiva de Identificadores (`id-length`)
+
+Identificadores de 1 único caractere (`e`, `r`, `k`, `p`, `a`, `b`) são proibidos pelo linter por prejudicarem a legibilidade e a manutenibilidade do código.
+
+```tsx
+// ✅ GOOD — nomes claros e autodescritivos
+onChange={(event) => onChange(event.target.value)}
+rows.map((rowRecord) => rowRecord[headerKey])
+setCurrentPage((prevPage) => prevPage + 1)
+entries.sort((entryA, entryB) => ...)
+
+// ❌ BAD — identificadores crípticos de 1 letra
+onChange={(e) => onChange(e.target.value)}
+rows.map((r) => r[k])
+setCurrentPage((p) => p + 1)
+entries.sort((a, b) => ...)
+```
 
 
 

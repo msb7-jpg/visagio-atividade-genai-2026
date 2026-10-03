@@ -4,7 +4,7 @@ export interface SseEvent {
 }
 
 /**
- * Lê e decodifica assincronamente linhas de um stream HTTP SSE gerando objetos { event, data }.
+ * Lê e decodifica assincronamente linhas de um stream HTTP SSE gerando eventos estruturados com `event` e `data`.
  */
 export async function* parseSseStream(response: Response): AsyncGenerator<SseEvent, void, unknown> {
   if (!response.body) return
@@ -25,21 +25,23 @@ export async function* parseSseStream(response: Response): AsyncGenerator<SseEve
 
       for (const line of lines) {
         const trimmed = line.trim()
-        if (!trimmed) continue
-
-        if (trimmed.startsWith('event:')) {
-          currentEvent = trimmed.replace('event:', '').trim()
+        if (!trimmed) {
+          currentEvent = 'message'
           continue
         }
 
-        if (trimmed.startsWith('data:')) {
-          const dataStr = trimmed.replace('data:', '').trim()
-          yield {
-            event: currentEvent,
-            data: dataStr
-          }
+        if (trimmed.startsWith('event:')) {
+          currentEvent = trimmed.slice(6).trim()
+        } else if (trimmed.startsWith('data:')) {
+          const data = trimmed.slice(5).trim()
+          yield { event: currentEvent, data }
         }
       }
+    }
+
+    if (buffer.trim().startsWith('data:')) {
+      const data = buffer.trim().slice(5).trim()
+      yield { event: currentEvent, data }
     }
   } finally {
     reader.releaseLock()

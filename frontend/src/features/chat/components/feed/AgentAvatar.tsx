@@ -1,21 +1,36 @@
-import { Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Bot } from 'lucide-react'
+import type { JSX } from 'react'
 
-interface AgentAvatarProps {
+/**
+ * Propriedades para o avatar do agente assistente.
+ */
+export interface AgentAvatarProps {
+  /**
+   * Indica se o modelo está gerando dados ativamente em streaming.
+   * @defaultValue `false`
+   */
   isStreaming?: boolean
+  /** Classes CSS adicionais. */
   className?: string
 }
 
-export function AgentAvatar({ isStreaming = false, className }: AgentAvatarProps) {
+/**
+ * Avatar visual do agente analítico exibindo pulso luminoso durante transmissões em streaming.
+ *
+ * @param props - Propriedades de configuração do avatar.
+ * @returns Elemento JSX do avatar com ícone de robô e indicador de atividade.
+ */
+export function AgentAvatar({ isStreaming = false, className }: AgentAvatarProps): JSX.Element {
   return (
     <div
       className={cn(
-        'relative flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-linear-to-b from-[#1E2430] to-sidebar shadow-sm',
-        isStreaming && 'border-primary/40 shadow-[0_0_12px_rgba(255,94,43,0.25)]',
+        'relative flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-gradient-to-b from-card to-sidebar shadow-sm',
+        isStreaming && 'border-primary/40 shadow-sm shadow-primary/20',
         className
       )}
     >
-      <Bot className={cn('size-4.5 text-zinc-300', isStreaming && 'text-primary')} />
+      <Bot className={cn('h-4 w-4 text-muted-foreground', isStreaming && 'text-primary')} />
       {isStreaming ? (
         <span className="absolute -top-0.5 -right-0.5 flex size-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />

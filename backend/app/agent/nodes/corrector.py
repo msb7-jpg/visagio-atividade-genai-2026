@@ -1,10 +1,8 @@
-from typing import Any
-
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.nodes.sql_generator import CINEDATA_CATALOG_PROMPT, extract_thought_and_sql
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
 
 CORRECTOR_PROMPT = """A consulta SQL falhou na execução ou na validação do SQLite.
@@ -20,9 +18,16 @@ REGRAS:
 
 async def sql_corrector_node(
     state: AgentState, config: RunnableConfig | None = None
-) -> dict[str, Any]:
+) -> AgentStateUpdate:
     """
-    Nó de auto-recuperação (self-correction): analisa o erro e gera nova tentativa de SQL.
+    Nó de auto-recuperação (self-correction): analisa o erro anterior e gera nova tentativa de SQL.
+
+    Args:
+        state: Estado contendo 'generated_sql', 'last_error' e 'error_count'.
+        config: Configuração do runner com provedor e credenciais.
+
+    Returns:
+        Atualização parcial do estado com thought e nova versão de generated_sql.
     """
     current_sql = state.get("generated_sql", "")
     error_msg = state.get("last_error", "Erro desconhecido")
@@ -37,7 +42,6 @@ async def sql_corrector_node(
         timeout_seconds=configurable.get("timeout_seconds") or 30,
         temperature=0.0,
     )
-
 
     messages = [
         SystemMessage(content=f"{CINEDATA_CATALOG_PROMPT}\n\n{CORRECTOR_PROMPT}"),

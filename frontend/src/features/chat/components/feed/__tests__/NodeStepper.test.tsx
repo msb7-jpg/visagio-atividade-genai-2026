@@ -13,7 +13,7 @@ describe('NodeStepper', () => {
     const steps: AgentStepItem[] = [
       { step: 'router', label: 'Classificando intenção', status: 'done', duration_ms: 12 },
       { step: 'sql_generator', label: 'Escrevendo consulta SQL', status: 'active' },
-      { step: 'sql_executor', label: 'Executando no cinerocket.db', status: 'pending' },
+      { step: 'sql_executor', label: 'Executando no cinerocket.db', status: 'pending' }
     ]
 
     render(<NodeStepper steps={steps} isStreaming />)

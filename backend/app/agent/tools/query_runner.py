@@ -1,9 +1,9 @@
 import re
 import sqlite3
-from typing import Any
 
 from langchain_core.tools import tool
 
+from app.core.constants import QueryResultRow
 from app.db.session import get_readonly_db_connection
 from app.shared.exceptions import DatabaseReadError
 
@@ -14,15 +14,19 @@ FORBIDDEN_KEYWORDS_PATTERN = re.compile(
 
 
 @tool
-def execute_sql_query(query: str) -> list[dict[str, Any]]:
+def execute_sql_query(query: str) -> list[QueryResultRow]:
     """
-    Executa uma consulta analítica SQL em modo read-only (SELECT) no banco cinerocket.db.
+    Executa uma consulta analítica SQL em modo read-only (SELECT/WITH) no banco cinerocket.db.
 
     Args:
-        query: Consulta SQL a ser executada. Deve começar com SELECT ou WITH.
+        query: Consulta SQL a ser executada. Deve começar estritamente com SELECT ou WITH.
 
     Returns:
-        Lista de dicionários representando as linhas retornadas, limitado a 100 linhas.
+        Lista de dicionários QueryResultRow representando as linhas retornadas, limitado a 100 linhas.
+
+    Raises:
+        ValueError: Se a consulta contiver comandos de modificação de dados/DDL ou não começar com SELECT/WITH.
+        DatabaseReadError: Se ocorrer uma falha operacional de consulta no SQLite.
     """
     cleaned_query = query.strip().rstrip(";")
 
@@ -31,7 +35,7 @@ def execute_sql_query(query: str) -> list[dict[str, Any]]:
         raise ValueError("Operação proibida: a consulta contém comandos de modificação ou DDL.")
 
     upper_clean = cleaned_query.lstrip().upper()
-    if not (upper_clean.startswith("SELECT") or upper_clean.startswith("WITH")):
+    if not upper_clean.startswith(("SELECT", "WITH")):
         raise ValueError("Apenas consultas que iniciem com SELECT ou WITH são permitidas.")
 
     # Conexão física read-only protegida no SQLite (mode=ro)

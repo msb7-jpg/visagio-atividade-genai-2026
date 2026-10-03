@@ -9,7 +9,8 @@ from app.agent.nodes.corrector import sql_corrector_node
 from app.agent.nodes.sql_executor import sql_executor_node
 from app.agent.nodes.sql_generator import sql_generator_node
 from app.agent.nodes.synthesizer import synthesizer_node
-from app.agent.state import AgentState
+from app.agent.state import AgentState, AgentStateUpdate
+from app.core.constants import AgentNode, SqlErrorCategory
 from app.core.llm_factory import get_chat_model
 
 ROUTER_PROMPT = """Você é o Classificador de Intenção do CineData Analytics.
@@ -23,9 +24,16 @@ Responda unicamente com uma palavra: "sql" ou "direct".
 
 async def router_node(
     state: AgentState, config: RunnableConfig | None = None
-) -> dict[str, Any]:
+) -> AgentStateUpdate:
     """
-    Classifica a intenção do usuário para rotear para SQL ou Direct.
+    Classifica a intenção da mensagem mais recente do usuário para definir a rota executiva.
+
+    Args:
+        state: Estado atual contendo o histórico de mensagens.
+        config: Configurações de execução com credenciais e modelo ativos.
+
+    Returns:
+        Atualização parcial do estado com 'route' definido como 'sql' ou 'direct'.
     """
     messages = state.get("messages", [])
     if not messages:
@@ -59,15 +67,31 @@ async def router_node(
     return {"route": route}
 
 
-def route_decision(state: AgentState) -> Literal["sql_generator", "synthesizer"]:
-    """Decisão após o roteamento."""
+def route_decision(state: AgentState) -> str:
+    """
+    Decide para qual nó direcionar a execução após a classificação inicial do roteador.
+
+    Args:
+        state: Estado atual contendo a chave 'route'.
+
+    Returns:
+        Nome do nó de destino: 'sql_generator' ou 'synthesizer'.
+    """
     if state.get("route") == "direct":
-        return "synthesizer"
-    return "sql_generator"
+        return AgentNode.SYNTHESIZER.value
+    return AgentNode.SQL_GENERATOR.value
 
 
 def should_generate_chart(state: AgentState) -> bool:
-    """Verifica se o usuário solicitou gráfico ou representação visual."""
+    """
+    Avalia se a consulta do usuário contém intenção explícita de visualização gráfica.
+
+    Args:
+        state: Estado contendo o histórico de mensagens.
+
+    Returns:
+        True se termos de visualização forem identificados, False caso contrário.
+    """
     messages = state.get("messages", [])
     last_user_message = ""
     for msg in reversed(messages):
@@ -75,7 +99,7 @@ def should_generate_chart(state: AgentState) -> bool:
             last_user_message = str(msg.content).lower()
             break
 
-    chart_keywords = [
+    chart_keywords = (
         "gráfico",
         "grafico",
         "chart",
@@ -88,34 +112,38 @@ def should_generate_chart(state: AgentState) -> bool:
         "distribuição visual",
         "visualização",
         "visualizacao",
-    ]
+    )
     return any(keyword in last_user_message for keyword in chart_keywords)
 
 
-def check_sql_execution(
-    state: AgentState,
-) -> Literal["sql_corrector", "chart_generator", "synthesizer"]:
+def check_sql_execution(state: AgentState) -> str:
     """
-    Decide se o fluxo segue para o sintetizador, gerador de gráfico ou entra no loop de autocorreção.
-    Se o erro decorrer de violação de segurança/política de permissões (SECURITY_VIOLATION ou UNSUPPORTED_REQUEST),
-    o fluxo vai direto para o sintetizador explicar a restrição em vez de tentar auto-corrigir.
+    Decide o próximo nó após a execução SQL (sucesso para gráfico/síntese ou loop de autocorreção).
+
+    Se o erro for decorrente de violação de segurança ou instrução não suportada,
+    o fluxo vai direto para o sintetizador explicar a restrição ao invés de tentar corrigir.
+
+    Args:
+        state: Estado contendo query_result, last_error e error_count.
+
+    Returns:
+        Identificador do nó de destino: 'sql_corrector', 'chart_generator' ou 'synthesizer'.
     """
     last_error = state.get("last_error")
     error_count = state.get("error_count", 0)
     error_cat = state.get("error_category")
 
     if not last_error:
-        # Se a query foi bem-sucedida e retornou dados, passa pelo chart_generator
-        # para avaliação semântica de visualização pelo agente
         if state.get("query_result"):
-            return "chart_generator"
-        return "synthesizer"
+            return AgentNode.CHART_GENERATOR.value
+        return AgentNode.SYNTHESIZER.value
 
-    # Verificação canônica baseada na categoria tipada do erro
-    if error_cat in ("SECURITY_VIOLATION", "UNSUPPORTED_REQUEST"):
-        return "synthesizer"
+    if error_cat in (
+        SqlErrorCategory.SECURITY_VIOLATION.value,
+        SqlErrorCategory.UNSUPPORTED_REQUEST.value,
+    ):
+        return AgentNode.SYNTHESIZER.value
 
-    # Fallback defensivo caso a categoria não tenha sido preenchida explicitamente
     error_lower = last_error.lower()
     is_security_or_forbidden = (
         "política de segurança" in error_lower
@@ -126,52 +154,58 @@ def check_sql_execution(
         or "não foi possível gerar consulta sql para este pedido" in error_lower
     )
     if is_security_or_forbidden:
-        return "synthesizer"
+        return AgentNode.SYNTHESIZER.value
 
     if error_count < 3:
-        return "sql_corrector"
-    return "synthesizer"
+        return AgentNode.SQL_CORRECTOR.value
+    return AgentNode.SYNTHESIZER.value
 
 
 def create_agent_graph(checkpointer: Any = None):
     """
-    Compila o StateGraph com suporte opcional a checkpointer para persistência de threads.
+    Compila o StateGraph com suporte opcional a checkpointer para persistência de conversas.
+
+    Args:
+        checkpointer: Instância de checkpointer (ex: AsyncSqliteSaver) para salvar checkpoints.
+
+    Returns:
+        Grafo compilado pronto para ainvoke ou astream.
     """
     workflow = StateGraph(AgentState)
 
     # Registro dos nós
-    workflow.add_node("router", router_node)
-    workflow.add_node("sql_generator", sql_generator_node)
-    workflow.add_node("sql_executor", sql_executor_node)
-    workflow.add_node("sql_corrector", sql_corrector_node)
-    workflow.add_node("chart_generator", chart_generator_node)
-    workflow.add_node("synthesizer", synthesizer_node)
+    workflow.add_node(AgentNode.ROUTER.value, router_node)
+    workflow.add_node(AgentNode.SQL_GENERATOR.value, sql_generator_node)
+    workflow.add_node(AgentNode.SQL_EXECUTOR.value, sql_executor_node)
+    workflow.add_node(AgentNode.SQL_CORRECTOR.value, sql_corrector_node)
+    workflow.add_node(AgentNode.CHART_GENERATOR.value, chart_generator_node)
+    workflow.add_node(AgentNode.SYNTHESIZER.value, synthesizer_node)
 
     # Transições
-    workflow.add_edge(START, "router")
+    workflow.add_edge(START, AgentNode.ROUTER.value)
     workflow.add_conditional_edges(
-        "router",
+        AgentNode.ROUTER.value,
         route_decision,
         {
-            "sql_generator": "sql_generator",
-            "synthesizer": "synthesizer",
+            AgentNode.SQL_GENERATOR.value: AgentNode.SQL_GENERATOR.value,
+            AgentNode.SYNTHESIZER.value: AgentNode.SYNTHESIZER.value,
         },
     )
 
-    workflow.add_edge("sql_generator", "sql_executor")
+    workflow.add_edge(AgentNode.SQL_GENERATOR.value, AgentNode.SQL_EXECUTOR.value)
 
     workflow.add_conditional_edges(
-        "sql_executor",
+        AgentNode.SQL_EXECUTOR.value,
         check_sql_execution,
         {
-            "sql_corrector": "sql_corrector",
-            "chart_generator": "chart_generator",
-            "synthesizer": "synthesizer",
+            AgentNode.SQL_CORRECTOR.value: AgentNode.SQL_CORRECTOR.value,
+            AgentNode.CHART_GENERATOR.value: AgentNode.CHART_GENERATOR.value,
+            AgentNode.SYNTHESIZER.value: AgentNode.SYNTHESIZER.value,
         },
     )
 
-    workflow.add_edge("chart_generator", "synthesizer")
-    workflow.add_edge("sql_corrector", "sql_executor")
-    workflow.add_edge("synthesizer", END)
+    workflow.add_edge(AgentNode.CHART_GENERATOR.value, AgentNode.SYNTHESIZER.value)
+    workflow.add_edge(AgentNode.SQL_CORRECTOR.value, AgentNode.SQL_EXECUTOR.value)
+    workflow.add_edge(AgentNode.SYNTHESIZER.value, END)
 
     return workflow.compile(checkpointer=checkpointer)

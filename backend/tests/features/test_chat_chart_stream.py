@@ -1,4 +1,4 @@
-import json
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -53,6 +53,7 @@ async def test_chat_stream_emits_chart_event():
         ]
 
         async def fake_astream(*args, **kwargs):
+            await asyncio.sleep(0)
             for ev in mock_events:
                 yield ev
 

@@ -6,10 +6,7 @@ from langchain_core.messages import HumanMessage
 
 
 class LLMProviderStrategy(ABC):
-    """
-    Interface abstrata para estratégias de instanciação e sondagem de LLMs.
-    Respeita o Princípio Aberto/Fechado (OCP).
-    """
+    """Contrato base para estratégias de instanciação e descoberta de provedores de LLM."""
 
     @abstractmethod
     def create_model(
@@ -21,8 +18,24 @@ class LLMProviderStrategy(ABC):
         timeout_seconds: int = 30,
         **kwargs: Any,
     ) -> BaseChatModel:
-        """Instancia e retorna o modelo de chat configurado."""
-        pass
+        """
+        Instancia e retorna o modelo de chat configurado.
+
+        Args:
+            model: Identificador do modelo no provedor (ex: 'llama-3.3-70b-versatile').
+            api_key: Chave de API secreta, se exigida pelo provedor.
+            base_url: Endpoint base HTTP customizado para o provedor.
+            temperature: Grau de aleatoriedade das respostas (padrão: 0.0 para determinismo).
+            timeout_seconds: Limite de tempo em segundos para requisições.
+            **kwargs: Parâmetros adicionais específicos do modelo/SDK.
+
+        Returns:
+            Instância configurada de BaseChatModel pronta para invocação ou streaming.
+
+        Raises:
+            ValueError: Se os parâmetros mínimos exigidos não forem fornecidos.
+            ProviderUnavailableError: Se o provedor não estiver configurado corretamente.
+        """
 
     async def fast_probe(
         self,
@@ -36,9 +49,17 @@ class LLMProviderStrategy(ABC):
         Estratégia padrão:
         - Instancia o modelo configurado via create_model.
         - Envia mensagem leve ('ping') e aguarda a resposta.
-        - Se responder com sucesso, retorna (True, None).
+        - Se responder com sucesso, retorna (True, 'Ping bem-sucedido').
         - Subclasses (como LocalOpenAIProviderStrategy) podem sobrescrever para
-          verificações HTTP ainda mais rápidas (ex: /health ou /v1/health sem inferência).
+          verificações HTTP ainda mais rápidas (ex: /health sem inferência).
+
+        Args:
+            base_url: Endpoint base a ser sondado.
+            api_key: Chave de API para autenticação no health check.
+            timeout_seconds: Tempo limite da requisição rápida.
+
+        Returns:
+            Tupla contendo (is_healthy, status_message).
         """
         model = self.create_model(
             api_key=api_key,
@@ -55,7 +76,14 @@ class LLMProviderStrategy(ABC):
         timeout_seconds: float = 5.0,
     ) -> list[str]:
         """
-        Retorna a lista de modelos ativos disponíveis consultando a API do provedor.
-        Subclasses devem implementar para obter modelos reais via HTTP.
+        Consulta dinamicamente a API do provedor e retorna a lista de IDs de modelos disponíveis.
+
+        Args:
+            api_key: Chave de API para autenticação na listagem.
+            base_url: Endpoint base do provedor.
+            timeout_seconds: Tempo limite da requisição de catálogo.
+
+        Returns:
+            Lista ordenada com nomes ou identificadores de modelos.
         """
         return []
