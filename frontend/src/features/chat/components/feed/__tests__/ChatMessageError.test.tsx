@@ -120,4 +120,43 @@ describe('ChatMessage with Error Block', () => {
     fireEvent.click(retryBtn)
     expect(onRetry).toHaveBeenCalled()
   })
+
+  it('renders ChatMessageActions (Regenerar e Trocar Modelo) even without textual content when steps contain error', () => {
+    const onRetry = vi.fn()
+    const onOpenSettings = vi.fn()
+    const interruptedMsg: ChatMessageItem = {
+      id: 'interrupted-turn',
+      role: 'assistant',
+      content: '',
+      blocks: [],
+      steps: [
+        {
+          step: 'interrupted',
+          label: 'Processamento interrompido',
+          status: 'error'
+        }
+      ],
+      timestamp: Date.now(),
+      isStreaming: false
+    }
+
+    render(
+      <ChatMessage
+        message={interruptedMsg}
+        onRetry={onRetry}
+        onOpenSettings={onOpenSettings}
+      />
+    )
+
+    // Botão Regenerar e Trocar Modelo presentes nas actions
+    const retryBtn = screen.getByRole('button', { name: /Regenerar/i })
+    expect(retryBtn).toBeInTheDocument()
+    fireEvent.click(retryBtn)
+    expect(onRetry).toHaveBeenCalled()
+
+    const changeModelBtn = screen.getByRole('button', { name: /Trocar Modelo/i })
+    expect(changeModelBtn).toBeInTheDocument()
+    fireEvent.click(changeModelBtn)
+    expect(onOpenSettings).toHaveBeenCalled()
+  })
 })

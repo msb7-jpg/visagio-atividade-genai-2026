@@ -34,3 +34,72 @@ async def test_threads_api_crud_flow():
         # 4. Verificar se 404 após exclusão
         res_get_after = await client.get(f"/chat/threads/{thread_id}")
         assert res_get_after.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_interrupted_thread_detail_synthesizes_error_step():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from langchain_core.messages import HumanMessage
+
+    thread_id = "test-interrupted-thread-123"
+    await ThreadRepository.get_or_create_thread(thread_id, default_title="Teste Interrupção")
+
+    mock_state = MagicMock()
+    mock_state.values = {
+        "messages": [HumanMessage(content="Pergunta que foi interrompida")]
+    }
+
+    with patch("app.features.chat.threads_service.create_agent_graph") as mock_graph:
+        graph_inst = MagicMock()
+        graph_inst.aget_state = AsyncMock(return_value=mock_state)
+        mock_graph.return_value = graph_inst
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            res = await client.get(f"/chat/threads/{thread_id}")
+            assert res.status_code == 200
+            data = res.json()
+            assert len(data["messages"]) == 2
+            assert data["messages"][0]["role"] == "user"
+            assert data["messages"][1]["role"] == "assistant"
+            assert data["messages"][1]["steps"][0]["status"] == "error"
+            assert data["messages"][1]["steps"][0]["label"] == "Processamento interrompido"
+
+    await ThreadRepository.delete_thread(thread_id)
+
+@pytest.mark.asyncio
+async def test_running_thread_detail_does_not_synthesize_error_step():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from langchain_core.messages import HumanMessage
+
+    from app.core.session_manager import get_session_manager
+
+    thread_id = "test-running-thread-456"
+    await ThreadRepository.get_or_create_thread(thread_id, default_title="Teste Em Andamento")
+    session_manager = get_session_manager()
+    await session_manager.register_session(thread_id)
+
+    mock_state = MagicMock()
+    mock_state.values = {
+        "messages": [HumanMessage(content="Pergunta ainda em processamento")]
+    }
+
+    try:
+        with patch("app.features.chat.threads_service.create_agent_graph") as mock_graph:
+            graph_inst = MagicMock()
+            graph_inst.aget_state = AsyncMock(return_value=mock_state)
+            mock_graph.return_value = graph_inst
+
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                res = await client.get(f"/chat/threads/{thread_id}")
+                assert res.status_code == 200
+                data = res.json()
+                assert data["is_running"] is True
+                assert len(data["messages"]) == 1
+                assert data["messages"][0]["role"] == "user"
+    finally:
+        await session_manager.unregister_session(thread_id)
+        await ThreadRepository.delete_thread(thread_id)

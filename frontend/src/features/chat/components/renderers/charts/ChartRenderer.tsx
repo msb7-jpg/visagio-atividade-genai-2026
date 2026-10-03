@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
-import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2'
-import { BarChart3, LineChart, PieChart } from 'lucide-react'
 import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
+import { BarChart3, LineChart, PieChart } from 'lucide-react'
+import { useMemo } from 'react'
+import { Bar, Doughnut, Line, Pie } from 'react-chartjs-2'
 import { CHART_PALETTE, getChartOptions } from './chart.config'
 
 interface ChartRendererProps {

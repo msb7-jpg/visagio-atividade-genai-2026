@@ -13,6 +13,8 @@ export function useThreadDetailQuery(threadId: string | null | undefined) {
     },
     enabled: Boolean(threadId),
     staleTime: 1000 * 60 * 5, // 5 minutos de cache fresco
-    gcTime: 1000 * 60 * 30
+    gcTime: 1000 * 60 * 30,
+    // Enquanto o backend ainda processa (ex.: após reload), consulta periodicamente até concluir
+    refetchInterval: (query) => (query.state.data?.is_running ? 3000 : false)
   })
 }

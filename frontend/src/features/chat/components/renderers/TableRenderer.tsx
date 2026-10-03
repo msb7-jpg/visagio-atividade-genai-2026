@@ -253,7 +253,7 @@ export function TableRenderer({
               onClick={handleExportCsv}
               className="flex w-full items-center justify-start gap-2 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-white/5 hover:text-white"
             >
-              <Download className="size-3.5 text-[#FF5E2B]" />
+              <Download className="size-3.5 text-zinc-400" />
               <span>Exportar CSV</span>
             </Button>
           </div>

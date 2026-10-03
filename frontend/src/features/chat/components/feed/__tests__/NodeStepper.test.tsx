@@ -75,4 +75,16 @@ describe('NodeStepper', () => {
     expect(screen.getByText('Classificando intenção')).toBeInTheDocument()
     expect(screen.getByText('(clique para recolher)')).toBeInTheDocument()
   })
+
+  it('converte etapas pendentes ou ativas em status de erro quando o stream é interrompido', () => {
+    const steps: AgentStepItem[] = [
+      { step: 'router', label: 'Classificando intenção', status: 'done', duration_ms: 10 },
+      { step: 'sql_generator', label: 'Escrevendo consulta SQL', status: 'active' }
+    ]
+
+    render(<NodeStepper steps={steps} isStreaming={false} />)
+
+    expect(screen.getByText('Classificando intenção')).toBeInTheDocument()
+    expect(screen.getByText(/Escrevendo consulta SQL \(interrompido\)/i)).toBeInTheDocument()
+  })
 })

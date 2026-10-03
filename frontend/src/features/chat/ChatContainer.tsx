@@ -1,82 +1,161 @@
 import { useThreadDetailQuery } from '@/features/chat/hooks/useThreadDetailQuery'
-import type { ChatMessageItem } from '@/features/chat/types/chat.types'
+import type { ChatMessageBlock, ChatMessageItem, ThreadDetail } from '@/features/chat/types/chat.types'
 import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderConfigQuery'
 import { cn } from '@/lib/utils'
-import { Clapperboard } from 'lucide-react'
+import { Clapperboard, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { ChatMessage } from './components/feed/ChatMessage'
 import { ChatInput } from './components/input/ChatInput'
-import { useAgentStream } from './hooks/useAgentStream'
+import type { AgentStream } from './hooks/useAgentStream'
+import { SuggestionExplorer } from './SuggestionsExplorer'
 
 export interface ChatContainerProps {
+  /** Stream compartilhado em nível de aplicação (sobrevive à navegação entre threads) */
+  stream: AgentStream
   onOpenSettings?: () => void
-  onStreamingChange?: (isStreaming: boolean) => void
   onTitleChange?: (title: string | null) => void
   onActiveThreadChange?: (threadId: string | null) => void
   onTimelineItemsChange?: (items: { id: string; title: string }[]) => void
+  /** Navega de volta para a thread que está gerando resposta */
+  onGoToStreamingThread?: () => void
   externalThreadId?: string | null
   className?: string
 }
 
+/** Converte o detalhe persistido da thread em itens de mensagem renderizáveis */
+function rehydrateThreadMessages(threadDetail: ThreadDetail): ChatMessageItem[] {
+  const rehydratedMessages: ChatMessageItem[] = threadDetail.messages.map((msg) => {
+    const blocks: ChatMessageBlock[] = []
+
+    if (msg.role === 'assistant') {
+      if (msg.thought) {
+        blocks.push({
+          id: `th-${msg.id}`,
+          type: 'thought',
+          content: msg.thought
+        })
+      }
+      if (msg.generated_sql) {
+        blocks.push({
+          id: `sql-${msg.id}`,
+          type: 'sql',
+          query: msg.generated_sql
+        })
+      }
+    }
+
+    blocks.push({
+      id: `block-${msg.id}`,
+      type: 'text',
+      content: msg.content
+    })
+
+    if (msg.role === 'assistant' && msg.chart_spec) {
+      blocks.push({
+        id: `chart-${msg.id}`,
+        type: 'chart',
+        config: msg.chart_spec
+      })
+    }
+
+    // Se for mensagem de assistente persistida sem steps gravados, fornece os steps padrão para o NodeStepper
+    let steps = msg.steps || []
+    const isInterruptedMessage = msg.id.startsWith('interrupted-') || (!msg.content && !msg.generated_sql && !msg.chart_spec)
+    if (msg.role === 'assistant' && steps.length === 0) {
+      if (isInterruptedMessage) {
+        steps = [
+          { step: 'interrupted', label: 'Processamento interrompido', status: 'error' }
+        ]
+      } else {
+        steps = [
+          { step: 'router', label: 'Classificando intenção', status: 'done' },
+          ...(msg.generated_sql ? [
+            { step: 'sql_generator', label: 'Escrevendo consulta SQL', status: 'done' as const },
+            { step: 'sql_executor', label: 'Executando no cinerocket.db', status: 'done' as const }
+          ] : []),
+          ...(msg.chart_spec ? [
+            { step: 'chart_generator', label: 'Avaliando visualização gráfica', status: 'done' as const }
+          ] : []),
+          { step: 'synthesizer', label: 'Formatando análise executiva', status: 'done' }
+        ]
+      }
+    }
+
+    return {
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      blocks,
+      steps,
+      timestamp: threadDetail.updated_at ? threadDetail.updated_at * 1000 : Date.now()
+    }
+  })
+
+  // Backend ainda processando (ex.: após reload): exibe placeholder em loading em vez de erro
+  const last = rehydratedMessages.at(-1)
+  if (threadDetail.is_running && last?.role === 'user') {
+    rehydratedMessages.push({
+      id: `running-${threadDetail.thread_id}`,
+      role: 'assistant',
+      content: '',
+      blocks: [],
+      steps: [],
+      timestamp: Date.now(),
+      isStreaming: true
+    })
+  }
+
+  return rehydratedMessages
+}
+
 export function ChatContainer({
+  stream,
   onOpenSettings,
-  onStreamingChange,
   onTitleChange,
   onActiveThreadChange,
   onTimelineItemsChange,
+  onGoToStreamingThread,
   externalThreadId,
   className
 }: ChatContainerProps) {
   const {
-    messages,
+    messages: streamMessages,
     isStreaming,
     activeThreadId,
     activeTitle,
     sendMessage,
     retryMessage,
     loadThreadMessages
-  } = useAgentStream(externalThreadId)
+  } = stream
 
   const { config } = useProviderConfigQuery()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Consulta reativa e em cache com TanStack Query para os detalhes da thread selecionada
   const { data: threadDetail } = useThreadDetailQuery(externalThreadId)
+  const currentDetail = threadDetail && threadDetail.thread_id === externalThreadId ? threadDetail : undefined
 
-  // Reidrata mensagens quando os dados da thread chegam via TanStack Query
+  const isViewingStreamThread = isStreaming && (externalThreadId ? activeThreadId === externalThreadId : true)
+  // Há geração em andamento em OUTRA thread: a tela atual fica somente-leitura
+  const isLockedByOtherThread = isStreaming && !isViewingStreamThread
+  // O estado do stream corresponde à thread exibida
+  const streamOwnsView = isViewingStreamThread || activeThreadId === (externalThreadId ?? null)
+  // Backend ainda processa esta thread sem stream local (ex.: após recarregar a página)
+  const isRunningRemotely = Boolean(currentDetail?.is_running) && !isViewingStreamThread
+  const isModelLocked = isStreaming || isRunningRemotely
+
+  const viewMessages = useMemo(
+    () => (currentDetail ? rehydrateThreadMessages(currentDetail) : []),
+    [currentDetail]
+  )
+
+  // Reidrata o stream com os dados da thread apenas quando não há geração em andamento
   useEffect(() => {
-    if (!threadDetail || isStreaming) return
-    if (threadDetail.thread_id !== externalThreadId) return
+    if (!currentDetail || isStreaming) return
+    loadThreadMessages(currentDetail.thread_id, currentDetail.title, viewMessages)
+  }, [currentDetail, viewMessages, isStreaming])
 
-    const rehydratedMessages: ChatMessageItem[] = threadDetail.messages.map((msg) => {
-      const blocks: import('@/features/chat/types/chat.types').ChatMessageBlock[] = [
-        {
-          id: `block-${msg.id}`,
-          type: 'text',
-          content: msg.content
-        }
-      ]
-
-      if (msg.role === 'assistant' && msg.chart_spec) {
-        blocks.push({
-          id: `chart-${msg.id}`,
-          type: 'chart',
-          config: msg.chart_spec
-        })
-      }
-
-      return {
-        id: msg.id,
-        role: msg.role,
-        content: msg.content,
-        blocks,
-        steps: msg.steps || [],
-        timestamp: threadDetail.updated_at ? threadDetail.updated_at * 1000 : Date.now()
-      }
-    })
-
-    loadThreadMessages(threadDetail.thread_id, threadDetail.title, rehydratedMessages)
-  }, [threadDetail, externalThreadId, isStreaming])
+  const messages = streamOwnsView ? streamMessages : viewMessages
 
   // Itens para o TimelineScrollSpy (mini-mapa lateral direito)
   const timelineItems = useMemo(() => {
@@ -88,28 +167,30 @@ export function ChatContainer({
       }))
   }, [messages])
 
-  // Consolidação de notificações de estado para o layout / componente pai
+  // Chat novo recebendo o thread_id do backend: sincroniza URL
   useEffect(() => {
-    onStreamingChange?.(isStreaming)
-    onTitleChange?.(activeTitle)
-    onActiveThreadChange?.(activeThreadId)
+    if (!externalThreadId && activeThreadId) {
+      onActiveThreadChange?.(activeThreadId)
+    }
+  }, [externalThreadId, activeThreadId, onActiveThreadChange])
+
+  // Título gerado durante o stream só vale para a thread que o stream controla
+  useEffect(() => {
+    if (streamOwnsView && activeTitle) {
+      onTitleChange?.(activeTitle)
+    }
+  }, [streamOwnsView, activeTitle, onTitleChange])
+
+  useEffect(() => {
     onTimelineItemsChange?.(timelineItems)
-  }, [
-    isStreaming,
-    activeTitle,
-    activeThreadId,
-    timelineItems,
-    onStreamingChange,
-    onTitleChange,
-    onActiveThreadChange,
-    onTimelineItemsChange
-  ])
+  }, [timelineItems, onTimelineItemsChange])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleSend = (text: string) => {
+    if (isModelLocked) return
     sendMessage({
       message: text,
       provider: config?.provider,
@@ -118,6 +199,7 @@ export function ChatContainer({
   }
 
   const handleRetry = (assistantMsgId: string) => {
+    if (isModelLocked) return
     retryMessage(assistantMsgId, {
       provider: config?.provider,
       model: config?.model
@@ -143,26 +225,14 @@ export function ChatContainer({
                   catálogo de cinema em linguagem natural com validação SQL em tempo real.
                 </p>
 
-                <div className="mt-8 flex flex-wrap justify-center gap-2">
-                  {[
-                    'Quais os 10 filmes com maior faturamento de bilheteria?',
-                    'Qual o lucro médio por gênero de filme?',
-                    'Quais os 5 diretores com melhor média no IMDb?',
-                    'Qual ator participou do maior número de filmes?',
-                    'Gere um gráfico de barras com as 5 produtoras mais lucrativas do catálogo.',
-                    'Mostre um gráfico comparativo de faturamento dos top 5 filmes de ficção científica.',
-                    'Trace a evolução da nota média dos filmes no IMDb ao longo dos anos.',
-                    'Exiba um gráfico de pizza com a distribuição percentual de filmes pelos 5 principais gêneros.'
-                  ].map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => handleSend(suggestion)}
-                      className="rounded-xl border border-white/10 bg-[#13171E]/60 px-3.5 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-[#FF5E2B]/40 hover:bg-[#FF5E2B]/10 hover:text-white"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                <div
+                  className={cn(
+                    'mt-8 flex flex-wrap justify-center gap-2',
+                    isModelLocked && 'pointer-events-none opacity-50'
+                  )}
+                  aria-disabled={isModelLocked}
+                >
+                  <SuggestionExplorer onSelectPrompt={handleSend} />
                 </div>
               </div>
             ) : (
@@ -172,6 +242,7 @@ export function ChatContainer({
                   message={msg}
                   onOpenSettings={onOpenSettings}
                   onRetry={() => handleRetry(msg.id)}
+                  actionsDisabled={isModelLocked}
                 />
               ))
             )}
@@ -183,8 +254,22 @@ export function ChatContainer({
 
       {/* Input de envio fixo no rodapé */}
       <div className="border-t border-white/5 bg-[#0E1217]/80 p-4 backdrop-blur-md sm:px-6">
-        <div className="mx-auto max-w-4xl">
-          <ChatInput onSendMessage={handleSend} isStreaming={isStreaming} />
+        <div className="mx-auto max-w-4xl space-y-2">
+          {isLockedByOtherThread || isRunningRemotely ? (
+            <button
+              type="button"
+              onClick={isLockedByOtherThread ? onGoToStreamingThread : undefined}
+              className="flex w-full items-center gap-2 rounded-xl border border-[#FF5E2B]/20 bg-[#FF5E2B]/5 px-3 py-2 text-left text-xs text-zinc-300 transition-colors hover:bg-[#FF5E2B]/10"
+            >
+              <Loader2 className="size-3.5 shrink-0 animate-spin text-[#FF5E2B]" />
+              <span>
+                {isLockedByOtherThread
+                  ? 'Aguarde a resposta em curso para enviar nova mensagem.'
+                  : 'Esta conversa ainda está sendo processada. A resposta aparecerá aqui ao concluir.'}
+              </span>
+            </button>
+          ) : null}
+          <ChatInput onSendMessage={handleSend} isStreaming={isModelLocked} />
         </div>
       </div>
     </div>

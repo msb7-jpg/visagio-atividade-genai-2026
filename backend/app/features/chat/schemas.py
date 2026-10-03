@@ -42,6 +42,7 @@ class ThreadDetailDTO(BaseModel):
     created_at: float
     updated_at: float
     messages: list[dict[str, Any]] = Field(default_factory=list)
+    is_running: bool = False
 
 
 class StepEventDTO(BaseModel):

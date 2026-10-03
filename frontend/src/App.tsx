@@ -3,20 +3,24 @@ import { ChatContainer } from '@/features/chat/ChatContainer'
 import { AnimatedTitle } from '@/features/chat/components/header/AnimatedTitle'
 import { SidebarThreads } from '@/features/chat/components/sidebar/SidebarThreads'
 import { TimelineScrollSpy } from '@/features/chat/components/timeline/TimelineScrollSpy'
+import { useAgentStream } from '@/features/chat/hooks/useAgentStream'
 import { useScrollSpy } from '@/features/chat/hooks/useScrollSpy'
 import { useThreadHistory } from '@/features/chat/hooks/useThreadHistory'
 import { useThreadUrlSync } from '@/features/chat/hooks/useThreadUrlSync'
 import { SettingsModal } from '@/features/settings/components/modal/SettingsModal'
 import { queryClient } from '@/lib/query-client'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 function AppContent() {
   const { activeThreadId, setThreadId } = useThreadUrlSync()
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
   const [timelineItems, setTimelineItems] = useState<{ id: string; title: string }[]>([])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
+  // Stream único em nível de aplicação: sobrevive à troca de thread na sidebar
+  const stream = useAgentStream()
+  const { isStreaming } = stream
+  const streamingThreadId = isStreaming ? stream.activeThreadId : null
   const [chatKey, setChatKey] = useState(0)
 
   const timelineIds = useMemo(() => timelineItems.map((item) => item.id), [timelineItems])
@@ -40,7 +44,25 @@ function AppContent() {
     }
   }, [activeThreadId, threads])
 
+  // Alerta de confirmação caso o usuário tente fechar ou recarregar a página durante uma resposta em andamento
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (isStreaming) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [isStreaming])
+
   const handleNewChat = () => {
+    // Não permite iniciar outra conversa enquanto uma resposta está sendo gerada
+    if (isStreaming) return
+    stream.clearMessages()
     setThreadId(null)
     setActiveTitle(null)
     setTimelineItems([])
@@ -57,9 +79,15 @@ function AppContent() {
     setChatKey((prev) => prev + 1)
   }
 
-  const handleActiveThreadChange = (threadId: string | null) => {
+  const handleActiveThreadChange = useCallback((threadId: string | null) => {
     if (threadId && threadId !== activeThreadId) {
       setThreadId(threadId, true)
+    }
+  }, [activeThreadId, setThreadId])
+
+  const handleGoToStreamingThread = () => {
+    if (streamingThreadId) {
+      handleSelectThread(streamingThreadId)
     }
   }
 
@@ -86,9 +114,11 @@ function AppContent() {
           <SidebarThreads
             threads={threads}
             activeThreadId={activeThreadId}
+            streamingThreadId={streamingThreadId}
             onSelectThread={handleSelectThread}
             onNewChat={handleNewChat}
             onDeleteThread={(threadIdToDelete) => {
+              if (threadIdToDelete === streamingThreadId) return
               deleteThread(threadIdToDelete)
               if (activeThreadId === threadIdToDelete) {
                 handleNewChat()
@@ -109,9 +139,10 @@ function AppContent() {
       >
         <ChatContainer
           key={chatKey}
+          stream={stream}
           externalThreadId={activeThreadId}
           onOpenSettings={handleOpenSettings}
-          onStreamingChange={setIsStreaming}
+          onGoToStreamingThread={handleGoToStreamingThread}
           onTitleChange={setActiveTitle}
           onActiveThreadChange={handleActiveThreadChange}
           onTimelineItemsChange={setTimelineItems}

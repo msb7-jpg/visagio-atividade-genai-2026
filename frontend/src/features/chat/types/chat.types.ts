@@ -93,7 +93,11 @@ export interface ThreadDetail extends ThreadSummary {
     role: MessageRole
     content: string
     type?: string
+    thought?: string
+    generated_sql?: string
     chart_spec?: ChartJsConfigDTO
     steps?: AgentStepItem[]
   }[]
+  /** Indica que o backend ainda está gerando a resposta desta thread */
+  is_running?: boolean
 }

@@ -1,11 +1,13 @@
 import { Button } from '@/components/ui/button'
 import type { ThreadSummary } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
-import { MessageSquare, Trash2 } from 'lucide-react'
+import { Loader2, MessageSquare, Trash2 } from 'lucide-react'
 
 export interface SidebarThreadsProps {
   threads: ThreadSummary[]
   activeThreadId: string | null
+  /** Thread cuja resposta está sendo gerada no momento (exibe spinner) */
+  streamingThreadId?: string | null
   onSelectThread: (threadId: string) => void
   onNewChat?: () => void
   onDeleteThread: (threadId: string) => void
@@ -16,6 +18,7 @@ export interface SidebarThreadsProps {
 export function SidebarThreads({
   threads,
   activeThreadId,
+  streamingThreadId = null,
   onSelectThread,
   onDeleteThread,
   isDeleting = false,
@@ -36,6 +39,7 @@ export function SidebarThreads({
           <div className="space-y-0.5 overflow-y-auto max-h-[50vh]">
             {threads.map((thread) => {
               const isActive = activeThreadId === thread.thread_id
+              const isThreadStreaming = streamingThreadId === thread.thread_id
 
               return (
                 <div
@@ -49,29 +53,38 @@ export function SidebarThreads({
                   )}
                 >
                   <div className="flex flex-1 items-center gap-2 overflow-hidden text-left min-w-0">
-                    <MessageSquare
-                      className={cn(
-                        'size-3.5 shrink-0',
-                        isActive ? 'text-[#FF5E2B]' : 'text-zinc-500'
-                      )}
-                    />
+                    {isThreadStreaming ? (
+                      <Loader2
+                        aria-label="Gerando resposta"
+                        className="size-3.5 shrink-0 animate-spin text-[#FF5E2B]"
+                      />
+                    ) : (
+                      <MessageSquare
+                        className={cn(
+                          'size-3.5 shrink-0',
+                          isActive ? 'text-[#FF5E2B]' : 'text-zinc-500'
+                        )}
+                      />
+                    )}
                     <span className="truncate">{thread.title}</span>
                   </div>
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={isDeleting}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onDeleteThread(thread.thread_id)
-                    }}
-                    title="Excluir conversa"
-                    className="size-7 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-opacity"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  {isThreadStreaming ? null : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={isDeleting}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onDeleteThread(thread.thread_id)
+                      }}
+                      title="Excluir conversa"
+                      className="size-7 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-opacity"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
               )
             })}

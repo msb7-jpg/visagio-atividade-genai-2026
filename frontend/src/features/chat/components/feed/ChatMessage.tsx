@@ -17,6 +17,8 @@ export interface ChatMessageProps {
   message: ChatMessageItem
   onOpenSettings?: () => void
   onRetry?: () => void
+  /** Bloqueia ações que acionam o modelo (regenerar/trocar modelo) enquanto há geração em andamento */
+  actionsDisabled?: boolean
   className?: string
 }
 
@@ -57,13 +59,14 @@ function renderBlock(
   }
 }
 
-export function ChatMessage({ message, onOpenSettings, onRetry, className }: ChatMessageProps) {
+export function ChatMessage({ message, onOpenSettings, onRetry, actionsDisabled = false, className }: ChatMessageProps) {
   const isUser = message.role === 'user'
+  // Enquanto qualquer conversa estiver em geração, ações que acionam o modelo ficam bloqueadas
+  const effectiveRetry = actionsDisabled ? undefined : onRetry
 
   const chartBlock = message.blocks.find(
     (block): block is import('@/features/chat/types/chat.types').ChatBlockChart => block.type === 'chart'
   )
-  const hasTextBlock = message.blocks.some((block) => block.type === 'text')
   const chartConfig = chartBlock?.config
 
   if (isUser) {
@@ -98,9 +101,9 @@ export function ChatMessage({ message, onOpenSettings, onRetry, className }: Cha
         {message.blocks.map((block) =>
           renderBlock(
             block,
-            !message.isStreaming && hasTextBlock ? chartConfig : undefined,
+            chartConfig,
             onOpenSettings,
-            onRetry
+            effectiveRetry
           )
         )}
 
@@ -108,17 +111,17 @@ export function ChatMessage({ message, onOpenSettings, onRetry, className }: Cha
         {message.blocks.length === 0 && message.content ? (
           <MarkdownRenderer
             content={message.content}
-            chartConfig={!message.isStreaming ? chartConfig : undefined}
+            chartConfig={chartConfig}
           />
         ) : null}
 
-        {/* Barra de Ações: Regenerar, Trocar Modelo, Copiar (quando houver texto de resposta analítica) */}
-        {!message.isStreaming && textualContent ? (
+        {/* Barra de Ações: Regenerar, Trocar Modelo, Copiar (quando houver resposta ou falha/interrupção) */}
+        {!message.isStreaming && (textualContent || message.blocks.some((b) => b.type === 'error') || message.steps.some((s) => s.status === 'error')) ? (
           <ChatMessageActions
             messageContent={textualContent}
             onRetry={onRetry}
             onOpenSettings={onOpenSettings}
-            isStreaming={message.isStreaming}
+            isStreaming={message.isStreaming || actionsDisabled}
           />
         ) : null}
 

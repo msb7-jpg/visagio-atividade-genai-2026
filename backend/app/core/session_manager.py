@@ -29,6 +29,10 @@ class ActiveSessionManager:
         async with self._lock:
             return len(self._active_sessions) > 0
 
+    async def is_session_active(self, session_id: str) -> bool:
+        async with self._lock:
+            return session_id in self._active_sessions
+
     async def get_active_sessions(self) -> list[str]:
         async with self._lock:
             return list(self._active_sessions)

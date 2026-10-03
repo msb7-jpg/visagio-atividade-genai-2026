@@ -8,7 +8,7 @@ import {
   Workflow,
   XCircle
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 interface NodeStepperProps {
   steps: AgentStepItem[]
@@ -23,7 +23,23 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
   if (steps.length === 0 && !isStreaming) return null
 
   // Clona os passos recebidos dinamicamente do backend
-  const displaySteps = [...steps]
+  let displaySteps = [...steps]
+
+  // Se o streaming foi interrompido (ou a página foi recarregada) e algum passo ficou pendente ou ativo
+  if (!isStreaming && displaySteps.length > 0) {
+    displaySteps = displaySteps.map((s, idx) => {
+      if (s.status === 'active' || s.status === 'pending') {
+        return {
+          ...s,
+          status: 'error',
+          label: idx === displaySteps.length - 1 && !s.label.includes('interromp') 
+            ? `${s.label} (interrompido)` 
+            : s.label
+        }
+      }
+      return s
+    })
+  }
 
   // Se estiver em streaming e ainda não recebemos nenhum passo do backend
   if (isStreaming && displaySteps.length === 0) {

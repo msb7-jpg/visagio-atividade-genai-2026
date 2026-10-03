@@ -194,3 +194,5 @@ export function useAgentStream(initialThreadId: string | null = null) {
     clearMessages
   }
 }
+
+export type AgentStream = ReturnType<typeof useAgentStream>

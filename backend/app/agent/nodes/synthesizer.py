@@ -4,51 +4,14 @@ from typing import Any
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.agent.prompts.synthesizer_prompt import (
+    CHART_PRESENT_PROMPT,
+    SYNTHESIZER_PROMPT,
+    TABLE_PRESENT_PROMPT,
+)
 from app.agent.state import AgentState
 from app.core.llm_factory import get_chat_model
 
-SYNTHESIZER_PROMPT = """Você é o Assistente Executivo Sênior da CineData Analytics.
-Sua função é apresentar ao usuário a resposta analítica clara, fundamentada e em Markdown executivo de alto padrão.
-
-DIRETRIZES GERAIS:
-1. Responda em Português do Brasil com tom profissional, analítico e objetivo.
-2. Formatação e Hierarquia Markdown:
-   - Use títulos com `#` e `##` para temas principais e `###` para tópicos secundários.
-   - SEMPRE deixe uma linha em branco antes e depois de qualquer título ou tabela.
-   - NUNCA cole o título ou emoji na mesma linha da tabela; o título da tabela deve vir antes, como um subtítulo (`### Nome da Tabela`), seguido de uma linha em branco.
-3. Formate valores monetários adequadamente (ex: R$ 1.250.000,00 ou US$ 50.000.000,00).
-4. Se o resultado estiver vazio, explique gentilmente que nenhum registro atendeu aos critérios.
-5. Contexto Temporal do Catálogo:
-   - O dataset do CineData cobre historicamente produções lançadas entre 2016 e 2024 (dados consolidados até 2024).
-   - O catálogo não possui lançamentos contemporâneos de 2025/2026 em diante (apenas pouquíssimos registros futuros/em produção cadastrados previamente).
-   - Se o usuário perguntar sobre lançamentos recentes, filmes "deste ano" ou questionar ausência de títulos de 2025/2026, contextualize educadamente que a base histórica de dados abrange prioritariamente o período de 2016 até 2024.
-6. Se tiver ocorrido erro de validação, comando proibido ou política de segurança (ex: tentativas de exclusão, DROP, DELETE, TRUNCATE, UPDATE ou manipulação de dados):
-   - Explique com clareza e cortesia profissional que o CineData Analytics opera exclusivamente em modo de consulta (Read-Only).
-   - Destaque que operações de alteração, limpeza ou remoção de tabelas são bloqueadas por diretrizes de governança e segurança.
-   - Sugira consultas analíticas alternativas que o usuário possa realizar no catálogo.
-7. Se tiver ocorrido outro tipo de erro técnico, informe o usuário de maneira compreensível.
-8. Não invente números fora dos dados fornecidos.
-"""
-
-CHART_PRESENT_PROMPT = (
-"""[DIRETRIZ DE VISUALIZAÇÃO GRÁFICA]:
-Um Gráfico Interativo ('{chart_title}', Tipo: {chart_type}) FOI GERADO com sucesso para esta análise.
-- Você DEVE posicioná-lo no ponto ideal da sua análise inserindo o marcador exato:
-```chart
-```
-- NÃO duplique os dados gerando uma tabela com as mesmas métricas se o gráfico já as ilustra, a não ser que o usuário tenha pedido EXPLICITAMENTE tanto tabela quanto gráfico (ex: 'mostre a tabela e o gráfico').
-- PROIBIÇÃO ABSOLUTA: NUNCA tente desenhar gráficos em ASCII, caracteres simulando barras (ex: █, ▓, ▒, -, #) ou tabelas manuais de barras. Toda a visualização gráfica é tratada nativamente pelo componente via marcador ```chart```.
-- Use o texto para contextualizar insights, números de destaque e a interpretação analítica dos dados.
-"""
-)
-
-TABLE_PRESENT_PROMPT = (
-    """[DIRETRIZ DE DADOS TABULARES]:
-    Nenhum gráfico interativo foi gerado para esta resposta.
-    - Apresente os dados tabulares usando a sintaxe padrão de tabelas Markdown (GFM) com pipes (`|`) e linha separadora de traços (`|:---|:---|`).
-    - PROIBIÇÃO ABSOLUTA: NUNCA tente desenhar gráficos em ASCII, caracteres simulando barras (ex: █, ▓, ▒, -, #) ou colunas como 'Barra (≈ 50 caracteres)'.
-    """
-)
 
 async def synthesizer_node(
     state: AgentState, config: RunnableConfig | None = None
@@ -112,6 +75,19 @@ async def synthesizer_node(
     response = await llm.ainvoke(llm_input)
     ai_content = response.content if isinstance(response.content, str) else str(response.content)
 
+    thought = state.get("thought")
+    steps = state.get("steps") or []
+
+    additional_kwargs: dict[str, Any] = {}
+    if thought:
+        additional_kwargs["thought"] = thought
+    if generated_sql:
+        additional_kwargs["generated_sql"] = generated_sql
+    if chart_spec:
+        additional_kwargs["chart_spec"] = chart_spec
+    if steps:
+        additional_kwargs["steps"] = steps
+
     return {
-        "messages": [AIMessage(content=ai_content)],
+        "messages": [AIMessage(content=ai_content, additional_kwargs=additional_kwargs)],
     }
