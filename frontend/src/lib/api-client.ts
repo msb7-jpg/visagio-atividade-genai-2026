@@ -19,15 +19,23 @@ export class ApiError extends Error {
   }
 }
 
-type ApiClientOptions = Omit<RequestInit, 'body'> & {
+export type ApiClientOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
 }
 
-export async function apiClient<T>(
+export function getApiBaseUrl(): string {
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+}
+
+/**
+ * Executa requisições HTTP retornando diretamente o objeto Response cru para cenários
+ * como streams SSE, downloads de blob ou controle fino de buffers.
+ */
+export async function apiFetch(
   endpoint: string,
   options: ApiClientOptions = {}
-): Promise<T> {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+): Promise<Response> {
+  const baseUrl = getApiBaseUrl()
   const url = `${baseUrl}${endpoint}`
 
   const headers: HeadersInit = {
@@ -64,6 +72,18 @@ export async function apiClient<T>(
       errorDetails
     )
   }
+
+  return response
+}
+
+/**
+ * Cliente HTTP tipado para consumo de endpoints JSON padrão.
+ */
+export async function apiClient<T>(
+  endpoint: string,
+  options: ApiClientOptions = {}
+): Promise<T> {
+  const response = await apiFetch(endpoint, options)
 
   if (response.status === 204) {
     return {} as T

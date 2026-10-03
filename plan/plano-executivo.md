@@ -38,7 +38,7 @@ Se você é um agente de IA lendo este arquivo para iniciar ou continuar o desen
 | **0** | **Fundação, Estruturação `backend/` & Pipeline Fullstack** | Mover backend para `backend/`, setup SQLite Read-Only, checkpointer, layout e testes | `[CONCLUÍDO - 01/10/2026]` |
 | **1** | **Settings & Conectividade Multi-LLM** | Gestão e teste dinâmico de provedores (Groq, Local, OpenRouter, Google, OpenAI) | `[CONCLUÍDO - 01/10/2026]` |
 | **2** | **Text-to-SQL Analítico & Auditoria Visual** | Core LangGraph, catálogo embutido, AST check, self-correction, SSE e Shiki | `[CONCLUÍDO - 02/10/2026]` |
-| **3** | **Visualização Declarativa de Gráficos & Tabelas** | Chart.js declarativo (`ChartJsConfigDTO`), tabela analítica e exportação CSV | `[PENDENTE]` |
+| **3** | **Visualização Declarativa de Gráficos & Tabelas** | Chart.js declarativo (`ChartJsConfigDTO`), tabela analítica e exportação CSV | `[CONCLUÍDO - 02/10/2026]` |
 | **4** | **Histórico Persistente & Navegação de Threads** | `AsyncSqliteSaver`, titulação concorrente, reidratação e TimelineScrollSpy | `[PENDENTE]` |
 | **5** | **Busca Semântica Híbrida & Math Sandbox** | RAG vetorial em sinopses/reviews, sandbox matemática e sugestões rápidas | `[PENDENTE]` |
 | **6** | **Hardening, Validação do Desafio & Entrega** | Auditoria das 10 perguntas canônicas, resiliência de cotas, E2E e README | `[PENDENTE]` |
@@ -144,10 +144,12 @@ Permitir que o usuário configure e alterne dinamicamente o provedor de IA diret
 * `plan/frontend-guidelines.md` (Seções 1 e 3: Guardrails de Formulários e ESLint).
 * `arquitetura-anterior.md` (Seção 2: Separação Estrita de Responsabilidades HTTP vs Negócio e `EndpointDoc`).
 
-### 3. Arquivos Criados e Modificados
+* `backend/app/core/timer.py` — Utilitário de temporização canônico `ExecutionTimer` (Context Manager e static methods).
 * `backend/app/core/llm_factory.py` — Fábrica unificada de modelos com suporte dinâmico a Groq, OpenAI Local (porta 1234), OpenRouter (com headers `HTTP-Referer` e `X-Title`), Google Generative AI e OpenAI oficial.
 * `backend/app/features/settings/schemas.py` — DTOs Pydantic: `ProviderConfigDTO`, `TestProviderRequestDTO`, `TestProviderResponseDTO`.
-* `backend/app/features/settings/service.py` — Serviço de teste de conectividade (probe com timeout estrito de 5s e ping leve).
+* `backend/app/features/settings/security.py` — Funções de segurança e mascaramento de chaves (`mask_api_key`).
+* `backend/app/features/settings/probe_service.py` — Serviço especializado em sondagem ativa (`ProviderProbeService`) com diagnóstico e medição de latência via `ExecutionTimer`.
+* `backend/app/features/settings/service.py` — Fachada leve `SettingsService` focada em orquestração de persistência SQLite.
 * `backend/app/features/settings/router_metadata.py` — Metadados OpenAPI isolados com `EndpointDoc`.
 * `backend/app/features/settings/router.py` — Endpoints: `GET /settings/provider`, `POST /settings/provider`, `POST /settings/test-provider`.
 * `backend/main.py` — Registro do roteador de settings no aplicativo FastAPI.
@@ -159,6 +161,7 @@ Permitir que o usuário configure e alterne dinamicamente o provedor de IA diret
 * `frontend/src/features/settings/hooks/useTestProviderProbeMutation.ts` — Hook atômico de mutação para teste assíncrono de conectividade probe.
 * `frontend/src/features/settings/components/SettingsModal.tsx` — Modal de configurações com design Dark Glassmorphism.
 * `frontend/src/features/settings/components/ProviderForm.tsx` — Formulário reativo com `@tanstack/react-form` + `useSelector` + validação Zod.
+* `backend/tests/unit/test_timer.py` — Testes unitários do utilitário de temporização `ExecutionTimer`.
 * `backend/tests/unit/test_llm_factory.py` — Teste unitário da fábrica de LLMs para cada provedor suportado.
 * `backend/tests/features/test_settings_router.py` — Testes de integração dos endpoints `/settings/provider` e `/settings/test-provider`.
 * `frontend/src/features/settings/components/SettingsModal.test.tsx` — Teste de interação, probe de conectividade e submissão do formulário.
@@ -224,12 +227,17 @@ Implementar o fluxo nuclear da CineData Analytics: o usuário faz perguntas em l
 * `backend/app/agent/graph.py` — Montagem completa do subgrafo Text-to-SQL com conexões condicionais de auto-correção.
 * `backend/app/core/session_manager.py` — Gerenciador singleton thread-safe `ActiveSessionManager` para rastrear sessões analíticas em execução.
 * `backend/app/features/chat/schemas.py` — DTOs de streaming SSE (`step_start`, `step_end`, `sql`, `thought`, `token`, `data`, `error`, `done`).
-* `backend/app/features/chat/service.py` — `AgentService` formatando SQL com `sqlparse`, registrando sessões ativas com limpeza no `finally:` e categorizando erros via `format_stream_error`.
+* `backend/app/features/chat/error_handler.py` — Tratador desacoplado `StreamErrorHandler` para categorização de erros de APIs de LLM.
+* `backend/app/features/chat/provider_resolver.py` — Resolvedor isolado `ChatProviderResolver` para credenciais e priorização de configurações ativas.
+* `backend/app/features/chat/event_dispatcher.py` — Despachante especializado `SSEEventDispatcher` para formatação e mapeamento de nós do LangGraph em SSE.
+* `backend/app/features/chat/service.py` — Orquestrador enxuto `AgentChatService` (< 80 linhas) coordenando o streaming SSE com `ExecutionTimer`.
 * `backend/app/features/chat/router.py` — Endpoint SSE `POST /chat/stream`.
 * `backend/app/features/chat/router_metadata.py` — Metadados do Swagger para o endpoint de streaming.
 * `backend/app/features/settings/router.py` — Bloqueio concorrente em `POST /settings/provider` via `HTTP 409 Conflict` durante sessões ativas.
 * `frontend/src/features/chat/types/chat.types.ts` — Tipos dos eventos SSE, estados dos nós e adição do bloco `ChatBlockError`.
-* `frontend/src/features/chat/hooks/useAgentStream.ts` — Hook customizado de streaming SSE com tratamento de `event: error` e nós de erro.
+* `frontend/src/features/chat/lib/sseStreamParser.ts` — Parser desacoplado de streams SSE assíncronos (`parseSseStream`).
+* `frontend/src/features/chat/lib/chatMessageReducer.ts` — Reducer puro de mensagens do chat (`applySseEventToMessage`, `applyNetworkErrorToMessage`).
+* `frontend/src/features/chat/hooks/useAgentStream.ts` — Hook customizado de streaming SSE orquestrador e enxuto (< 95 linhas).
 * `frontend/src/features/chat/components/AgentAvatar.tsx` — PFP exclusivo do assistente com glow cinematográfico suave e live badge.
 * `frontend/src/features/chat/components/NodeStepper.tsx` — Trilha sequencial dos passos com preservação de expansão em nós com erro.
 * `frontend/src/features/chat/components/ThoughtInspector.tsx` — Accordion recolhível de raciocínio intermediário.
@@ -319,13 +327,14 @@ Habilitar a geração e renderização declarativa de gráficos analíticos (`re
 ### 3. Arquivos Criados e Modificados
 * `backend/app/agent/schemas/chart_schema.py` — Modelos Pydantic enxutos: `ChartDataset` e `ChartJsConfigDTO`.
 * `backend/app/agent/tools/chart_builder.py` — Tool `@tool` `generate_chartjs_spec` para validação e emissão da especificação declarativa.
-* `backend/app/agent/nodes/chart_generator.py` — Nó do LangGraph `chart_generator_node` que aciona a tool a partir dos dados do SQL.
-* `backend/app/agent/graph.py` — Roteamento condicional para o nó de gráfico quando o usuário solicitar visualização ou rankings comparativos.
+* `backend/app/agent/nodes/chart_generator.py` — Nó do LangGraph `chart_generator_node` que avalia semanticamente a intenção do usuário (`should_visualize`), suporta `/chart` e fallback heurístico.
+* `backend/app/agent/graph.py` — Transição condicional desacoplada de heurísticas determinísticas, encaminhando resultados do SQL para o `chart_generator_node`.
 * `frontend/package.json` — Instalar `chart.js` e `react-chartjs-2`.
 * `frontend/src/features/chat/types/chart.types.ts` — Tipagens TypeScript do payload `ChartJsConfigDTO`.
 * `frontend/src/features/chat/components/ChartRenderer.tsx` — Componente inteligente wrapper do `react-chartjs-2` que injeta o tema Dark Glass, paleta de cores e tooltips refinados.
-* `frontend/src/features/chat/components/TableRenderer.tsx` — Componente de tabela analítica paginada com ordenação de colunas e exportação em formato `.csv`.
-* `frontend/src/features/chat/components/ChatMessage.tsx` — Inclusão dos renderizadores `ChartRenderer` e `TableRenderer` no fluxo da mensagem.
+* `frontend/src/features/chat/components/TableRenderer.tsx` — Componente de tabela analítica paginada (10 itens), ordenação asc/desc por clique nas colunas e menu de ações (Copiar TSV / Exportar CSV), integrado ao MarkdownRenderer.
+* `frontend/src/features/chat/components/MarkdownRenderer.tsx` — Renderizador estilizado delegando blocos `table` diretamente para o `TableRenderer` unificado.
+* `frontend/src/features/chat/components/ChatMessage.tsx` — Apresentação tabular única integrada na resposta do Markdown, eliminando duplicações de blocos no chat.
 * `backend/tests/agent/test_chart_builder.py` — Teste unitário da tool de geração de gráficos e validação do schema Pydantic.
 * `backend/tests/features/test_chat_chart_stream.py` — Teste de integração do streaming emitindo eventos `chart` e `data`.
 * `frontend/src/features/chat/components/ChartRenderer.test.tsx` — Teste de renderização do componente de gráficos.
@@ -362,13 +371,13 @@ cd ..
 ```
 
 ### 6. Checklist Operacional
-- [ ] Schema declarativo `ChartJsConfigDTO` e tool `generate_chartjs_spec` implementados sem estilização no backend.
-- [ ] Nó `chart_generator_node` integrado à FSM do LangGraph.
-- [ ] Eventos SSE `chart` e `data` emitidos no fluxo de conversação.
-- [ ] `react-chartjs-2` configurado com injeção automática de paleta Dark Glass.
-- [ ] Componente `TableRenderer` com paginação, ordenação e exportação CSV funcional.
-- [ ] Testes do Slice 3 validados no backend e frontend.
-- [ ] Status da fatia: `[PENDENTE]`
+- [x] Schema declarativo `ChartJsConfigDTO` e tool `generate_chartjs_spec` implementados sem estilização no backend.
+- [x] Nó `chart_generator_node` integrado à FSM do LangGraph.
+- [x] Eventos SSE `chart` e `data` emitidos no fluxo de conversação.
+- [x] `react-chartjs-2` configurado com injeção automática de paleta Dark Glass.
+- [x] Componente `TableRenderer` com paginação, ordenação e exportação CSV funcional.
+- [x] Testes do Slice 3 validados no backend e frontend.
+- [x] Status da fatia: `[CONCLUÍDO - 02/10/2026]`
 
 ---
 
@@ -386,16 +395,20 @@ Garantir persistência completa de conversas entre sessões utilizando o checkpo
 
 ### 3. Arquivos Criados e Modificados
 * `backend/app/agent/prompts/title_prompt.py` — Prompt ultra-conciso (3 a 5 palavras) para geração rápida de título de conversa.
-* `backend/app/agent/service.py` — Sub-rotina `asyncio.create_task` para gerar o título no 1º turno (`thread.title is None`) e emitir evento SSE `title`.
-* `backend/app/features/chat/router.py` — Endpoints REST: `GET /chat/threads` (listar conversas com paginação), `GET /chat/threads/{thread_id}` (obter histórico da conversa), `DELETE /chat/threads/{thread_id}` (remover conversa).
+* `backend/app/features/chat/subroutines/title_generator.py` — Sub-rotina assíncrona dedicada (`TitleGeneratorSubroutine`) com `ExecutionTimer` para geração concorrente de título no 1º turno sem penalizar a resposta principal.
+* `backend/app/features/chat/thread_repository.py` — Repositório isolado de persistência de threads (`ThreadRepository`), consultas ao checkpointer SQLite e paginação de metadados.
+* `backend/app/features/chat/threads_service.py` — Serviço enxuto orquestrando operações de leitura e remoção de conversas.
+* `backend/app/features/chat/threads_router.py` — Endpoints REST dedicados: `GET /chat/threads` (listar conversas com paginação), `GET /chat/threads/{thread_id}` (obter histórico da conversa), `DELETE /chat/threads/{thread_id}` (remover conversa).
+* `backend/app/features/chat/threads_router_metadata.py` — Metadados OpenAPI isolados com `EndpointDoc`.
 * `backend/app/features/chat/schemas.py` — DTOs: `ThreadSummaryDTO`, `ThreadDetailDTO`.
+* `frontend/src/features/chat/api/threadsApi.ts` — Módulo cliente de API para chamadas HTTP de threads.
 * `frontend/src/features/chat/hooks/useThreadHistory.ts` — Hook TanStack Query v5 gerenciando cache, listagem, exclusão e reidratação de conversas anteriores.
 * `frontend/src/features/chat/components/SidebarThreads.tsx` — Lista de conversas anteriores na Sidebar com botão de exclusão e indicador de conversa ativa.
 * `frontend/src/features/chat/components/AnimatedTitle.tsx` — Título dinâmico da conversa com animação fluida de revelação (Motion blur-in) e sincronização com `document.title`.
 * `frontend/src/features/chat/components/TimelineScrollSpy.tsx` — Painel lateral direito com mini-mapa das perguntas da conversa ativa, highlight dinâmico por Intersection Observer / scroll e navegação suave via `scrollIntoView`.
 * `frontend/src/features/chat/ChatContainer.tsx` — Integração de `AnimatedTitle`, `TimelineScrollSpy` e sincronização de `thread_id` na URL.
 * `backend/tests/agent/test_thread_persistence.py` — Teste de persistência de estado e reidratação via `AsyncSqliteSaver`.
-* `backend/tests/agent/test_title_generation.py` — Teste da sub-rotina de geração concorrente de título.
+* `backend/tests/features/test_title_subroutine.py` — Teste da sub-rotina de geração concorrente de título.
 * `backend/tests/features/test_threads_api.py` — Testes dos endpoints de listagem, recuperação e deleção de threads.
 * `frontend/src/features/chat/components/TimelineScrollSpy.test.tsx` — Teste de renderização e clique de navegação do mini-mapa.
 * `frontend/src/features/chat/hooks/useThreadHistory.test.ts` — Teste de cache e mutação otimista de threads.
@@ -457,15 +470,18 @@ Expandir o assistente para além do SQL puro, habilitando:
 * `plan/langchain-langgraph-standards.md` (Seção 2 e 4: Banimento de `langchain-experimental` e implementação canônica da ferramenta de análise de dados segura).
 
 ### 3. Arquivos Criados e Modificados
-* `backend/app/agent/embeddings/vector_store.py` — Gerenciador de índice vetorial local com Hugging Face embeddings em memória/arquivo para sinopses e avaliações.
-* `backend/app/agent/tools/semantic_search.py` — Tool `@tool` `search_movie_synopsis_and_reviews` com busca por similaridade de cosseno.
-* `backend/app/agent/tools/data_analysis.py` — Tool `@tool` `calculate_data_metrics` com sandbox fechada (`SAFE_BUILTINS`, `math`, `statistics`).
+* `backend/app/agent/embeddings/embedding_model.py` — Carregador singleton encapsulado de embeddings locais (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`).
+* `backend/app/agent/embeddings/vector_store.py` — Gerenciador de índice vetorial local com busca por similaridade de cosseno para sinopses e avaliações.
+* `backend/app/agent/tools/semantic_search.py` — Tool `@tool` `search_movie_synopsis_and_reviews` consumindo o `vector_store`.
+* `backend/app/agent/tools/sandbox_env.py` — Ambiente de execução restrito (`RestrictedExecutionEnvironment`) com `SAFE_BUILTINS`, limites de memória/timeout e bloqueio estrito de builtins perigosos.
+* `backend/app/agent/tools/data_analysis.py` — Tool `@tool` `calculate_data_metrics` delegando a execução ao `sandbox_env`.
 * `backend/app/agent/nodes/semantic_rag.py` — Nó do LangGraph `semantic_search_node` para rotas `rag` e `hybrid`.
 * `backend/app/agent/nodes/data_analysis.py` — Nó `data_analysis_node` para execução de cálculos matemáticos avançados pós-SQL.
 * `backend/app/agent/nodes/router_node.py` — Classificador de intenções refinado (`direct`, `sql`, `rag`, `hybrid`).
 * `backend/app/agent/graph.py` — Integração de todas as rotas e conexões condicionais na máquina de estados principal.
 * `backend/app/features/analytics/schemas.py` — DTOs com catálogo de sugestões rápidas e metadados da base.
-* `backend/app/features/analytics/service.py` — Serviço fornecendo perguntas sugeridas por categoria (A, B, C) e resumo de contagens do catálogo.
+* `backend/app/features/analytics/catalog_data.py` — Definição estática e tipada do catálogo de perguntas canônicas (Categorias A, B e C).
+* `backend/app/features/analytics/service.py` — Serviço enxuto fornecendo sugestões e contagens do catálogo.
 * `backend/app/features/analytics/router.py` — Endpoints: `GET /analytics/suggestions`, `GET /analytics/schema`.
 * `backend/app/features/analytics/router_metadata.py` — Documentação OpenAPI dos endpoints analíticos.
 * `backend/main.py` — Registro do roteador de analytics.

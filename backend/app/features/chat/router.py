@@ -6,7 +6,10 @@ from app.features.chat.schemas import ChatStreamRequestDTO
 from app.features.chat.service import AgentChatService
 
 router = APIRouter(prefix="/chat", tags=["Chat & Agente"])
-agent_service = AgentChatService()
+
+
+def get_chat_service() -> AgentChatService:
+    return AgentChatService()
 
 
 @router.post(
@@ -19,5 +22,6 @@ async def stream_chat_endpoint(request: ChatStreamRequestDTO) -> EventSourceResp
     """
     Inicia a sessão de processamento analítico com resposta via Server-Sent Events.
     """
-    event_generator = agent_service.stream_chat(request)
+    service = get_chat_service()
+    event_generator = service.stream_chat(request)
     return EventSourceResponse(event_generator)

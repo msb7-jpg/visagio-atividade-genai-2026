@@ -93,10 +93,7 @@ async def test_test_provider_probe_connection_refused():
         "app.core.llm_factory.LocalOpenAIProviderStrategy.fast_probe",
         return_value=(False, None),
     )
-    with (
-        patch("app.features.settings.service.get_chat_model", return_value=mock_model),
-        fast_probe_patch,
-    ):
+    with fast_probe_patch:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             payload = {

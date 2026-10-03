@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock, patch
 from httpx import ASGITransport, AsyncClient
 
 from app.core.session_manager import get_session_manager
+from app.features.chat.error_handler import StreamErrorHandler
 from app.features.chat.schemas import ChatStreamRequestDTO
-from app.features.chat.service import AgentChatService, format_stream_error
+from app.features.chat.service import AgentChatService
 from app.features.settings.schemas import ProviderConfigDTO
 from main import app
 
@@ -53,21 +54,21 @@ async def test_format_stream_error_categorization():
         "Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 402 RESOURCE_EXHAUSTED. "
         "{'error': {'code': 402, 'message': 'Your prepayment credits are depleted.'}}"
     )
-    formatted_402 = format_stream_error(err_402, active_provider="google")
+    formatted_402 = StreamErrorHandler.format_error(err_402, active_provider="google")
     assert formatted_402["error_code"] == "RESOURCE_EXHAUSTED"
     assert "esgotados" in formatted_402["message"].lower()
 
     err_401 = Exception("401 Unauthorized: Invalid API key provided.")
-    formatted_401 = format_stream_error(err_401, active_provider="groq")
+    formatted_401 = StreamErrorHandler.format_error(err_401, active_provider="groq")
     assert formatted_401["error_code"] == "UNAUTHORIZED"
     assert "inválida" in formatted_401["message"].lower()
 
     err_conn = ConnectionRefusedError("Connection refused by localhost:1234")
-    formatted_conn = format_stream_error(err_conn, active_provider="local")
+    formatted_conn = StreamErrorHandler.format_error(err_conn, active_provider="local")
     assert formatted_conn["error_code"] == "CONNECTION_REFUSED"
 
     err_timeout = TimeoutError("Request timed out after 30s")
-    formatted_timeout = format_stream_error(err_timeout, active_provider="openrouter")
+    formatted_timeout = StreamErrorHandler.format_error(err_timeout, active_provider="openrouter")
     assert formatted_timeout["error_code"] == "TIMEOUT"
 
 

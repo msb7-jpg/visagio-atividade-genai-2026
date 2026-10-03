@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderConfigQuery'
+import { cn } from '@/lib/utils'
 import { Clapperboard } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { ChatInput } from './components/ChatInput'
 import { ChatMessage } from './components/ChatMessage'
 import { useAgentStream } from './hooks/useAgentStream'
-import { useProviderConfigQuery } from '@/features/settings/hooks/useProviderConfigQuery'
-import { cn } from '@/lib/utils'
 
 interface ChatContainerProps {
   onOpenSettings?: () => void
@@ -33,7 +33,6 @@ export function ChatContainer({ onOpenSettings, onStreamingChange, className }: 
     })
   }
 
-
   return (
     <div className={cn('flex flex-1 flex-col overflow-hidden', className)}>
       {/* Mensagens ou Empty State */}
@@ -57,7 +56,14 @@ export function ChatContainer({ onOpenSettings, onStreamingChange, className }: 
                   'Quais os 10 filmes com maior faturamento de bilheteria?',
                   'Qual o lucro médio por gênero de filme?',
                   'Quais os 5 diretores com melhor média no IMDb?',
-                  'Qual ator participou do maior número de filmes?'
+                  'Qual ator participou do maior número de filmes?',
+                  
+                  "Gere um gráfico de barras com as 5 produtoras mais lucrativas do catálogo.",
+                  "Mostre um gráfico comparativo de faturamento dos top 5 filmes de ficção científica.",
+                  "Trace a evolução da nota média dos filmes no IMDb ao longo dos anos.",
+                  "Exiba um gráfico de linha comparando a quantidade de lançamentos por ano entre 2016 ,e 2026.",
+                  "Exiba um gráfico de pizza com a distribuição percentual de filmes pelos 5 principais, gêneros.",
+                  "Qual a proporção de filmes lançados vs em produção no catálogo?",
                 ].map((suggestion) => (
                   <button
                     key={suggestion}

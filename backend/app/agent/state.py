@@ -26,6 +26,8 @@ class AgentState(TypedDict):
     error_count: int
     last_error: str | None
     error_category: Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX", "UNSUPPORTED_REQUEST"] | None
+    chart_spec: dict[str, Any] | None
+    requires_chart: bool | None
     title: str | None
     steps: list[AgentStepInfo]
 

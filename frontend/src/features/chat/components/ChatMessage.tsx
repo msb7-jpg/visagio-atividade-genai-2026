@@ -14,9 +14,11 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { AgentAvatar } from './AgentAvatar'
+import { ChartRenderer } from './ChartRenderer'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { NodeStepper } from './NodeStepper'
 import { SqlCodeBlock } from './SqlCodeBlock'
+import { TableRenderer } from './TableRenderer'
 import { ThoughtInspector } from './ThoughtInspector'
 
 interface ChatErrorCardProps {
@@ -110,12 +112,16 @@ function renderBlock(block: ChatMessageBlock, onOpenSettings?: () => void) {
       return <ThoughtInspector key={block.id} thought={block.content} />
     case 'sql':
       return <SqlCodeBlock key={block.id} query={block.query} />
+    case 'chart':
+      return <ChartRenderer key={block.id} config={block.config} />
+    case 'data':
+      // A representação tabular é gerada e integrada unicamente dentro do MarkdownRenderer,
+      // evitando duplicar a mesma tabela antes do texto explicativo.
+      return null
     case 'text':
       return <MarkdownRenderer key={block.id} content={block.content} />
     case 'error':
       return <ChatErrorCard key={block.id} block={block} onOpenSettings={onOpenSettings} />
-    case 'data':
-      return null // Tabelas serão enriquecidas no Slice 3
     default:
       return null
   }

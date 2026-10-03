@@ -9,6 +9,18 @@ export interface AgentStepItem {
   duration_ms?: number
 }
 
+export interface ChartDataset {
+  label: string
+  data: number[]
+}
+
+export interface ChartJsConfigDTO {
+  type: 'bar' | 'line' | 'pie' | 'doughnut'
+  title: string
+  labels: string[]
+  datasets: ChartDataset[]
+}
+
 export interface ChatBlockText {
   id: string
   type: 'text'
@@ -34,6 +46,12 @@ export interface ChatBlockData {
   rows: Record<string, unknown>[]
 }
 
+export interface ChatBlockChart {
+  id: string
+  type: 'chart'
+  config: ChartJsConfigDTO
+}
+
 export interface ChatBlockError {
   id: string
   type: 'error'
@@ -47,6 +65,7 @@ export type ChatMessageBlock =
   | ChatBlockThought
   | ChatBlockSql
   | ChatBlockData
+  | ChatBlockChart
   | ChatBlockError
 
 export interface ChatMessageItem {
@@ -60,4 +79,3 @@ export interface ChatMessageItem {
   model?: string
   provider?: string
 }
-

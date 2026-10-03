@@ -37,5 +37,15 @@ class StepEventDTO(BaseModel):
 class StreamEventDTO(BaseModel):
     """Payload padronizado de eventos SSE despachados ao cliente."""
 
-    type: Literal["step_start", "step_end", "thought", "sql", "token", "data", "error", "done"]
+    type: Literal[
+        "step_start",
+        "step_end",
+        "thought",
+        "sql",
+        "chart",
+        "token",
+        "data",
+        "error",
+        "done",
+    ]
     data: Any

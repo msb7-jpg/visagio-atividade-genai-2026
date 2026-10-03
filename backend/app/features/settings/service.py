@@ -1,11 +1,5 @@
 import logging
-import time
-
-from langchain_core.messages import HumanMessage
-
 from app.core.config import get_settings
-from app.core.llm_factory import get_chat_model, provider_registry
-import os
 from app.db.settings_db import (
     get_active_provider_config,
     get_active_provider_config_sync,
@@ -14,28 +8,23 @@ from app.db.settings_db import (
     get_user_provider_config,
     save_user_provider_config,
 )
+from app.features.settings.probe_service import ProviderProbeService
 from app.features.settings.schemas import (
     ProviderConfigDTO,
     SavedProviderSummaryDTO,
     TestProviderRequestDTO,
     TestProviderResponseDTO,
 )
+from app.features.settings.security import mask_api_key
 
 logger = logging.getLogger(__name__)
 
 
-def mask_api_key(key: str | None) -> str | None:
-    """Mascara uma chave de API para retorno seguro via HTTP."""
-    if not key:
-        return None
-    trimmed = key.strip()
-    if len(trimmed) <= 8:
-        return "********"
-    return f"{trimmed[:4]}...{trimmed[-4:]}"
-
-
 class SettingsService:
-    """Gerencia a configuração ativa de provedores, persistência SQLite e probes rápidas."""
+    """
+    Gerencia a configuração ativa de provedores e a persistência SQLite.
+    Delega testes de conectividade ao ProviderProbeService e mascaramento ao security.py.
+    """
 
     def __init__(self, user_id: str = "default_user"):
         self.user_id = user_id
@@ -63,7 +52,6 @@ class SettingsService:
                 saved_configs={},
             )
             self._initialized_from_db = False
-
 
     async def _ensure_db_loaded(self) -> None:
         """Carrega configuração inicial salva do banco caso exista."""
@@ -102,18 +90,12 @@ class SettingsService:
                     timeout_seconds=prov_data.get("timeout_seconds", 30),
                 )
         except Exception as exc:
-            logger.warning("Falha ao consultar saved_providers no SQLite: %s", exc)
-
-        if not masked:
-            res = self._current_config.model_copy()
-            res.saved_providers = saved_providers
-            res.saved_configs = saved_configs_map
-            return res
+            logger.warning("Erro ao consultar provedores salvos no SQLite: %s", exc)
 
         return ProviderConfigDTO(
             provider=self._current_config.provider,
             model=self._current_config.model,
-            api_key=mask_api_key(self._current_config.api_key),
+            api_key=mask_api_key(self._current_config.api_key) if masked else self._current_config.api_key,
             base_url=self._current_config.base_url,
             timeout_seconds=self._current_config.timeout_seconds,
             saved_providers=saved_providers,
@@ -121,21 +103,16 @@ class SettingsService:
         )
 
     async def update_config(self, new_config: ProviderConfigDTO) -> ProviderConfigDTO:
-        """
-        Atualiza a configuração ativa e persiste no banco SQLite para o usuário default.
-        Se a nova chave vier como máscara ('...') ou vazia e já existir chave salva para o provedor, preserva a chave.
-        """
+        """Atualiza a configuração em memória e persiste no SQLite."""
         await self._ensure_db_loaded()
         updated_key = new_config.api_key
 
-        # Verifica se já temos chave salva para esse provedor específico
-        existing_prov = await get_user_provider_config(self.user_id, new_config.provider)
-        existing_key = existing_prov.get("api_key") if existing_prov else None
-
-        if (not updated_key or "..." in updated_key or updated_key == "********") and existing_key:
-            updated_key = existing_key
-        elif not updated_key and new_config.provider == self._current_config.provider:
-            updated_key = self._current_config.api_key
+        if updated_key and ("..." in updated_key or updated_key == "********"):
+            saved_prov = await get_user_provider_config(self.user_id, new_config.provider)
+            if saved_prov and saved_prov.get("api_key"):
+                updated_key = saved_prov["api_key"]
+            elif self._current_config.provider == new_config.provider:
+                updated_key = self._current_config.api_key
 
         self._current_config = ProviderConfigDTO(
             provider=new_config.provider,
@@ -143,6 +120,8 @@ class SettingsService:
             api_key=updated_key,
             base_url=new_config.base_url,
             timeout_seconds=new_config.timeout_seconds,
+            saved_providers=[],
+            saved_configs={},
         )
 
         try:
@@ -160,168 +139,16 @@ class SettingsService:
         return await self.get_current_config(masked=True)
 
     async def test_provider(self, request: TestProviderRequestDTO) -> TestProviderResponseDTO:
-        """
-        Executa probe em tempo real:
-        1. Se a chave for mascarada ou omitida, busca no banco SQLite para este provedor ou no .env.
-        2. Consulta modelos ativos e executa probe leve.
-        """
+        """Delega teste de conectividade ao ProviderProbeService."""
         await self._ensure_db_loaded()
-        provider = request.provider
-
-        # Resolve chave do provedor requisitado
-        key_to_use = request.api_key
-        if not key_to_use or "..." in key_to_use or key_to_use == "********":
-            saved_prov = await get_user_provider_config(self.user_id, provider)
-            if saved_prov and saved_prov.get("api_key"):
-                key_to_use = saved_prov["api_key"]
-            else:
-                # Fallback para variáveis de ambiente locais
-                if provider == "groq":
-                    key_to_use = os.getenv("GROQ_API_KEY")
-                elif provider == "openrouter":
-                    key_to_use = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPEN_ROUTER_API_KEY")
-                elif provider == "google":
-                    key_to_use = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-
-        # Resolve base_url caso não tenha sido passada
-        base_url_to_use = request.base_url
-        if not base_url_to_use and provider == "local":
-            saved_prov = await get_user_provider_config(self.user_id, provider)
-            if saved_prov and saved_prov.get("base_url"):
-                base_url_to_use = saved_prov["base_url"]
-            else:
-                base_url_to_use = "http://localhost:1234/v1"
-
-        start_time = time.perf_counter()
-
-        # 1. Consulta modelos ativos disponíveis e valida credenciais via API do provedor
-        available_models: list[str] = []
-        strategy = provider_registry.get(provider) if provider_registry.is_registered(provider) else None
-        
-        try:
-            if strategy:
-                # Caso especial para servidor local: fast_probe rápida de health check
-                if provider == "local":
-                    is_healthy, _ = await strategy.fast_probe(
-                        base_url=base_url_to_use,
-                        api_key=key_to_use,
-                        timeout_seconds=float(request.timeout_seconds),
-                    )
-                    if not is_healthy:
-                        raise ConnectionRefusedError(f"Não foi possível conectar ao servidor local em {base_url_to_use}")
-
-                # Valida a autenticação e obtém modelos do provedor
-                available_models = await strategy.list_models(
-                    api_key=key_to_use,
-                    base_url=base_url_to_use,
-                    timeout_seconds=float(request.timeout_seconds),
-                )
-
-            # Se conseguimos consultar os modelos ou passar no health check, as credenciais são 100% válidas!
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            effective_model = request.model
-            if not effective_model and available_models:
-                effective_model = available_models[0]
-            elif not effective_model:
-                saved_prov = await get_user_provider_config(self.user_id, provider)
-                effective_model = saved_prov["model"] if (saved_prov and saved_prov.get("model")) else "default"
-
-            model_count = len(available_models)
-            success_msg = (
-                f"Conexão com '{provider}' estabelecida com sucesso! "
-                f"({model_count} modelos disponíveis encontrados)"
-                if model_count > 0
-                else f"Conexão com '{provider}' estabelecida com sucesso!"
-            )
-
-            return TestProviderResponseDTO(
-                success=True,
-                latency_ms=latency_ms,
-                model=effective_model,
-                message=success_msg,
-                error_code=None,
-                available_models=available_models,
-            )
-
-        except Exception as exc:
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            error_str = str(exc).lower()
-
-            logger.warning("Falha na validação de conectividade para '%s': %s", provider, exc)
-
-            effective_model = request.model or "unknown-model"
-
-            if (
-                "401" in error_str
-                or "unauthorized" in error_str
-                or "invalid" in error_str
-                or "não autorizada" in error_str
-                or "403" in error_str
-            ):
-                return TestProviderResponseDTO(
-                    success=False,
-                    latency_ms=latency_ms,
-                    model=effective_model,
-                    message=f"Chave de API inválida ou não autorizada para o provedor '{provider}'.",
-                    error_code="UNAUTHORIZED",
-                    available_models=[],
-                )
-
-            if "402" in error_str or "resource_exhausted" in error_str:
-                return TestProviderResponseDTO(
-                    success=False,
-                    latency_ms=latency_ms,
-                    model=effective_model,
-                    message="Créditos ou cota da chave de API esgotados no provedor (402 Resource Exhausted).",
-                    error_code="RESOURCE_EXHAUSTED",
-                    available_models=[],
-                )
-
-            if (
-                "connection refused" in error_str
-                or "connecterror" in error_str
-                or "failed to connect" in error_str
-                or isinstance(exc, ConnectionRefusedError)
-            ):
-                url_tested = base_url_to_use or "localhost"
-                return TestProviderResponseDTO(
-                    success=False,
-                    latency_ms=latency_ms,
-                    model=effective_model,
-                    message=(
-                        f"Não foi possível conectar ao endpoint local ({url_tested}). "
-                        "Verifique se o serviço (LM Studio/Ollama/llama.cpp) está ativo."
-                    ),
-                    error_code="CONNECTION_REFUSED",
-                    available_models=[],
-                )
-
-            if "timed out" in error_str or "timeout" in error_str:
-                return TestProviderResponseDTO(
-                    success=False,
-                    latency_ms=latency_ms,
-                    model=effective_model,
-                    message=f"Tempo limite de {request.timeout_seconds}s excedido ao tentar conectar ao provedor.",
-                    error_code="TIMEOUT",
-                    available_models=[],
-                )
-
-            return TestProviderResponseDTO(
-                success=False,
-                latency_ms=latency_ms,
-                model=effective_model,
-                message=f"Falha de comunicação: {str(exc)[:150]}",
-                error_code="PROVIDER_ERROR",
-                available_models=[],
-            )
+        return await ProviderProbeService.test_provider(self.user_id, request)
 
 
-# Instância singleton do serviço em memória
-_settings_service_instance: SettingsService | None = None
+_global_settings_service: SettingsService | None = None
 
 
 def get_settings_service() -> SettingsService:
-    global _settings_service_instance
-    if _settings_service_instance is None:
-        _settings_service_instance = SettingsService()
-    return _settings_service_instance
+    global _global_settings_service
+    if _global_settings_service is None:
+        _global_settings_service = SettingsService()
+    return _global_settings_service

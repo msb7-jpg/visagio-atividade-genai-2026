@@ -4,6 +4,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 
+from app.agent.nodes.chart_generator import chart_generator_node
 from app.agent.nodes.corrector import sql_corrector_node
 from app.agent.nodes.sql_executor import sql_executor_node
 from app.agent.nodes.sql_generator import sql_generator_node
@@ -65,9 +66,37 @@ def route_decision(state: AgentState) -> Literal["sql_generator", "synthesizer"]
     return "sql_generator"
 
 
-def check_sql_execution(state: AgentState) -> Literal["sql_corrector", "synthesizer"]:
+def should_generate_chart(state: AgentState) -> bool:
+    """Verifica se o usuário solicitou gráfico ou representação visual."""
+    messages = state.get("messages", [])
+    last_user_message = ""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage) or getattr(msg, "type", "") == "human":
+            last_user_message = str(msg.content).lower()
+            break
+
+    chart_keywords = [
+        "gráfico",
+        "grafico",
+        "chart",
+        "plot",
+        "ranking visual",
+        "em barras",
+        "de barras",
+        "pizza",
+        "linhas",
+        "distribuição visual",
+        "visualização",
+        "visualizacao",
+    ]
+    return any(keyword in last_user_message for keyword in chart_keywords)
+
+
+def check_sql_execution(
+    state: AgentState,
+) -> Literal["sql_corrector", "chart_generator", "synthesizer"]:
     """
-    Decide se o fluxo segue para o sintetizador ou entra no loop de autocorreção.
+    Decide se o fluxo segue para o sintetizador, gerador de gráfico ou entra no loop de autocorreção.
     Se o erro decorrer de violação de segurança/política de permissões (SECURITY_VIOLATION ou UNSUPPORTED_REQUEST),
     o fluxo vai direto para o sintetizador explicar a restrição em vez de tentar auto-corrigir.
     """
@@ -76,6 +105,10 @@ def check_sql_execution(state: AgentState) -> Literal["sql_corrector", "synthesi
     error_cat = state.get("error_category")
 
     if not last_error:
+        # Se a query foi bem-sucedida e retornou dados, passa pelo chart_generator
+        # para avaliação semântica de visualização pelo agente
+        if state.get("query_result"):
+            return "chart_generator"
         return "synthesizer"
 
     # Verificação canônica baseada na categoria tipada do erro
@@ -102,7 +135,7 @@ def check_sql_execution(state: AgentState) -> Literal["sql_corrector", "synthesi
 
 def create_agent_graph():
     """
-    Compila o StateGraph para o Slice 2: Text-to-SQL com Auto-recuperação.
+    Compila o StateGraph para o Slice 3: Text-to-SQL com Auto-recuperação e Geração Declarativa de Gráficos.
     """
     workflow = StateGraph(AgentState)
 
@@ -111,6 +144,7 @@ def create_agent_graph():
     workflow.add_node("sql_generator", sql_generator_node)
     workflow.add_node("sql_executor", sql_executor_node)
     workflow.add_node("sql_corrector", sql_corrector_node)
+    workflow.add_node("chart_generator", chart_generator_node)
     workflow.add_node("synthesizer", synthesizer_node)
 
     # Transições
@@ -131,10 +165,12 @@ def create_agent_graph():
         check_sql_execution,
         {
             "sql_corrector": "sql_corrector",
+            "chart_generator": "chart_generator",
             "synthesizer": "synthesizer",
         },
     )
 
+    workflow.add_edge("chart_generator", "synthesizer")
     workflow.add_edge("sql_corrector", "sql_executor")
     workflow.add_edge("synthesizer", END)
 
