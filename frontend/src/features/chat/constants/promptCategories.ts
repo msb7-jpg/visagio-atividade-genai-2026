@@ -50,7 +50,7 @@ export const PROMPT_CATEGORIES: PromptCategory[] = [
     prompts: [
       { title: 'Ranking de Produtoras', prompt: 'Gere um gráfico de barras com as 5 produtoras mais lucrativas do catálogo.', subCategory: 'Barras', icon: BarChart3 },
       { title: 'Evolução de Notas IMDb', prompt: 'Trace a evolução da nota média dos filmes no IMDb ao longo dos anos.', subCategory: 'Linhas', icon: LineChart },
-      { title: 'Distribuição de Gêneros', prompt: 'Exiba um gráfico de pizza com a distribuição percentual de filmes pelos 5 principais gêneros.', subCategory: 'Pizza/Rosca', icon: PieChart },
+      { title: 'Distribuição de Gêneros', prompt: 'Exiba um gráfico de donut com a distribuição percentual de filmes pelos 5 principais gêneros.', subCategory: 'Pizza/Rosca', icon: PieChart },
       { title: 'Faturamento Sci-Fi', prompt: 'Mostre um gráfico comparativo de faturamento dos top 5 filmes de ficção científica.', subCategory: 'Barras', icon: BarChart3 }
     ]
   },

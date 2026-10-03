@@ -149,15 +149,18 @@ export function ChatContainer({
     [currentDetail]
   )
 
-  // Reidrata o stream com os dados da thread apenas quando não há geração em andamento
   useEffect(() => {
     if (!currentDetail || isStreaming) return
-    loadThreadMessages(currentDetail.thread_id, currentDetail.title, viewMessages)
+
+    loadThreadMessages(
+      currentDetail.thread_id,
+      currentDetail.title,
+      viewMessages
+    )
   }, [currentDetail, viewMessages, isStreaming])
 
   const messages = streamOwnsView ? streamMessages : viewMessages
 
-  // Itens para o TimelineScrollSpy (mini-mapa lateral direito)
   const timelineItems = useMemo(() => {
     return messages
       .filter((message) => message.role === 'user')
@@ -210,12 +213,12 @@ export function ChatContainer({
     <div className={cn('flex flex-1 flex-col overflow-hidden relative', className)}>
       {/* Área Principal de Mensagens */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+        <div data-chat-scroll-container className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="flex size-14 items-center justify-center rounded-2xl border border-white/10 bg-[#13171E] shadow-xl">
-                  <Clapperboard className="size-7 text-[#FF5E2B]" />
+                <div className="flex size-14 items-center justify-center rounded-2xl border border-white/10 bg-sidebar shadow-xl">
+                  <Clapperboard className="size-7 text-primary" />
                 </div>
                 <h2 className="mt-5 text-xl font-bold text-zinc-100">
                   CineData Analytics Intelligence
@@ -253,18 +256,18 @@ export function ChatContainer({
       </div>
 
       {/* Input de envio fixo no rodapé */}
-      <div className="border-t border-white/5 bg-[#0E1217]/80 p-4 backdrop-blur-md sm:px-6">
+      <div className="border-t border-white/5 bg-background/80 p-4 backdrop-blur-md sm:px-6">
         <div className="mx-auto max-w-4xl space-y-2">
           {isLockedByOtherThread || isRunningRemotely ? (
             <button
               type="button"
               onClick={isLockedByOtherThread ? onGoToStreamingThread : undefined}
-              className="flex w-full items-center gap-2 rounded-xl border border-[#FF5E2B]/20 bg-[#FF5E2B]/5 px-3 py-2 text-left text-xs text-zinc-300 transition-colors hover:bg-[#FF5E2B]/10"
+              className="flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-left text-xs text-zinc-300 transition-colors hover:bg-primary/10"
             >
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-[#FF5E2B]" />
+              <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
               <span>
                 {isLockedByOtherThread
-                  ? 'Aguarde a resposta em curso para enviar nova mensagem.'
+                  ? 'Aguarde a resposta em curso para enviar uma nova mensagem.'
                   : 'Esta conversa ainda está sendo processada. A resposta aparecerá aqui ao concluir.'}
               </span>
             </button>

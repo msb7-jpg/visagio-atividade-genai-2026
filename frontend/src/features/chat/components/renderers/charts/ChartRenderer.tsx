@@ -70,11 +70,11 @@ export function ChartRenderer({ config }: ChartRendererProps) {
   return (
     <div
       data-testid="chart-renderer-container"
-      className="overflow-hidden rounded-xl border border-white/10 bg-[#13171E]/60 shadow-lg backdrop-blur-sm"
+      className="overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg backdrop-blur-sm"
     >
       <div className="flex items-center justify-between border-b border-white/5 bg-[#171C25] px-3.5 py-2.5">
         <div className="flex items-center gap-2">
-          <ChartIcon className="size-3.5 text-[#FF5E2B]" />
+          <ChartIcon className="size-3.5 text-primary" />
           <h4 className="text-xs font-semibold text-zinc-300 tracking-wide">
             {config.title}
           </h4>

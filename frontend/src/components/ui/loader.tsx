@@ -18,19 +18,19 @@ export const LoaderOne = ({ className }: { className?: string }) => {
         initial={{ y: 0 }}
         animate={{ y: [0, -6, 0] }}
         transition={transition(0)}
-        className="size-2 rounded-full bg-[#FF5E2B] shadow-[0_0_8px_rgba(255,94,43,0.5)]"
+        className="size-2 rounded-full bg-primary shadow-[0_0_8px_rgba(255,94,43,0.5)]"
       />
       <motion.div
         initial={{ y: 0 }}
         animate={{ y: [0, -6, 0] }}
         transition={transition(1)}
-        className="size-2 rounded-full bg-[#FF5E2B]/80 shadow-[0_0_6px_rgba(255,94,43,0.4)]"
+        className="size-2 rounded-full bg-primary/80 shadow-[0_0_6px_rgba(255,94,43,0.4)]"
       />
       <motion.div
         initial={{ y: 0 }}
         animate={{ y: [0, -6, 0] }}
         transition={transition(2)}
-        className="size-2 rounded-full bg-[#FF5E2B]/50 shadow-[0_0_4px_rgba(255,94,43,0.3)]"
+        className="size-2 rounded-full bg-primary/50 shadow-[0_0_4px_rgba(255,94,43,0.3)]"
       />
     </div>
   )
@@ -114,7 +114,7 @@ export const LoaderThree = () => {
 
 export const LoaderFour = ({ text = "Loading..." }: { text?: string }) => {
   return (
-    <div className="relative font-bold text-black [perspective:1000px] dark:text-white">
+    <div className="relative font-bold text-black perspective-[1000px] dark:text-white">
       <motion.span
         animate={{
           skewX: [0, -40, 0],

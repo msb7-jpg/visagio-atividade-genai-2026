@@ -49,7 +49,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-white/10 bg-[#13171E]/60 shadow-lg transition-all',
+        'group relative overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg transition-all',
         className
       )}
     >
@@ -75,7 +75,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
               isExpanded && 'rotate-90'
             )}
           />
-          <Database className="size-3.5 text-[#FF5E2B]" />
+          <Database className="size-3.5 text-primary" />
           <span className="text-xs font-semibold text-zinc-300">Consulta SQL</span>
           
           <span className="text-[11px] text-zinc-500">
@@ -109,7 +109,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
           {highlightedHtml ? (
             <div
               dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-              className="[&_pre]:!bg-transparent [&_pre]:!p-0"
+              className="[&_pre]:bg-transparent! [&_pre]:p-0!"
             />
           ) : (
             <pre className="text-zinc-400">{query}</pre>

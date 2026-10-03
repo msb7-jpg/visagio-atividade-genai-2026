@@ -11,7 +11,6 @@ interface SendMessageOptions {
   threadId?: string
   provider?: string
   model?: string
-  existingAssistantId?: string
 }
 
 function updateMessageById(
@@ -34,12 +33,21 @@ export function useAgentStream(initialThreadId: string | null = null) {
     message,
     threadId,
     provider,
-    model,
-    existingAssistantId
+    model
   }: SendMessageOptions) => {
     if (!message.trim() || isStreaming) return
 
-    const assistantMessageId = existingAssistantId ?? `agent-${Date.now()}`
+    const assistantMessageId = `agent-${Date.now()}`
+    const userMessageId = `user-${Date.now()}`
+
+    const userMsg: ChatMessageItem = {
+      id: userMessageId,
+      role: 'user',
+      content: message,
+      blocks: [{ id: `block-${Date.now()}-1`, type: 'text', content: message }],
+      steps: [],
+      timestamp: Date.now()
+    }
 
     const assistantMsg: ChatMessageItem = {
       id: assistantMessageId,
@@ -53,22 +61,7 @@ export function useAgentStream(initialThreadId: string | null = null) {
       model
     }
 
-    if (!existingAssistantId) {
-      const userMessageId = `user-${Date.now()}`
-      const userMsg: ChatMessageItem = {
-        id: userMessageId,
-        role: 'user',
-        content: message,
-        blocks: [{ id: `block-${Date.now()}-1`, type: 'text', content: message }],
-        steps: [],
-        timestamp: Date.now()
-      }
-      setMessages((prev) => [...prev, userMsg, assistantMsg])
-    } else {
-      // No caso de retry, anexa apenas a nova tentativa de resposta do assistente
-      setMessages((prev) => [...prev, assistantMsg])
-    }
-
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
 
     try {
@@ -155,18 +148,12 @@ export function useAgentStream(initialThreadId: string | null = null) {
 
     if (!userPrompt) return
 
-    // Remove APENAS a resposta do assistente (e eventuais turnos posteriores),
-    // mantendo a pergunta do usuário intacta (FENCING contra duplicação)
-    const pruned = messages.slice(0, assistantIndex)
-    setMessages(pruned)
-
-    // Dispara nova tentativa passando existingAssistantId para não recriar a mensagem de usuário
+    // Mantém a imutabilidade do histórico e despacha a nova tentativa como um novo turno de conversa
     await sendMessage({
       message: userPrompt,
       threadId: activeThreadId ?? undefined,
       provider: options?.provider,
-      model: options?.model,
-      existingAssistantId: `agent-${Date.now()}`
+      model: options?.model
     })
   }
 

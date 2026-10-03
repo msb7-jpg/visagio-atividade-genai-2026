@@ -48,7 +48,7 @@ export function SidebarThreads({
                   className={cn(
                     'group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors',
                     isActive
-                      ? 'bg-[#FF5E2B]/15 text-zinc-100 font-medium'
+                      ? 'bg-primary/15 text-zinc-100 font-medium'
                       : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                   )}
                 >
@@ -56,13 +56,13 @@ export function SidebarThreads({
                     {isThreadStreaming ? (
                       <Loader2
                         aria-label="Gerando resposta"
-                        className="size-3.5 shrink-0 animate-spin text-[#FF5E2B]"
+                        className="size-3.5 shrink-0 animate-spin text-primary"
                       />
                     ) : (
                       <MessageSquare
                         className={cn(
                           'size-3.5 shrink-0',
-                          isActive ? 'text-[#FF5E2B]' : 'text-zinc-500'
+                          isActive ? 'text-primary' : 'text-zinc-500'
                         )}
                       />
                     )}

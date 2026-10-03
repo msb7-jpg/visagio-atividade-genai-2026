@@ -1,6 +1,9 @@
 import { cn } from '@/lib/utils';
 import { Navigation } from 'lucide-react';
 
+/**
+ * Props for the timeline scroll spy component.
+ */
 export interface TimelineScrollSpyProps {
   items: { id: string; title: string }[]
   activeId: string | null
@@ -9,6 +12,10 @@ export interface TimelineScrollSpyProps {
   className?: string
 }
 
+/**
+ * Displays a list of conversation turns and highlights the currently active one.
+ * Allows users to jump to a specific turn by clicking an item.
+ */
 export function TimelineScrollSpy({
   items,
   activeId,
@@ -43,7 +50,7 @@ export function TimelineScrollSpy({
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {items.map((item) => {
+        {items.map(item => {
           const isActive = activeId === item.id
 
           return (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export function useScrollSpy(itemIds: string[], offset = 100) {
+export function useScrollSpy(itemIds: string[], containerSelector = '[data-chat-scroll-container]') {
   const [activeId, setActiveId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -9,31 +9,49 @@ export function useScrollSpy(itemIds: string[], offset = 100) {
       return
     }
 
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY + offset
+    const scrollContainer = document.querySelector(containerSelector)
+    const elements = itemIds
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null)
 
-      for (let index = itemIds.length - 1; index >= 0; index--) {
-        const id = itemIds[index]
-        const element = document.getElementById(id)
-        if (element) {
-          const top = element.getBoundingClientRect().top + window.scrollY
-          if (scrollPosition >= top - 50) {
-            setActiveId(id)
-            return
+    if (elements.length === 0) {
+      // Se os elementos ainda não renderizaram, marca por padrão o último item enviado
+      setActiveId(itemIds[itemIds.length - 1])
+      return
+    }
+
+    // Configura IntersectionObserver para detectar qual mensagem está visível
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Encontra as entradas que estão interceptando
+        const visibleEntries = entries.filter((entry) => entry.isIntersecting)
+        if (visibleEntries.length > 0) {
+          // Pega a entrada visível mais próxima do topo da área de visualização
+          const sorted = [...visibleEntries].sort(
+            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+          )
+          const targetId = sorted[0].target.id
+          if (targetId) {
+            setActiveId(targetId)
           }
         }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '0px 0px -40% 0px',
+        threshold: [0, 0.25, 0.5, 1.0]
       }
+    )
 
-      setActiveId(itemIds[0])
-    }
+    elements.forEach((el) => observer.observe(el))
 
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
+    // Se nenhum item estiver ativo ou se o activeId atual não existir nos itemIds, ativa o último item
+    setActiveId((prev) => (prev && itemIds.includes(prev) ? prev : itemIds[itemIds.length - 1]))
 
     return () => {
-      window.removeEventListener('scroll', handleScroll)
+      observer.disconnect()
     }
-  }, [itemIds, offset])
+  }, [itemIds, containerSelector])
 
   const scrollToItem = (id: string) => {
     const element = document.getElementById(id)
@@ -43,5 +61,5 @@ export function useScrollSpy(itemIds: string[], offset = 100) {
     }
   }
 
-  return { activeId, scrollToItem }
+  return { activeId, scrollToItem, setActiveId }
 }

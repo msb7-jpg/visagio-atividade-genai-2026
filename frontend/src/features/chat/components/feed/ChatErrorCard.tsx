@@ -38,7 +38,7 @@ export function ChatErrorCard({ block, onOpenSettings, onRetry }: ChatErrorCardP
             variant="default"
             size="sm"
             onClick={onRetry}
-            className="bg-[#FF5E2B] hover:bg-[#FF5E2B]/90 text-white text-xs h-8"
+            className="bg-primary hover:bg-primary/90 text-white text-xs h-8"
           >
             <RotateCcw className="size-3.5 mr-1.5" />
             <span>Tentar Novamente</span>

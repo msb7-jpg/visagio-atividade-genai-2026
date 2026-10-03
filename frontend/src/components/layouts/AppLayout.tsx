@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   BarChart3,
   Film,
@@ -11,7 +12,6 @@ import {
   Settings
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { cn } from '@/lib/utils'
 
 export interface AppLayoutProps {
   children?: ReactNode
@@ -74,9 +74,9 @@ export function AppLayout({
               disabled={isStreaming}
               aria-label="Novo Chat"
               title={isStreaming ? 'Aguarde a resposta em andamento' : undefined}
-              className="w-full justify-start border-white/10 bg-[#13171E]/60 hover:bg-[#FF5E2B]/10 hover:border-[#FF5E2B]/30 text-zinc-200"
+              className="w-full justify-start border-white/10 bg-sidebar/60 hover:bg-primary/10 hover:border-primary/30 text-zinc-200"
             >
-              <Plus className="size-4 mr-2 text-[#FF5E2B]" />
+              <Plus className="size-4 mr-2 text-primary" />
               <span>Novo Chat</span>
             </Button>
           ) : (
@@ -87,9 +87,9 @@ export function AppLayout({
               disabled={isStreaming}
               aria-label="Novo Chat"
               title={isStreaming ? 'Aguarde a resposta em andamento' : 'Novo Chat'}
-              className="size-9 border-white/10 bg-[#13171E]/60 hover:bg-[#FF5E2B]/10 hover:border-[#FF5E2B]/30 text-zinc-200"
+              className="size-9 border-white/10 bg-sidebar/60 hover:bg-primary/10 hover:border-primary/30 text-zinc-200"
             >
-              <Plus className="size-4 text-[#FF5E2B]" />
+              <Plus className="size-4 text-primary" />
             </Button>
           )}
         </div>

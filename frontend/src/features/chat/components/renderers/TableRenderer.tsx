@@ -192,9 +192,9 @@ export function TableRenderer({
       return <ArrowUpDown className="size-3 text-zinc-500 opacity-40 group-hover/col:opacity-100" />
     }
     if (sortDirection === 'asc') {
-      return <ArrowUp className="size-3 text-[#FF5E2B]" />
+      return <ArrowUp className="size-3 text-primary" />
     }
-    return <ArrowDown className="size-3 text-[#FF5E2B]" />
+    return <ArrowDown className="size-3 text-primary" />
   }
 
   if (headers.length === 0 && tableData.length === 0) {
@@ -210,7 +210,7 @@ export function TableRenderer({
       ref={containerRef}
       data-testid="table-renderer-container"
       className={cn(
-        'group relative my-4 overflow-hidden rounded-xl border border-white/10 bg-[#13171E]/60 shadow-lg backdrop-blur-sm',
+        'group relative my-4 overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg backdrop-blur-sm',
         className
       )}
     >
@@ -286,7 +286,7 @@ export function TableRenderer({
             {paginatedData.map((row, rowIdx) => (
               <tr
                 key={rowIdx}
-                className="transition-colors odd:bg-transparent even:bg-white/[0.015] hover:bg-white/[0.03]"
+                className="transition-colors odd:bg-transparent even:bg-white/1.5 hover:bg-white/3"
               >
                 {row.cells.map((cell, colIdx) => (
                   <td key={colIdx} className="px-4 py-3 text-sm text-zinc-200 whitespace-nowrap">

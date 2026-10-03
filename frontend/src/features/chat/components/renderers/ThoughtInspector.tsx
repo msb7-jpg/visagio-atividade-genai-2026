@@ -15,7 +15,7 @@ export function ThoughtInspector({ thought, className }: ThoughtInspectorProps) 
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-white/10 bg-[#13171E]/60 shadow-lg transition-all',
+        'group relative overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg transition-all',
         className
       )}
     >
@@ -40,7 +40,7 @@ export function ThoughtInspector({ thought, className }: ThoughtInspectorProps) 
               isOpen && 'rotate-90'
             )}
           />
-          <Brain className="size-3.5 text-[#FF5E2B]" />
+          <Brain className="size-3.5 text-primary" />
           <span className="text-xs font-semibold text-zinc-300">
             Raciocínio do Agente
           </span>
@@ -51,7 +51,7 @@ export function ThoughtInspector({ thought, className }: ThoughtInspectorProps) 
       </div>
 
       {isOpen ? (
-        <div className="border-t border-white/5 bg-[#13171E]/40 p-3.5 font-mono text-xs leading-relaxed text-zinc-300 whitespace-pre-wrap">
+        <div className="border-t border-white/5 bg-sidebar/40 p-3.5 font-mono text-xs leading-relaxed text-zinc-300 whitespace-pre-wrap">
           {thought}
         </div>
       ) : null}

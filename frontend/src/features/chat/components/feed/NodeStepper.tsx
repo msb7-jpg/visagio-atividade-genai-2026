@@ -62,7 +62,7 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-white/10 bg-[#13171E]/60 shadow-lg transition-all',
+        'group relative overflow-hidden rounded-xl border border-white/10 bg-sidebar/60 shadow-lg transition-all',
         className
       )}
     >
@@ -88,7 +88,7 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
               isExpanded && 'rotate-90'
             )}
           />
-          <Workflow className="size-3.5 text-[#FF5E2B]" />
+          <Workflow className="size-3.5 text-primary" />
           <span className="text-xs font-semibold text-zinc-300">
             Etapas de Processamento
           </span>
@@ -101,7 +101,7 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
 
       {/* Conteúdo das etapas (colapsável) */}
       {isExpanded ? (
-        <div className="border-t border-white/5 bg-[#13171E]/40 p-3.5">
+        <div className="border-t border-white/5 bg-sidebar/40 p-3.5">
           <div className="relative space-y-3 pl-1">
             {displaySteps.map((step, index) => {
               const isDone = step.status === 'done'
@@ -128,7 +128,7 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
                       'relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs transition-colors',
                       isDone && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400',
                       isActive &&
-                        'border-[#FF5E2B]/50 bg-[#FF5E2B]/15 text-[#FF5E2B] shadow-[0_0_8px_rgba(255,94,43,0.3)]',
+                        'border-primary/50 bg-primary/15 text-primary shadow-[0_0_8px_rgba(255,94,43,0.3)]',
                       isError && 'border-rose-500/40 bg-rose-500/10 text-rose-400',
                       !isDone && !isActive && !isError && 'border-white/10 bg-[#1B202B] text-zinc-500'
                     )}
@@ -145,7 +145,7 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
                       className={cn(
                         'text-xs font-medium transition-colors',
                         isDone && 'text-zinc-300',
-                        isActive && 'text-[#FF5E2B] font-semibold animate-pulse',
+                        isActive && 'text-primary font-semibold animate-pulse',
                         isError && 'text-rose-400',
                         !isDone && !isActive && !isError && 'text-zinc-500'
                       )}

@@ -1,3 +1,6 @@
+import { MarkdownRenderer } from '@/features/chat/components/renderers/MarkdownRenderer'
+import { SqlCodeBlock } from '@/features/chat/components/renderers/SqlCodeBlock'
+import { ThoughtInspector } from '@/features/chat/components/renderers/ThoughtInspector'
 import type {
   ChartJsConfigDTO,
   ChatMessageBlock,
@@ -5,9 +8,6 @@ import type {
 } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
 import { User } from 'lucide-react'
-import { MarkdownRenderer } from '@/features/chat/components/renderers/MarkdownRenderer'
-import { SqlCodeBlock } from '@/features/chat/components/renderers/SqlCodeBlock'
-import { ThoughtInspector } from '@/features/chat/components/renderers/ThoughtInspector'
 import { AgentAvatar } from './AgentAvatar'
 import { ChatErrorCard } from './ChatErrorCard'
 import { ChatMessageActions } from './ChatMessageActions'
@@ -71,9 +71,13 @@ export function ChatMessage({ message, onOpenSettings, onRetry, actionsDisabled 
 
   if (isUser) {
     return (
-      <div id={`turn-${message.id}`} className={cn('flex flex-col items-end gap-1.5', className)}>
+      <div
+        id={`turn-${message.id}`}
+        data-timeline-turn={`turn-${message.id}`}
+        className={cn('flex flex-col items-end gap-1.5', className)}
+      >
         <div className="flex justify-end gap-3 w-full">
-          <div className="max-w-[85%] rounded-2xl bg-[#FF5E2B]/10 border border-[#FF5E2B]/20 px-4 py-3 text-sm text-zinc-100 shadow-sm sm:max-w-[70%]">
+          <div className="max-w-[85%] rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-foreground shadow-sm sm:max-w-[70%]">
             {message.content}
           </div>
           <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#1E2430] text-zinc-400">
@@ -88,7 +92,7 @@ export function ChatMessage({ message, onOpenSettings, onRetry, actionsDisabled 
   const textualContent = textBlock?.content || message.content || ''
 
   return (
-    <div id={`turn-${message.id}`} className={cn('flex items-start gap-3.5', className)}>
+    <div id={`msg-${message.id}`} className={cn('flex items-start gap-3.5', className)}>
       <AgentAvatar isStreaming={message.isStreaming} />
 
       <div className="flex-1 space-y-3 overflow-hidden">
@@ -116,7 +120,7 @@ export function ChatMessage({ message, onOpenSettings, onRetry, actionsDisabled 
         ) : null}
 
         {/* Barra de Ações: Regenerar, Trocar Modelo, Copiar (quando houver resposta ou falha/interrupção) */}
-        {!message.isStreaming && (textualContent || message.blocks.some((b) => b.type === 'error') || message.steps.some((s) => s.status === 'error')) ? (
+        {!message.isStreaming && (textualContent || message.blocks.some(step => step.type === 'error') || message.steps.some(step => step.status === 'error')) ? (
           <ChatMessageActions
             messageContent={textualContent}
             onRetry={onRetry}
