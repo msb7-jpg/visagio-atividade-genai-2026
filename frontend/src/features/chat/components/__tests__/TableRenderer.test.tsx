@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { TableRenderer } from './TableRenderer'
+import { TableRenderer } from '../TableRenderer'
 
 describe('TableRenderer', () => {
   const mockRows = [

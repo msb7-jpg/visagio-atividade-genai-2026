@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { SqlCodeBlock } from './SqlCodeBlock'
+import { SqlCodeBlock } from '../SqlCodeBlock'
 
 describe('SqlCodeBlock', () => {
   it('renderiza o bloco colapsado por padrão com botão de cópia', () => {

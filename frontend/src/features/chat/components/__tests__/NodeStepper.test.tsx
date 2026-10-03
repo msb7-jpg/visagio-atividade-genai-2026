@@ -1,7 +1,7 @@
 import type { AgentStepItem } from '@/features/chat/types/chat.types'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { NodeStepper } from './NodeStepper'
+import { NodeStepper } from '../NodeStepper'
 
 describe('NodeStepper', () => {
   it('renderiza nada quando a lista de passos está vazia', () => {

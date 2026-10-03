@@ -1,7 +1,7 @@
+import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { ChartRenderer } from './ChartRenderer'
-import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
+import { ChartRenderer } from '../ChartRenderer'
 
 // Mock react-chartjs-2 para validar props e estrutura sem depender de renderização Canvas nativa no JSDOM
 vi.mock('react-chartjs-2', () => ({

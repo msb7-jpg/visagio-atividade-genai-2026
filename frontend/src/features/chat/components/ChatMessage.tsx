@@ -143,7 +143,7 @@ export function ChatMessage({ message, onOpenSettings, className }: ChatMessageP
   const chartBlock = message.blocks.find(
     (block): block is import('@/features/chat/types/chat.types').ChatBlockChart => block.type === 'chart'
   )
-  const hasTextBlock = message.blocks.some((b) => b.type === 'text')
+  const hasTextBlock = message.blocks.some(block => block.type === 'text')
   const chartConfig = chartBlock?.config
 
   if (isUser) {
