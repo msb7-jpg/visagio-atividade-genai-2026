@@ -12,49 +12,71 @@ O agente é orquestrado como um grafo direcionado com nós atômicos de decisão
 
 ```mermaid
 stateDiagram-v2
-    [*] --> router_node : Usuário envia pergunta / prompt
+    [*] --> router_node : Usuário envia prompt
 
     state router_node {
         [*] --> ClassificacaoIntencao
-        ClassificacaoIntencao --> SQL : Pergunta métrica/estruturada
-        ClassificacaoIntencao --> RAG : Pergunta subjetiva/conceitual/trama
-        ClassificacaoIntencao --> Hybrid : Conceito temático + Filtro métrico
-        ClassificacaoIntencao --> Direct : Saudação/Pergunta fora de escopo
+        ClassificacaoIntencao --> Direct : Saudação / Fora de escopo
+        ClassificacaoIntencao --> RAG : Subjetiva / Trama
+        ClassificacaoIntencao --> Hybrid : Temática + Filtro métrico
+        ClassificacaoIntencao --> SQL : Métrica / Estruturada
     }
 
-    router_node --> DirectResponse : route == 'direct'
-    router_node --> semantic_search_node : route in ['rag', 'hybrid']
-    router_node --> sql_generator_node : route == 'sql'
+    Direct --> DirectResponse
+    DirectResponse --> [*]
 
-    semantic_search_node --> synthesizer_node : route == 'rag'
-    semantic_search_node --> sql_generator_node : route == 'hybrid' (injetando IDs no contexto)
+    %% Ponto de junção: RAG e Hybrid convergem para busca semântica
+    state join_semantic <<choice>>
+    RAG --> join_semantic
+    Hybrid --> join_semantic
+    join_semantic --> semantic_search_node
 
-    sql_generator_node --> sql_executor_node : SQL Gerado ou detecção de operação
+    %% Ponto de junção: Entradas para o gerador de SQL
+    state join_sql_gen <<choice>>
+    SQL --> join_sql_gen : Query pura
+    semantic_search_node --> join_sql_gen : Injeta IDs no contexto
+    join_sql_gen --> sql_generator_node
+
+    semantic_search_node --> synthesizer_node : Apenas contexto semântico
+
+    sql_generator_node --> AST_Validation : Query gerada
 
     state sql_executor_node {
-        [*] --> AST_Validation
-        AST_Validation --> InvalidoSeguranca : DDL/DML proibido (DROP/DELETE/INSERT) ou Tabela do Sistema
+        AST_Validation --> InvalidoSeguranca : DDL/DML proibido ou Tabela de Sistema
         AST_Validation --> InvalidoSintaxe : Erro sintático recuperável
-        AST_Validation --> Aprovado : Estritamente SELECT (Leitura Segura)
-        Aprovado --> ExecucaoSQLite : Executa query em cinerocket.db (ro)
+        AST_Validation --> ExecucaoSQLite : Estritamente SELECT (Leitura Segura)
+
+        ExecucaoSQLite --> FalhaExecucao : Erro de runtime SQLite
+        ExecucaoSQLite --> SucessoExecucao : Query executada com sucesso
     }
 
-    sql_executor_node --> synthesizer_node : Violação de segurança / Comando proibido / Recusa Read-Only (Bypass do Corretor)
-    sql_executor_node --> sql_corrector_node : Erro SQLite recuperável ou Sintaxe AST inválida (max 3 loops)
-    sql_executor_node --> chart_generator_node : Query bem-sucedida e usuário quer gráfico
-    sql_executor_node --> data_analysis_node : Requer cálculo estatístico avançado pós-SQL
-    sql_executor_node --> synthesizer_node : Query simples bem-sucedida
+    %% Saída direta de segurança (bypass do corretor)
+    InvalidoSeguranca --> synthesizer_node : Recusa por segurança
 
-    sql_corrector_node --> sql_executor_node : Nova tentativa de query corrigida (max 3 loops)
-    sql_corrector_node --> synthesizer_node : Excedeu limite de retentativas (diagnóstico amigável)
+    %% Ponto de junção: Erros recuperáveis convergem para o corretor
+    state join_corrector <<choice>>
+    InvalidoSintaxe --> join_corrector : AST inválida
+    FalhaExecucao --> join_corrector : Runtime error
+    join_corrector --> sql_corrector_node
 
-    data_analysis_node --> chart_generator_node : Análise numérica concluída (com gráfico)
-    data_analysis_node --> synthesizer_node : Análise numérica concluída (sem gráfico)
+    %% Retentativa e esgotamento de loops
+    sql_corrector_node --> AST_Validation : Nova tentativa (max 3 loops)
+    sql_corrector_node --> synthesizer_node : Excedeu limite de retentativas
 
-    chart_generator_node --> synthesizer_node : Objeto Chart.js gerado
+    %% Ponto de junção: Caminhos que geram gráfico
+    state join_chart <<choice>>
+    SucessoExecucao --> join_chart : Usuário solicitou gráfico
+    data_analysis_node --> join_chart : Com gráfico
+    join_chart --> chart_generator_node
 
-    synthesizer_node --> [*] : Streaming da resposta executiva + Payload SSE final (inclui explicação de recusa por segurança)
-    DirectResponse --> [*]
+    %% Roteamento do sucesso pós-execução sem gráfico
+    SucessoExecucao --> synthesizer_node : Consulta simples
+    SucessoExecucao --> data_analysis_node : Requer cálculo estatístico avançado
+    data_analysis_node --> synthesizer_node : Sem gráfico
+
+    chart_generator_node --> synthesizer_node : Payload Chart.js anexado
+
+    synthesizer_node --> [*] : Streaming SSE final
 ```
 
 ### 1.2 Descrição dos Estados e Gatilhos de Transição

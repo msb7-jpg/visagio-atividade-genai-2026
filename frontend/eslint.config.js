@@ -250,7 +250,7 @@ export default defineConfig([
   // Overrides de design system e componentes UI
   ...designSystemPolicy.overrides,
   {
-    files: ['src/components/ui/**', 'src/components/chat/**', 'src/features/chat/**', 'src/hooks/**'],
+    files: ['src/components/ui/**', 'src/hooks/**'],
     rules: {
       'react/forbid-elements': 'off',
       'shadcn/no-restyle': 'off',

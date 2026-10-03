@@ -79,4 +79,45 @@ describe('ChatMessage with Error Block', () => {
     render(<ChatMessage message={errorMsg} />)
     expect(screen.getByText('Escrevendo consulta SQL')).toBeInTheDocument()
   })
+
+  it('renders Configurar Provedor button on ANY generic error (AGENT_ERROR) and supports onRetry', () => {
+    const onOpenSettings = vi.fn()
+    const onRetry = vi.fn()
+    const genericErrorMsg: ChatMessageItem = {
+      id: 'msg-err-3',
+      role: 'assistant',
+      content: 'Falha desconhecida',
+      blocks: [
+        {
+          id: 'b-err-3',
+          type: 'error',
+          code: 'AGENT_ERROR',
+          message: 'Falha interna do SQLite'
+        }
+      ],
+      steps: [],
+      timestamp: Date.now(),
+      isStreaming: false
+    }
+
+    render(
+      <ChatMessage
+        message={genericErrorMsg}
+        onOpenSettings={onOpenSettings}
+        onRetry={onRetry}
+      />
+    )
+
+    // Configurar Provedor DEVE estar presente mesmo em erro genérico
+    const configBtn = screen.getByRole('button', { name: /Configurar Provedor/i })
+    expect(configBtn).toBeInTheDocument()
+    fireEvent.click(configBtn)
+    expect(onOpenSettings).toHaveBeenCalled()
+
+    // Regenerar DEVE estar disponível na barra de ações
+    const retryBtn = screen.getByRole('button', { name: /Regenerar/i })
+    expect(retryBtn).toBeInTheDocument()
+    fireEvent.click(retryBtn)
+    expect(onRetry).toHaveBeenCalled()
+  })
 })

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.features.chat.router import router as chat_router
+from app.features.chat.threads_router import router as threads_router
 from app.features.settings.router import router as settings_router
 
 settings = get_settings()
@@ -26,6 +27,7 @@ app.add_middleware(
 
 app.include_router(settings_router)
 app.include_router(chat_router)
+app.include_router(threads_router)
 
 
 @app.get("/health", tags=["Health"])

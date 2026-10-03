@@ -1,6 +1,5 @@
 import json
 import logging
-from collections.abc import AsyncGenerator
 from typing import Any
 
 import sqlparse
@@ -44,6 +43,13 @@ class SSEEventDispatcher:
         return {
             "event": "done",
             "data": json.dumps({"status": "completed", "thread_id": thread_id}),
+        }
+
+    @classmethod
+    def emit_title(cls, thread_id: str, title: str) -> dict[str, str]:
+        return {
+            "event": "title",
+            "data": json.dumps({"thread_id": thread_id, "title": title}, ensure_ascii=False),
         }
 
     @classmethod

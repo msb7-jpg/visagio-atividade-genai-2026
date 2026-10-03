@@ -5,6 +5,8 @@ import {
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Plus,
   Settings
 } from 'lucide-react'
@@ -13,6 +15,9 @@ import { cn } from '@/lib/utils'
 
 export interface AppLayoutProps {
   children?: ReactNode
+  sidebarContent?: ReactNode
+  rightSidebarContent?: ReactNode
+  headerTitle?: ReactNode
   activeThreadId?: string | null
   isStreaming?: boolean
   onNewChat?: () => void
@@ -21,11 +26,15 @@ export interface AppLayoutProps {
 
 export function AppLayout({
   children,
+  sidebarContent,
+  rightSidebarContent,
+  headerTitle,
   isStreaming = false,
   onNewChat,
   onOpenSettings
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true)
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
@@ -55,60 +64,58 @@ export function AppLayout({
           </div>
         </div>
 
-        {/* Botão Novo Chat */}
+        {/* Botão Novo Chat Único e Canônico */}
         <div className="p-3 w-full flex justify-center">
           {sidebarOpen ? (
             <Button
-              variant="secondary"
+              variant="outline"
+              size="sm"
               onClick={onNewChat}
               aria-label="Novo Chat"
+              className="w-full justify-start border-white/10 bg-[#13171E]/60 hover:bg-[#FF5E2B]/10 hover:border-[#FF5E2B]/30 text-zinc-200"
             >
-              <span className="flex items-center gap-2">
-                <Plus className="h-3.5 w-3.5 text-primary" />
-                <span>Novo Chat</span>
-              </span>
+              <Plus className="size-4 mr-2 text-[#FF5E2B]" />
+              <span>Novo Chat</span>
             </Button>
           ) : (
             <Button
-              variant="secondary"
+              variant="outline"
               size="icon"
               onClick={onNewChat}
               aria-label="Novo Chat"
+              title="Novo Chat"
+              className="size-9 border-white/10 bg-[#13171E]/60 hover:bg-[#FF5E2B]/10 hover:border-[#FF5E2B]/30 text-zinc-200"
             >
-              <Plus className="h-4 w-4 text-primary" />
+              <Plus className="size-4 text-[#FF5E2B]" />
             </Button>
           )}
         </div>
 
-        {/* Lista de Conversas / Histórico (Placeholder para Slice 4) */}
+        {/* Lista de Conversas / Histórico */}
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 w-full">
           {sidebarOpen ? (
-            <div className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Sessões Recentes
-            </div>
+            sidebarContent || (
+              <>
+                <div className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Sessões Recentes
+                </div>
+                <div
+                  className="flex items-center rounded-lg text-xs text-muted-foreground hover:bg-card hover:text-foreground cursor-pointer transition-colors gap-2 px-2.5 py-2"
+                  title="Top 10 Bilheterias da História"
+                >
+                  <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">Top 10 Bilheterias da História</span>
+                </div>
+                <div
+                  className="flex items-center rounded-lg text-xs text-muted-foreground hover:bg-card hover:text-foreground cursor-pointer transition-colors gap-2 px-2.5 py-2"
+                  title="Lucro Médio por Gênero"
+                >
+                  <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">Lucro Médio por Gênero</span>
+                </div>
+              </>
+            )
           ) : null}
-          <div
-            className={`flex items-center rounded-lg text-xs text-muted-foreground hover:bg-card hover:text-foreground cursor-pointer transition-colors ${
-              sidebarOpen ? 'gap-2 px-2.5 py-2' : 'justify-center p-2.5'
-            }`}
-            title="Top 10 Bilheterias da História"
-          >
-            <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-            {sidebarOpen ? (
-              <span className="truncate">Top 10 Bilheterias da História</span>
-            ) : null}
-          </div>
-          <div
-            className={`flex items-center rounded-lg text-xs text-muted-foreground hover:bg-card hover:text-foreground cursor-pointer transition-colors ${
-              sidebarOpen ? 'gap-2 px-2.5 py-2' : 'justify-center p-2.5'
-            }`}
-            title="Lucro Médio por Gênero"
-          >
-            <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
-            {sidebarOpen ? (
-              <span className="truncate">Lucro Médio por Gênero</span>
-            ) : null}
-          </div>
         </div>
 
         {/* Rodapé da Sidebar */}
@@ -163,10 +170,11 @@ export function AppLayout({
               )}
             </Button>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-foreground">
-                CineData Analytics
-              </span>
-
+              {headerTitle || (
+                <span className="text-xs font-medium text-foreground">
+                  CineData Analytics
+                </span>
+              )}
             </div>
           </div>
 
@@ -181,28 +189,58 @@ export function AppLayout({
             >
               <Settings className={cn('h-4 w-4', isStreaming && 'animate-spin text-primary')} />
             </Button>
+            {rightSidebarContent ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setRightSidebarOpen((prev) => !prev)}
+                aria-label={rightSidebarOpen ? 'Recolher turnos da conversa' : 'Expandir turnos da conversa'}
+                title={rightSidebarOpen ? 'Recolher histórico de turnos' : 'Expandir histórico de turnos'}
+              >
+                {rightSidebarOpen ? (
+                  <PanelRightClose className="h-4 w-4" />
+                ) : (
+                  <PanelRightOpen className="h-4 w-4" />
+                )}
+              </Button>
+            ) : null}
           </div>
         </header>
 
-        {/* Área de Visualização do Chat / Conteúdo */}
-        <main
-          data-testid="app-main"
-          className="flex-1 overflow-hidden bg-background flex flex-col relative"
-        >
-          {children || (
-            <div className="text-center max-w-md space-y-3">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-border text-primary mb-2">
-                <Film className="h-6 w-6" />
+        {/* Área de Visualização com Miolo Central e Sidebar Direita Vertical */}
+        <div className="flex flex-1 overflow-hidden relative">
+          <main
+            data-testid="app-main"
+            className="flex-1 overflow-hidden bg-background flex flex-col relative"
+          >
+            {children || (
+              <div className="text-center max-w-md space-y-3 m-auto">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-border text-primary mb-2">
+                  <Film className="h-6 w-6" />
+                </div>
+                <h2 className="text-lg font-medium text-foreground">
+                  O que você gostaria de analisar hoje?
+                </h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Explore faturamento, orçamentos, dados de elenco e sinopses do catálogo CineData com inteligência artificial analítica.
+                </p>
               </div>
-              <h2 className="text-lg font-medium text-foreground">
-                O que você gostaria de analisar hoje?
-              </h2>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Explore faturamento, orçamentos, dados de elenco e sinopses do catálogo CineData com inteligência artificial analítica.
-              </p>
-            </div>
-          )}
-        </main>
+            )}
+          </main>
+
+          {/* Sidebar Direita Canônica: Turnos da Conversa / Mini-mapa */}
+          {rightSidebarContent ? (
+            <aside
+              data-testid="app-right-sidebar"
+              className={cn(
+                'flex flex-col border-l border-border bg-sidebar transition-all duration-300 ease-in-out shrink-0 z-20 overflow-hidden',
+                rightSidebarOpen ? 'w-64 min-w-64' : 'w-0 min-w-0 border-l-0 p-0'
+              )}
+            >
+              {rightSidebarContent}
+            </aside>
+          ) : null}
+        </div>
       </div>
     </div>
   )

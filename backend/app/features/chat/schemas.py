@@ -25,6 +25,25 @@ class ChatStreamRequestDTO(BaseModel):
 
 
 
+class ThreadSummaryDTO(BaseModel):
+    """Resumo de uma conversa para exibição em listas e sidebar."""
+
+    thread_id: str
+    title: str
+    created_at: float
+    updated_at: float
+
+
+class ThreadDetailDTO(BaseModel):
+    """Detalhes completos de uma conversa persistida com seu histórico de mensagens."""
+
+    thread_id: str
+    title: str
+    created_at: float
+    updated_at: float
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class StepEventDTO(BaseModel):
     """Evento de início ou fim de nó do LangGraph."""
 
@@ -45,6 +64,7 @@ class StreamEventDTO(BaseModel):
         "chart",
         "token",
         "data",
+        "title",
         "error",
         "done",
     ]

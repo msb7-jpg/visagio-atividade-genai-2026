@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Any
 
 from app.features.chat.schemas import ChatStreamRequestDTO
 

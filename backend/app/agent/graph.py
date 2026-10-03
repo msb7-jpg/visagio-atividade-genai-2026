@@ -133,9 +133,9 @@ def check_sql_execution(
     return "synthesizer"
 
 
-def create_agent_graph():
+def create_agent_graph(checkpointer: Any = None):
     """
-    Compila o StateGraph para o Slice 3: Text-to-SQL com Auto-recuperação e Geração Declarativa de Gráficos.
+    Compila o StateGraph com suporte opcional a checkpointer para persistência de threads.
     """
     workflow = StateGraph(AgentState)
 
@@ -174,4 +174,4 @@ def create_agent_graph():
     workflow.add_edge("sql_corrector", "sql_executor")
     workflow.add_edge("synthesizer", END)
 
-    return workflow.compile()
+    return workflow.compile(checkpointer=checkpointer)

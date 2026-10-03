@@ -39,7 +39,7 @@ Se você é um agente de IA lendo este arquivo para iniciar ou continuar o desen
 | **1** | **Settings & Conectividade Multi-LLM** | Gestão e teste dinâmico de provedores (Groq, Local, OpenRouter, Google, OpenAI) | `[CONCLUÍDO - 01/10/2026]` |
 | **2** | **Text-to-SQL Analítico & Auditoria Visual** | Core LangGraph, catálogo embutido, AST check, self-correction, SSE e Shiki | `[CONCLUÍDO - 02/10/2026]` |
 | **3** | **Visualização Declarativa de Gráficos & Tabelas** | Chart.js declarativo (`ChartJsConfigDTO`), tabela analítica e exportação CSV | `[CONCLUÍDO - 02/10/2026]` |
-| **4** | **Histórico Persistente & Navegação de Threads** | `AsyncSqliteSaver`, titulação concorrente, reidratação e TimelineScrollSpy | `[PENDENTE]` |
+| **4** | **Histórico Persistente & Navegação de Threads** | `AsyncSqliteSaver`, titulação concorrente, reidratação e TimelineScrollSpy | `[CONCLUÍDO - 03/10/2026]` |
 | **5** | **Busca Semântica Híbrida & Math Sandbox** | RAG vetorial em sinopses/reviews, sandbox matemática e sugestões rápidas | `[PENDENTE]` |
 | **6** | **Hardening, Validação do Desafio & Entrega** | Auditoria das 10 perguntas canônicas, resiliência de cotas, E2E e README | `[PENDENTE]` |
 
@@ -443,14 +443,35 @@ cd ..
 ```
 
 ### 6. Checklist Operacional
-- [ ] Persistência de checkpoints com `AsyncSqliteSaver` operando por `thread_id`.
-- [ ] Geração assíncrona concorrente de título no 1º turno sem penalizar a latência da resposta.
-- [ ] Endpoints REST `GET /chat/threads` e `DELETE /chat/threads/{thread_id}` funcionando.
-- [ ] Lista de conversas na Sidebar integrada com TanStack Query v5.
-- [ ] Componente `AnimatedTitle` com efeito de revelação e sincronização com `document.title`.
-- [ ] Mini-mapa lateral direito `TimelineScrollSpy` com scroll spy e navegação suave.
-- [ ] Testes do Slice 4 validados no backend e frontend.
-- [ ] Status da fatia: `[PENDENTE]`
+- [x] Persistência de checkpoints com `AsyncSqliteSaver` operando por `thread_id`.
+- [x] Geração assíncrona concorrente de título no 1º turno sem penalizar a latência da resposta.
+- [x] Endpoints REST `GET /chat/threads` e `DELETE /chat/threads/{thread_id}` funcionando.
+- [x] Lista de conversas na Sidebar integrada com TanStack Query v5.
+- [x] Componente `AnimatedTitle` com efeito de revelação e sincronização com `document.title`.
+- [x] Mini-mapa lateral direito `TimelineScrollSpy` com scroll spy e navegação suave.
+- [x] Funcionalidade de Regenerar / Retry e opção universal de Troca de Modelo diante de erros implementadas.
+- [x] Testes do Slice 4 validados no backend e frontend.
+- [x] Status da fatia: `[CONCLUÍDO - 03/10/2026]`
+
+### 7. Walkthrough de Implementação & Decisões Arquiteturais (Slice 4)
+* **Persistência Concorrente com `AsyncSqliteSaver` & Checkpoints:**
+  - O grafo do LangGraph (`create_agent_graph`) foi equipado com o checkpointer assíncrono oficial `AsyncSqliteSaver` configurado no arquivo `backend/cinedata_checkpoints.db`.
+  - O ciclo de vida do checkpointer foi isolado em context managers assíncronos (`get_checkpointer()`), garantindo liberação imediata de conexões sem locks no SQLite.
+  - Implementado `ThreadRepository` para persistir e consultar metadados com queries preparadas e índices em `updated_at`, permitindo ordenação cronológica decrescente rápida para a interface.
+* **Sub-rotina Assíncrona de Titulação (`TitleGeneratorSubroutine`):**
+  - O primeiro turno de qualquer nova conversa dispara uma tarefa concorrente desacoplada via `asyncio.create_task` com prompt ultra-compacto (3 a 5 palavras).
+  - A titulação não adiciona overhead ou latência ao streaming da resposta analítica principal e despacha o evento SSE `event: title` assim que concluída, com invalidação atômica de cache via TanStack Query no frontend.
+* **Fencing Contra Duplicação no Retry (Regenerar Consulta):**
+  - Diagnosticada e corrigida a causa raiz da duplicação de mensagens: no fluxo anterior de retry, a função `sendMessage` gerava um novo turno de usuário e uma nova bolha de resposta.
+  - Implementado fencing rígido em `useAgentStream.ts`: o retry localiza o ponto da resposta do assistente (`assistantIndex`), poda qualquer resíduo posterior no histórico local e passa `existingAssistantId` para o stream, reaproveitando a pergunta original sem recriar nós no chat.
+* **Layout Canônico de Dupla Barra Lateral (Left Sidebar & Right Timeline):**
+  - Eliminada a redundância visual de múltiplos botões de "Novo Chat" / "Nova Conversa": o botão foi centralizado e padronizado no topo da barra de navegação esquerda em `AppLayout.tsx`, adaptando-se com ícone centralizado quando a barra é colapsada.
+  - O componente `TimelineScrollSpy` foi promovido de elemento flutuante sobre a área de texto para uma **Sidebar Vertical Estrutural Direita** no layout (`app-right-sidebar`), expansível e colapsável via toggle no header (`PanelRightClose` / `PanelRightOpen`), preservando a limpeza visual do feed central.
+* **Reidratação Reativa de Conversas ao Clicar no Histórico:**
+  - O `ChatContainer` agora escuta ativamente mudanças em `externalThreadId`.
+  - Ao selecionar qualquer conversa no histórico da sidebar esquerda, a API `fetchThreadDetail` recupera o snapshot persistido de mensagens e reidrata os blocos via `loadThreadMessages`, restaurando tanto a rolagem quanto os nós de turnos no `TimelineScrollSpy`.
+* **Opção Universal de Troca de Modelo Diante de Erros:**
+  - Padronizada a exibição de botão de atalho direto para configurações e seleção de modelo em todos os cards de erro (`ChatMessageError`), garantindo ao usuário a capacidade de trocar para modelos mais capazes ou contornar limites de taxa (rate-limits) instantaneamente.
 
 ---
 
