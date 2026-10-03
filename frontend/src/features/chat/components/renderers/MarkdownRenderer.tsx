@@ -72,11 +72,11 @@ export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRe
       </ReactMarkdown>
 
       {/* Fallback gracioso: se o gráfico existe mas o modelo não emitiu o marcador ```chart``` */}
-      {chartConfig && !hasInlineChartMarker && (
+      {chartConfig && !hasInlineChartMarker ? (
         <div className="not-prose mt-4">
           <ChartRenderer config={chartConfig} />
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

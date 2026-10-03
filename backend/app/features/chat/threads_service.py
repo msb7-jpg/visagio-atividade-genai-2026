@@ -32,16 +32,24 @@ class ThreadsService:
                 state = await graph.aget_state({"configurable": {"thread_id": thread_id}})
                 if state and state.values:
                     raw_messages = state.values.get("messages", [])
+                    chart_spec = state.values.get("chart_spec")
+                    steps = state.values.get("steps") or []
                     for idx, msg in enumerate(raw_messages):
                         msg_type = getattr(msg, "type", "human")
                         role = "user" if msg_type in ("human", "user") else "assistant"
                         content = getattr(msg, "content", "")
-                        messages.append({
+                        msg_data: dict[str, Any] = {
                             "id": f"persisted-{thread_id}-{idx}",
                             "role": role,
                             "content": content,
                             "type": msg_type,
-                        })
+                        }
+                        if role == "assistant":
+                            if chart_spec:
+                                msg_data["chart_spec"] = chart_spec
+                            if steps:
+                                msg_data["steps"] = steps
+                        messages.append(msg_data)
 
         return ThreadDetailDTO(
             thread_id=summary.thread_id,

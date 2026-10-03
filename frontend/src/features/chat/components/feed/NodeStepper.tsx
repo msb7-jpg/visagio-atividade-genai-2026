@@ -17,20 +17,8 @@ interface NodeStepperProps {
 }
 
 export function NodeStepper({ steps, isStreaming = false, className }: NodeStepperProps) {
-  const hasError = steps.some((s) => s.status === 'error')
-  // Inicia aberto se estiver em streaming ou se contiver erro, fechado se já vier finalizado com sucesso
-  const [isExpanded, setIsExpanded] = useState<boolean>(isStreaming || hasError)
-  const prevStreamingRef = useRef<boolean>(isStreaming)
-
-  // Fecha automaticamente quando o streaming finaliza sem erros
-  useEffect(() => {
-    if (prevStreamingRef.current && !isStreaming && !hasError) {
-      setIsExpanded(false)
-    } else if (hasError) {
-      setIsExpanded(true)
-    }
-    prevStreamingRef.current = isStreaming
-  }, [isStreaming, hasError])
+  // Mantém sempre expandido por padrão para que as etapas de processamento fiquem sempre visíveis
+  const [isExpanded, setIsExpanded] = useState<boolean>(true)
 
   if (steps.length === 0 && !isStreaming) return null
 

@@ -93,5 +93,7 @@ export interface ThreadDetail extends ThreadSummary {
     role: MessageRole
     content: string
     type?: string
+    chart_spec?: ChartJsConfigDTO
+    steps?: AgentStepItem[]
   }[]
 }

@@ -47,19 +47,19 @@ describe('NodeStepper', () => {
     ]
     render(<NodeStepper steps={steps} isStreaming={false} />)
 
-    // Inicia recolhido quando isStreaming=false
-    expect(screen.queryByText('Classificando intenção')).not.toBeInTheDocument()
-    expect(screen.getByText('(clique para expandir)')).toBeInTheDocument()
+    // Inicia expandido por padrão
+    expect(screen.getByText('Classificando intenção')).toBeInTheDocument()
+    expect(screen.getByText('(clique para recolher)')).toBeInTheDocument()
 
-    // Clica para expandir
+    // Clica para recolher
     const trigger = screen.getByRole('button', { name: /alternar exibição das etapas de processamento/i })
     fireEvent.click(trigger)
 
-    expect(screen.getByText('Classificando intenção')).toBeInTheDocument()
-    expect(screen.getByText('(clique para recolher)')).toBeInTheDocument()
+    expect(screen.queryByText('Classificando intenção')).not.toBeInTheDocument()
+    expect(screen.getByText('(clique para expandir)')).toBeInTheDocument()
   })
 
-  it('fecha automaticamente quando o streaming finaliza', () => {
+  it('permanece visível quando o streaming finaliza', () => {
     const steps: AgentStepItem[] = [
       { step: 'router', label: 'Classificando intenção', status: 'done', duration_ms: 12 }
     ]
@@ -71,8 +71,8 @@ describe('NodeStepper', () => {
     // Streaming finaliza
     rerender(<NodeStepper steps={steps} isStreaming={false} />)
 
-    // Agora deve estar colapsado automaticamente
-    expect(screen.queryByText('Classificando intenção')).not.toBeInTheDocument()
-    expect(screen.getByText('(clique para expandir)')).toBeInTheDocument()
+    // Permanece visível para o usuário consultar
+    expect(screen.getByText('Classificando intenção')).toBeInTheDocument()
+    expect(screen.getByText('(clique para recolher)')).toBeInTheDocument()
   })
 })

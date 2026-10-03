@@ -101,12 +101,10 @@ async def synthesizer_node(
             context_info += f"Categoria do Erro: {error_category}\n"
 
     full_prompt = (
-        f"""
-        "{SYNTHESIZER_PROMPT}
-        \n\n{visualization_guideline}
-        \n\n[CONTEXTO DOS DADOS]
-        \n{context_info}"
-        """
+        f"{SYNTHESIZER_PROMPT}\n\n"
+        f"{visualization_guideline}\n\n"
+        f"[CONTEXTO DOS DADOS]\n"
+        f"{context_info}"
     )
     system_msg = SystemMessage(content=full_prompt)
     llm_input = [system_msg, *messages]

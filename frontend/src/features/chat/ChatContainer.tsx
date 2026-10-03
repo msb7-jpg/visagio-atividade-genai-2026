@@ -48,20 +48,32 @@ export function ChatContainer({
     if (!threadDetail || isStreaming) return
     if (threadDetail.thread_id !== externalThreadId) return
 
-    const rehydratedMessages: ChatMessageItem[] = threadDetail.messages.map((msg) => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      blocks: [
+    const rehydratedMessages: ChatMessageItem[] = threadDetail.messages.map((msg) => {
+      const blocks: import('@/features/chat/types/chat.types').ChatMessageBlock[] = [
         {
           id: `block-${msg.id}`,
           type: 'text',
           content: msg.content
         }
-      ],
-      steps: [],
-      timestamp: threadDetail.updated_at ? threadDetail.updated_at * 1000 : Date.now()
-    }))
+      ]
+
+      if (msg.role === 'assistant' && msg.chart_spec) {
+        blocks.push({
+          id: `chart-${msg.id}`,
+          type: 'chart',
+          config: msg.chart_spec
+        })
+      }
+
+      return {
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        blocks,
+        steps: msg.steps || [],
+        timestamp: threadDetail.updated_at ? threadDetail.updated_at * 1000 : Date.now()
+      }
+    })
 
     loadThreadMessages(threadDetail.thread_id, threadDetail.title, rehydratedMessages)
   }, [threadDetail, externalThreadId, isStreaming])
