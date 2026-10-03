@@ -1,14 +1,19 @@
+import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { ChartRenderer } from './ChartRenderer'
 import { TableRenderer } from './TableRenderer'
 
 interface MarkdownRendererProps {
   content: string
+  chartConfig?: ChartJsConfigDTO
   className?: string
 }
 
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRendererProps) {
+  const hasInlineChartMarker = /```chart\b/i.test(content)
+
   return (
     <div
       className={cn(
@@ -28,11 +33,50 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          table: ({ children }) => <TableRenderer>{children}</TableRenderer>
+          table: ({ children }) => <TableRenderer>{children}</TableRenderer>,
+          pre: ({ children }) => {
+            const childArray = Array.isArray(children) ? children : [children]
+            const firstChild = childArray[0]
+            if (
+              firstChild &&
+              typeof firstChild === 'object' &&
+              'props' in firstChild &&
+              firstChild.props?.className?.includes('language-chart')
+            ) {
+              return <>{children}</>
+            }
+            return <pre>{children}</pre>
+          },
+          code: ({ className: codeClassName, children, ...props }) => {
+            const isChartBlock = codeClassName?.includes('language-chart')
+            if (isChartBlock) {
+              if (chartConfig) {
+                return (
+                  <div className="not-prose my-4">
+                    <ChartRenderer config={chartConfig} />
+                  </div>
+                )
+              }
+              // Suprime blocos ```chart vazios/alucinados quando não há gráfico gerado
+              return null
+            }
+            return (
+              <code className={codeClassName} {...props}>
+                {children}
+              </code>
+            )
+          }
         }}
       >
         {content}
       </ReactMarkdown>
+
+      {/* Fallback gracioso: se o gráfico existe mas o modelo não emitiu o marcador ```chart``` */}
+      {chartConfig && !hasInlineChartMarker && (
+        <div className="not-prose mt-4">
+          <ChartRenderer config={chartConfig} />
+        </div>
+      )}
     </div>
   )
 }

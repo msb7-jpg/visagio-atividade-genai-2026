@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import type {
+  ChartJsConfigDTO,
   ChatBlockError,
   ChatMessageBlock,
   ChatMessageItem
@@ -14,11 +15,9 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { AgentAvatar } from './AgentAvatar'
-import { ChartRenderer } from './ChartRenderer'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { NodeStepper } from './NodeStepper'
 import { SqlCodeBlock } from './SqlCodeBlock'
-import { TableRenderer } from './TableRenderer'
 import { ThoughtInspector } from './ThoughtInspector'
 
 interface ChatErrorCardProps {
@@ -106,20 +105,31 @@ interface ChatMessageProps {
   className?: string
 }
 
-function renderBlock(block: ChatMessageBlock, onOpenSettings?: () => void) {
+function renderBlock(
+  block: ChatMessageBlock,
+  chartConfig?: ChartJsConfigDTO,
+  onOpenSettings?: () => void
+) {
   switch (block.type) {
     case 'thought':
       return <ThoughtInspector key={block.id} thought={block.content} />
     case 'sql':
       return <SqlCodeBlock key={block.id} query={block.query} />
     case 'chart':
-      return <ChartRenderer key={block.id} config={block.config} />
+      // O gráfico não é renderizado isoladamente para evitar exibição prematura ou duplicada.
+      // Sua visualização ocorre estritamente dentro do MarkdownRenderer no sumário executivo.
+      return null
     case 'data':
-      // A representação tabular é gerada e integrada unicamente dentro do MarkdownRenderer,
-      // evitando duplicar a mesma tabela antes do texto explicativo.
+      // A representação tabular é gerada e integrada unicamente dentro do MarkdownRenderer.
       return null
     case 'text':
-      return <MarkdownRenderer key={block.id} content={block.content} />
+      return (
+        <MarkdownRenderer
+          key={block.id}
+          content={block.content}
+          chartConfig={chartConfig}
+        />
+      )
     case 'error':
       return <ChatErrorCard key={block.id} block={block} onOpenSettings={onOpenSettings} />
     default:
@@ -129,6 +139,12 @@ function renderBlock(block: ChatMessageBlock, onOpenSettings?: () => void) {
 
 export function ChatMessage({ message, onOpenSettings, className }: ChatMessageProps) {
   const isUser = message.role === 'user'
+
+  const chartBlock = message.blocks.find(
+    (block): block is import('@/features/chat/types/chat.types').ChatBlockChart => block.type === 'chart'
+  )
+  const hasTextBlock = message.blocks.some((b) => b.type === 'text')
+  const chartConfig = chartBlock?.config
 
   if (isUser) {
     return (
@@ -156,10 +172,21 @@ export function ChatMessage({ message, onOpenSettings, className }: ChatMessageP
         ) : null}
 
         {/* Blocos da mensagem (thought, sql, markdown, data, error) */}
-        {message.blocks.map((block) => renderBlock(block, onOpenSettings))}
+        {message.blocks.map((block) =>
+          renderBlock(
+            block,
+            !message.isStreaming && hasTextBlock ? chartConfig : undefined,
+            onOpenSettings
+          )
+        )}
 
         {/* Fallback de conteúdo direto se não houver blocos */}
-        {message.blocks.length === 0 && message.content ? <MarkdownRenderer content={message.content} /> : null}
+        {message.blocks.length === 0 && message.content ? (
+          <MarkdownRenderer
+            content={message.content}
+            chartConfig={!message.isStreaming ? chartConfig : undefined}
+          />
+        ) : null}
 
         {/* Metadados do modelo de inferência usado */}
         {!message.isStreaming && message.model ? (

@@ -32,5 +32,37 @@ describe('MarkdownRenderer', () => {
 
     expect(await screen.findByRole('button', { name: /copiar tabela/i })).toBeInTheDocument()
   })
+
+  it('renders chart inline when ```chart``` marker is present', () => {
+    const mockConfig = {
+      type: 'bar' as const,
+      title: 'Top Produtoras',
+      labels: ['Warner', 'Disney'],
+      datasets: [{ label: 'Lucro', data: [100, 200] }]
+    }
+    const markdown = 'Introdução analítica.\n\n```chart\n```\n\nConclusão executiva.'
+    render(<MarkdownRenderer content={markdown} chartConfig={mockConfig} />)
+
+    expect(screen.getByText('Introdução analítica.')).toBeInTheDocument()
+    expect(screen.getByTestId('chart-renderer-container')).toBeInTheDocument()
+    expect(screen.getByText('Top Produtoras')).toBeInTheDocument()
+    expect(screen.getByText('Conclusão executiva.')).toBeInTheDocument()
+  })
+
+  it('renders chart as graceful fallback when chartConfig is present without ```chart``` marker', () => {
+    const mockConfig = {
+      type: 'pie' as const,
+      title: 'Distribuição por Gênero',
+      labels: ['Ação', 'Drama'],
+      datasets: [{ label: 'Qtd', data: [50, 30] }]
+    }
+    const markdown = 'Análise sem marcador explícito.'
+    render(<MarkdownRenderer content={markdown} chartConfig={mockConfig} />)
+
+    expect(screen.getByText('Análise sem marcador explícito.')).toBeInTheDocument()
+    expect(screen.getByTestId('chart-renderer-container')).toBeInTheDocument()
+    expect(screen.getByText('Distribuição por Gênero')).toBeInTheDocument()
+  })
 })
+
 

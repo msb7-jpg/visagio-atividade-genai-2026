@@ -170,21 +170,21 @@ export function ChartRenderer({ config }: ChartRendererProps) {
   return (
     <div
       data-testid="chart-renderer-container"
-      className="my-3 overflow-hidden rounded-xl border border-white/10 bg-[#13171E] p-4 shadow-sm"
+      className="overflow-hidden rounded-xl border border-white/10 bg-[#13171E]/60 shadow-lg backdrop-blur-sm"
     >
-      <div className="mb-3 flex items-center justify-between border-b border-white/5 pb-2.5">
+      <div className="flex items-center justify-between border-b border-white/5 bg-[#171C25] px-3.5 py-2.5">
         <div className="flex items-center gap-2">
-          <ChartIcon className="size-4 text-[#FF5E2B]" />
-          <h4 className="text-xs font-semibold text-zinc-200 tracking-wide">
+          <ChartIcon className="size-3.5 text-[#FF5E2B]" />
+          <h4 className="text-xs font-semibold text-zinc-300 tracking-wide">
             {config.title}
           </h4>
         </div>
-        <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+        <span className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider text-zinc-400">
           {config.type}
         </span>
       </div>
 
-      <div className="h-64 w-full">
+      <div className="p-4 pt-3 h-64 sm:h-72 w-full">
         {renderChartContent()}
       </div>
     </div>

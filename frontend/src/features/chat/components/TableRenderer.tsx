@@ -12,7 +12,7 @@ import {
   Download,
   MoreHorizontal
 } from 'lucide-react'
-import { Children, isValidElement, ReactNode, useMemo, useRef, useState } from 'react'
+import { Children, isValidElement, type ReactNode, useMemo, useRef, useState } from 'react'
 
 export interface TableRendererProps {
   rows?: Record<string, unknown>[]

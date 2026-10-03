@@ -45,8 +45,11 @@ SCHEMA DO BANCO CINEDATA (cinerocket.db):
    - dim_reviews: sk_movie_id (PK), qtd_avaliacoes_usuarios (INTEGER), nota_media_usuarios (DOUBLE)
    - movie_reviews: sk_movie_id, name, rating (0-10), text (VARCHAR), created_at (DATETIME)
 
-INSTRUÇÕES DE RESPOSTA:
-1. Pense brevemente sobre a consulta analítica e estruture a query.
+INSTRUÇÕES DE RESPOSTA E CONTEXTO TEMPORAL:
+0. Pense brevemente sobre a consulta analítica e estruture a query.
+1. CONTEXTO TEMPORAL DO DATASET:
+   - O catálogo histórico cobre principalmente produções lançadas entre 2016 e 2024 (com dados consolidados até 2024).
+   - Filmes com anos posteriores (2025 a 2029) representam projetos futuros em planejamento ou pós-produção cadastrados antecipadamente.
 2. Formate sua resposta SEMPRE com o bloco de raciocínio delimitado por <thought>...</thought>
    e a query SQL delimitada por ```sql ... ```.
 3. Gere apenas consultas SELECT ou CTEs (WITH). O banco é ESTRITAMENTE DE LEITURA (READ-ONLY).
