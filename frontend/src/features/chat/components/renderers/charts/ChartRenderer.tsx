@@ -1,49 +1,12 @@
 import { useMemo } from 'react'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  type ChartOptions
-} from 'chart.js'
 import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2'
-import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { BarChart3, LineChart, PieChart } from 'lucide-react'
-
-// Registro singleton das primitivas do Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-)
+import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
+import { CHART_PALETTE, getChartOptions } from './chart.config'
 
 interface ChartRendererProps {
   config: ChartJsConfigDTO
 }
-
-// Paleta semântica Dark Glassmorphism derivada de ui/DESIGN.md
-const PALETTE = [
-  '#FF5E2B', // Warm Orange principal
-  '#00D2FF', // Cyan Glow IA
-  '#3B82F6', // Blue Accent
-  '#10B981', // Emerald Lucro
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#14B8A6' // Teal
-]
 
 export function ChartRenderer({ config }: ChartRendererProps) {
   const chartData = useMemo(() => {
@@ -55,14 +18,14 @@ export function ChartRenderer({ config }: ChartRendererProps) {
           label: dataset.label,
           data: dataset.data,
           backgroundColor: config.labels.map(
-            (_, labelIndex) => PALETTE[labelIndex % PALETTE.length]
+            (_, labelIndex) => CHART_PALETTE[labelIndex % CHART_PALETTE.length]
           ),
           borderColor: '#13171E',
           borderWidth: 2
         }
       }
 
-      const baseColor = PALETTE[dsIndex % PALETTE.length]
+      const baseColor = CHART_PALETTE[dsIndex % CHART_PALETTE.length]
       return {
         label: dataset.label,
         data: dataset.data,
@@ -83,70 +46,7 @@ export function ChartRenderer({ config }: ChartRendererProps) {
     }
   }, [config])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const options: ChartOptions<any> = useMemo(() => {
-    const isRadial = config.type === 'pie' || config.type === 'doughnut'
-
-    return {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: {
-            color: '#9CA3AF',
-            font: {
-              family: 'Inter, sans-serif',
-              size: 11
-            },
-            boxWidth: 12,
-            boxHeight: 12,
-            padding: 12
-          }
-        },
-        tooltip: {
-          backgroundColor: '#1B202B',
-          titleColor: '#F3F4F6',
-          bodyColor: '#9CA3AF',
-          borderColor: '#282F3D',
-          borderWidth: 1,
-          padding: 10,
-          boxPadding: 4,
-          cornerRadius: 8
-        }
-      },
-      scales: isRadial
-        ? undefined
-        : {
-          x: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.05)'
-            },
-            ticks: {
-              color: '#9CA3AF',
-              font: {
-                family: 'Inter, sans-serif',
-                size: 11
-              },
-              maxRotation: 45
-            }
-          },
-          y: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.05)'
-            },
-            ticks: {
-              color: '#9CA3AF',
-              font: {
-                family: 'Inter, sans-serif',
-                size: 11
-              }
-            }
-          }
-        }
-    }
-  }, [config.type])
+  const options = useMemo(() => getChartOptions(config.type), [config.type])
 
   const ChartIcon = useMemo(() => {
     if (config.type === 'line') return LineChart
@@ -190,3 +90,4 @@ export function ChartRenderer({ config }: ChartRendererProps) {
     </div>
   )
 }
+export default ChartRenderer
