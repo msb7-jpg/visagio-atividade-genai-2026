@@ -13,6 +13,7 @@
 
 ## 📑 Tabela de Conteúdos (Table of Contents)
 
+- [Demonstração da Interface (Showcase)](#-demonstração-da-interface-showcase)
 - [Configuração da Inferência do Modelo (LLM Setup)](#-configuração-da-inferência-do-modelo-llm-setup)
   - [Opção 1: Execução Local com Qwen3-4B Llamafile (Recomendado Offline)](#-opção-1-execução-local-com-qwen3-4b-llamafile-recomendado-offline)
   - [Opção 2: Execução Local com Ollama via Docker](#-opção-2-execução-local-com-ollama-via-docker)
@@ -42,25 +43,57 @@
 
 ## 📸 Demonstração da Interface (Showcase)
 
-| Visão Geral do Sistema & Chat | Suporte a Múltiplos Provedores LLM |
-| :---: | :---: |
-| ![Visão Geral](midia/agent-overview.png)<br><sub>*Interface analítica moderna com streaming SSE e histórico persistente*</sub> | ![Provedores](midia/agent-select-provider.png)<br><sub>*Configuração dinâmica de LLM: OpenRouter, LM Studio, Ollama, Llamafile/Llama.cpp*</sub> |
+### Visão Geral do Sistema & Chat
+![Visão Geral](midia/agent-overview.png)
+<sub>*Interface analítica moderna com streaming SSE e histórico persistente*</sub>
 
-| Visualização em Barras (Chart.js) | Gráficos de Rosca / Donut |
-| :---: | :---: |
-| ![Gráfico de Barras](midia/agent-bar-chart.png)<br><sub>*Geração declarativa automática de métricas financeiras e comparativos*</sub> | ![Gráfico Donut](midia/agent-doghnut-chart.png)<br><sub>*Distribuição de catálogos e agrupamentos analíticos interativos*</sub> |
+---
 
-| Gráficos de Pizza & Proporções | Tabelas com Ordenação & Exportação |
-| :---: | :---: |
-| ![Gráfico de Pizza](midia/agent-pizza-chart.png)<br><sub>*Detalhamento de proporção por gêneros e status de produção*</sub> | ![Tabela Analítica](midia/agent-table-with-sorting-and-export-options.png)<br><sub>*Visualização tabular com ordenação de colunas e exportação CSV/JSON*</sub> |
+### Suporte a Múltiplos Provedores LLM
+![Provedores](midia/agent-select-provider.png)
+<sub>*Configuração dinâmica de LLM: OpenRouter, LM Studio, Ollama, Llamafile/Llama.cpp*</sub>
 
-| Raciocínio, Passos & Query SQL Executada | Ações do Chat & Sugestões Guiadas |
-| :---: | :---: |
-| ![Passos e SQL](midia/agent-showing-steps-thought-and-query.png)<br><sub>*Transparência auditável: inspeção da query SQL, AST validada e steps do agente*</sub> | ![Ações do Chat](midia/agent-chat-actions.png)<br><sub>*Ações rápidas, categorização de prompts e cópia/regeneração de respostas*</sub> |
+---
 
-| Preview Contextual de Filmes (Tooltip no Hover) | — |
-| :---: | :---: |
-| ![Preview de Filme no Hover](midia/agent-tooltip-preview-on-hoover.png)<br><sub>*Detecção inteligente de entidades: ao passar o mouse sobre o título de qualquer filme mencionado na resposta, um card interativo exibe poster, nota, sinopse e metadados contextuais*</sub> | <sub>*Design focado na experiência do usuário e enriquecimento analítico imediato*</sub> |
+### Visualização em Barras (Chart.js)
+![Gráfico de Barras](midia/agent-bar-chart.png)
+<sub>*Geração declarativa automática de métricas financeiras e comparativos*</sub>
+
+---
+
+### Gráficos de Rosca / Donut
+![Gráfico Donut](midia/agent-doghnut-chart.png)
+<sub>*Distribuição de catálogos e agrupamentos analíticos interativos*</sub>
+
+---
+
+### Gráficos de Pizza & Proporções
+![Gráfico de Pizza](midia/agent-pizza-chart.png)
+<sub>*Detalhamento de proporção por gêneros e status de produção*</sub>
+
+---
+
+### Tabelas com Ordenação & Exportação
+![Tabela Analítica](midia/agent-table-with-sorting-and-export-options.png)
+<sub>*Visualização tabular com ordenação de colunas e exportação CSV/JSON*</sub>
+
+---
+
+### Raciocínio, Passos & Query SQL Executada
+![Passos e SQL](midia/agent-showing-steps-thought-and-query.png)
+<sub>*Transparência auditável: inspeção da query SQL, AST validada e steps do agente*</sub>
+
+---
+
+### Ações do Chat & Sugestões Guiadas
+![Ações do Chat](midia/agent-chat-actions.png)
+<sub>*Ações rápidas, categorização de prompts e cópia/regeneração de respostas*</sub>
+
+---
+
+### Preview Contextual de Filmes (Tooltip no Hover)
+![Preview de Filme no Hover](midia/agent-tooltip-preview-on-hoover.png)
+<sub>*Detecção inteligente de entidades: ao passar o mouse sobre o título de qualquer filme mencionado na resposta, um card interativo exibe poster, nota, sinopse e metadados contextuais*</sub>
 
 ---
 
