@@ -186,6 +186,11 @@ elif [ -x "$VENV_PYTHON" ]; then
 fi
 
 restore_database_from_dump() {
+  if [ ! -f "$ARCHIVE_PATH" ] && ls "${ARCHIVE_PATH}.part-"* 1> /dev/null 2>&1; then
+    echo -e "${C_CYAN}   [>] Recombinando partes de $ARCHIVE_NAME...${C_RESET}"
+    cat "${ARCHIVE_PATH}.part-"* > "$ARCHIVE_PATH"
+  fi
+
   if [ -f "$ARCHIVE_PATH" ]; then
     echo -e "${C_YELLOW}[!]  Banco nao encontrado. Restaurando a partir de $ARCHIVE_NAME...${C_RESET}"
     rm -f "$DB_PATH" "$DB_PATH-wal" "$DB_PATH-shm"

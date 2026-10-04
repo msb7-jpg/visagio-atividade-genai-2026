@@ -228,6 +228,27 @@ Write-Host "`n[DB] Analisando estado da base de dados ($DbPath)..." -ForegroundC
 $EffectivePy = if (Test-Path $VenvPython) { $VenvPython } else { $PythonCmd }
 
 function Restore-DatabaseFromDump {
+    if (-not (Test-Path $ArchivePath)) {
+        $parts = Get-ChildItem -Path "$ArchivePath.part-*" -ErrorAction SilentlyContinue
+        if ($parts.Count -gt 0) {
+            Write-Host "   [>] Recombinando partes de $ArchiveName..." -ForegroundColor Cyan
+            $CombineScript = @"
+import sys, glob
+parts = sorted(glob.glob(r'$ArchivePath.part-*'))
+with open(r'$ArchivePath', 'wb') as outfile:
+    for p in parts:
+        with open(p, 'rb') as infile:
+            outfile.write(infile.read())
+"@
+            if ($BackendRunner -eq "uv") {
+                Push-Location $BackendDir
+                try { uv run python -c $CombineScript } finally { Pop-Location }
+            } else {
+                & $EffectivePy -c $CombineScript
+            }
+        }
+    }
+
     if (Test-Path $ArchivePath) {
         Write-Host "   [!]  Banco nao encontrado. Restaurando a partir de $ArchiveName..." -ForegroundColor Yellow
         Remove-Item -Path $DbPath -Force -ErrorAction SilentlyContinue

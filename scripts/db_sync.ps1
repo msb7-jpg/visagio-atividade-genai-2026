@@ -98,13 +98,58 @@ conn.close()
         }
 
         $NewSizeMB = [math]::Round(((Get-Item $ArchivePath).Length / 1MB), 2)
-        Write-Host "   [OK] Concluido com sucesso! Arquivo gerado: $ArchivePath" -ForegroundColor Green
+        Write-Host "   [>] Dividindo o arquivo compactado em partes para contornar limites do GitHub..." -ForegroundColor Cyan
+        
+        $SplitScript = @"
+import os
+chunk_size = 45 * 1024 * 1024
+archive = r'$ArchivePath'
+with open(archive, 'rb') as f:
+    chunk_idx = 0
+    while True:
+        chunk = f.read(chunk_size)
+        if not chunk:
+            break
+        part_name = f"{archive}.part-{chr(97 + (chunk_idx // 26))}{chr(97 + (chunk_idx % 26))}"
+        with open(part_name, 'wb') as p:
+            p.write(chunk)
+        chunk_idx += 1
+"@
+        if ($PythonCmd -like "uv run *") {
+            Push-Location (Join-Path $ProjectRoot "backend")
+            try { uv run python -c $SplitScript } finally { Pop-Location }
+        } else {
+            & $PythonCmd -c $SplitScript
+        }
+
+        Write-Host "   [OK] Concluido com sucesso! Arquivos particionados gerados." -ForegroundColor Green
         Write-Host "   [OK] Resumo da compressao: $OrigSizeMB MB -> $NewSizeMB MB" -ForegroundColor Green
         break
     }
 
     { $_ -in @("dc", "deserialize", "decompress") } {
         Write-Host "`n[>] Restaurando base de dados $DbName a partir do arquivo compactado..." -ForegroundColor Cyan
+
+        if (-not (Test-Path $ArchivePath)) {
+            $parts = Get-ChildItem -Path "$ArchivePath.part-*" -ErrorAction SilentlyContinue
+            if ($parts.Count -gt 0) {
+                Write-Host "   [>] Recombinando partes de $ArchiveName..." -ForegroundColor Cyan
+                $CombineScript = @"
+import sys, glob
+parts = sorted(glob.glob(r'$ArchivePath.part-*'))
+with open(r'$ArchivePath', 'wb') as outfile:
+    for p in parts:
+        with open(p, 'rb') as infile:
+            outfile.write(infile.read())
+"@
+                if ($PythonCmd -like "uv run *") {
+                    Push-Location (Join-Path $ProjectRoot "backend")
+                    try { uv run python -c $CombineScript } finally { Pop-Location }
+                } else {
+                    & $PythonCmd -c $CombineScript
+                }
+            }
+        }
 
         if (-not (Test-Path $ArchivePath)) {
             if (Test-Path $SqlDumpPath) {

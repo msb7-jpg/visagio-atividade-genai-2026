@@ -117,12 +117,19 @@ conn.close()
     fi
 
     NEW_SIZE=$(du -sh "$ARCHIVE_PATH" | cut -f1)
-    echo "   [OK] Concluido com sucesso! Arquivo gerado: $ARCHIVE_PATH"
+    echo "   [>] Dividindo o arquivo compactado em partes para contornar limites do GitHub..."
+    split -b 45M "$ARCHIVE_PATH" "${ARCHIVE_PATH}.part-"
+    echo "   [OK] Concluido com sucesso! Arquivos particionados gerados."
     echo "   [OK] Resumo da compressao: $ORIG_SIZE -> $NEW_SIZE"
     ;;
 
   dc|deserialize|decompress)
     echo "[>] Restaurando base de dados $DB_NAME a partir do arquivo compactado..."
+
+    if [ ! -f "$ARCHIVE_PATH" ] && ls "${ARCHIVE_PATH}.part-"* 1> /dev/null 2>&1; then
+      echo "   [>] Recombinando partes do arquivo compactado..."
+      cat "${ARCHIVE_PATH}.part-"* > "$ARCHIVE_PATH"
+    fi
 
     if [ ! -f "$ARCHIVE_PATH" ]; then
       if [ -f "$SQL_DUMP_PATH" ]; then

@@ -31,3 +31,4 @@ docs/
 .vscode/
 .idea/
 .DS_Store
+database.sql.xz
