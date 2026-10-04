@@ -1,4 +1,5 @@
 {
+  "_instruction": "### ⚠️ IMPORTANT: Preservation of Design Intent (Do Not Arbitrarily Substitute Colors)\nWhen a linter or rule flags an unauthorized or raw color (e.g., a specific white, custom orange, or brand accent required by the design/user):\n- **DO NOT** simply replace it with a random pre-existing variable (e.g. replacing a custom white with orange/primary just to silence the linter). Doing so compromises the visual aesthetic conceived in the design.\n- **DO**: Create and register the new semantic variable in the global CSS theme (or Tailwind config) first (e.g. `--brand-highlight`, `--surface-elevated`), and then use the semantic class corresponding to that variable across the components.",
   "rules": {
     "shadcn/no-restyle": [
       "error",
@@ -11,14 +12,14 @@
             "deny": ["w-*", "h-*", "p-*", "bg-*"],
             "message": {
               "spacing": "Do not override Button spacing. Use standard Button sizes (sm, default, lg, icon).",
-              "default": "Do not restyle Button. Use standard variants (default, secondary, outline, ghost, destructive) or compose with a wrapper component. Never invent domain-specific variants like chat-variant."
+              "default": "Do not restyle Button. Use standard variants (create a new one, or use default, secondary, outline, ghost, destructive) or compose with a wrapper component. Never invent domain-specific variants like chat-variant."
             }
           },
           {
             "pattern": "^Badge$",
             "allow": ["layout", "spacing"],
             "message": {
-              "default": "Use standard Badge variants (default, secondary, outline, destructive). Do not hardcode custom styles or invent one-off variants."
+              "default": "Use standard Badge variants (create a new one, or use default, secondary, outline, destructive). Do not hardcode custom styles or invent one-off variants."
             }
           },
           {
@@ -47,7 +48,7 @@
     "shadcn/no-raw-colors": [
       "error",
       {
-        "message": "Do not use raw Tailwind colors (e.g. bg-blue-500, text-emerald-400). Use MGC AI semantic tokens from ui/DESIGN.md (bg-background, bg-card, bg-primary, text-muted-foreground)."
+        "message": "Do not use raw Tailwind colors. Preservation of Design Intent: DO NOT substitute a missing color with an arbitrary variable to silence the linter. DO: Create and register the new semantic variable in global CSS (e.g. --brand-highlight) and use it across components to preserve design aesthetic."
       }
     ],
     "shadcn/no-arbitrary-values": [

@@ -1,17 +1,15 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
-  BarChart3,
+  Clapperboard,
   Film,
-  MessageSquare,
   PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
   PanelRightOpen,
   Plus,
-  Settings
+  Settings,
+  SquareArrowOutUpRight
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useState, type ReactNode } from 'react'
 
 /**
  * Propriedades para a estrutura de layout principal da aplicação CineData.
@@ -39,7 +37,7 @@ export interface AppLayoutProps {
 }
 
 /**
- * Layout principal em tela cheia com barra lateral retrátil, cabeçalho e timeline lateral.
+ * Layout principal em tela cheia com barra lateral retrátil e timeline lateral.
  *
  * @param props - Propriedades contendo áreas de conteúdo, estado de streaming e callbacks de navegação.
  * @returns Elemento JSX do layout com painéis retráteis responsivos.
@@ -48,7 +46,6 @@ export function AppLayout({
   children,
   sidebarContent,
   rightSidebarContent,
-  headerTitle,
   isStreaming = false,
   onNewChat,
   onOpenSettings
@@ -65,14 +62,32 @@ export function AppLayout({
           sidebarOpen ? 'w-64 min-w-64' : 'w-16 min-w-16 items-center'
         }`}
       >
-        {/* Logo & Marca */}
-        <div className={`flex items-center p-4 border-b border-border w-full ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-card border border-border text-primary shrink-0">
-              <Film className="h-4 w-4" />
-            </div>
+        {/* Logo & Marca com Alternância entre Clapperboard e Ícone de Sidebar */}
+        <div
+          className={`flex items-center px-4 h-14 border-b border-border w-full shrink-0 ${
+            sidebarOpen ? 'justify-between' : 'justify-center'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              aria-label={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+              title={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+            >
+              {sidebarOpen ? (
+                <PanelLeftClose className="h-4 w-4 text-primary" />
+              ) : (
+                <Clapperboard className="h-4 w-4 text-primary" />
+              )}
+            </Button>
             {sidebarOpen ? (
-              <div>
+              <div
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                className="cursor-pointer select-none truncate"
+                title="Recolher menu lateral"
+              >
                 <h1 className="text-sm font-semibold tracking-tight text-foreground">
                   CineData
                 </h1>
@@ -89,14 +104,14 @@ export function AppLayout({
           {sidebarOpen ? (
             <Button
               variant="outline"
-              size="sm"
+              size="default"
               onClick={onNewChat}
               disabled={isStreaming}
               aria-label="Novo Chat"
               title={isStreaming ? 'Aguarde a resposta em andamento' : undefined}
               className="justify-start"
             >
-              <Plus className="h-4 w-4 mr-2 text-primary" />
+              <SquareArrowOutUpRight className="h-4 w-4 mr-2 text-primary" />
               <span>Novo Chat</span>
             </Button>
           ) : (
@@ -115,29 +130,7 @@ export function AppLayout({
 
         {/* Lista de Conversas / Histórico */}
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 w-full">
-          {sidebarOpen ? (
-            sidebarContent || (
-              <>
-                <div className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Sessões Recentes
-                </div>
-                <div
-                  className="flex items-center rounded-lg text-xs text-muted-foreground hover:bg-card hover:text-foreground cursor-pointer transition-colors gap-2 px-2.5 py-2"
-                  title="Top 10 Bilheterias da História"
-                >
-                  <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="truncate">Top 10 Bilheterias da História</span>
-                </div>
-                <div
-                  className="flex items-center rounded-lg text-xs text-muted-foreground hover:bg-card hover:text-foreground cursor-pointer transition-colors gap-2 px-2.5 py-2"
-                  title="Lucro Médio por Gênero"
-                >
-                  <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="truncate">Lucro Médio por Gênero</span>
-                </div>
-              </>
-            )
-          ) : null}
+          {sidebarOpen ? sidebarContent : null}
         </div>
 
         {/* Rodapé da Sidebar */}
@@ -171,98 +164,61 @@ export function AppLayout({
         </div>
       </aside>
 
-      {/* Conteúdo Principal & Topbar */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header Superior */}
-        <header
-          data-testid="app-header"
-          className="flex h-14 items-center justify-between px-4 border-b border-border bg-background z-10"
+      {/* Conteúdo Principal */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Botão flutuante para reabrir a Timeline quando colapsada */}
+        {rightSidebarContent && !rightSidebarOpen ? (
+          <div className="absolute top-3 right-3 z-30">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setRightSidebarOpen(true)}
+              aria-label="Expandir turnos da conversa"
+              title="Expandir histórico de turnos"
+            >
+              <PanelRightOpen className="h-4 w-4 text-primary" />
+            </Button>
+          </div>
+        ) : null}
+
+        <main
+          data-testid="app-main"
+          className="flex-1 overflow-hidden bg-background flex flex-col relative"
         >
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen((prev) => !prev)}
-              aria-label={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="h-4 w-4" />
-              ) : (
-                <PanelLeftOpen className="h-4 w-4" />
-              )}
-            </Button>
-            <div className="flex items-center gap-2">
-              {headerTitle || (
-                <span className="text-xs font-medium text-foreground">
-                  CineData Analytics
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onOpenSettings}
-              disabled={isStreaming}
-              aria-label={isStreaming ? 'Abrir configurações (bloqueado durante análise)' : 'Abrir configurações de provedor'}
-              title={isStreaming ? 'Uma análise analítica está em andamento...' : undefined}
-            >
-              <Settings className={cn('h-4 w-4', isStreaming && 'animate-spin text-primary')} />
-            </Button>
-            {rightSidebarContent ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setRightSidebarOpen((prev) => !prev)}
-                aria-label={rightSidebarOpen ? 'Recolher turnos da conversa' : 'Expandir turnos da conversa'}
-                title={rightSidebarOpen ? 'Recolher histórico de turnos' : 'Expandir histórico de turnos'}
-              >
-                {rightSidebarOpen ? (
-                  <PanelRightClose className="h-4 w-4" />
-                ) : (
-                  <PanelRightOpen className="h-4 w-4" />
-                )}
-              </Button>
-            ) : null}
-          </div>
-        </header>
-
-        {/* Área de Visualização com Miolo Central e Sidebar Direita Vertical */}
-        <div className="flex flex-1 overflow-hidden relative">
-          <main
-            data-testid="app-main"
-            className="flex-1 overflow-hidden bg-background flex flex-col relative"
-          >
-            {children || (
-              <div className="text-center max-w-md space-y-3 m-auto">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-border text-primary mb-2">
-                  <Film className="h-6 w-6" />
-                </div>
-                <h2 className="text-lg font-medium text-foreground">
-                  O que você gostaria de analisar hoje?
-                </h2>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Explore faturamento, orçamentos, dados de elenco e sinopses do catálogo CineData com inteligência artificial analítica.
-                </p>
+          {children || (
+            <div className="text-center max-w-md space-y-3 m-auto">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-border text-primary mb-2">
+                <Film className="h-6 w-6" />
               </div>
-            )}
-          </main>
+              <h2 className="text-lg font-medium text-foreground">
+                O que você gostaria de analisar hoje?
+              </h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Explore faturamento, orçamentos, dados de elenco e sinopses do catálogo CineData com inteligência artificial analítica.
+              </p>
+            </div>
+          )}
+        </main>
 
-          {/* Sidebar Direita Canônica: Turnos da Conversa / Mini-mapa */}
-          {rightSidebarContent ? (
-            <aside
-              data-testid="app-right-sidebar"
-              className={cn(
-                'flex flex-col border-l border-border bg-sidebar transition-all duration-300 ease-in-out shrink-0 z-20 overflow-hidden',
-                rightSidebarOpen ? 'w-64 min-w-64' : 'w-0 min-w-0 border-l-0 p-0'
-              )}
-            >
-              {rightSidebarContent}
-            </aside>
-          ) : null}
-        </div>
+        {/* Sidebar Direita Canônica: Turnos da Conversa / Mini-mapa */}
+        {rightSidebarContent ? (
+          <aside
+            data-testid="app-right-sidebar"
+            className={cn(
+              'flex flex-col border-l border-border bg-sidebar transition-all duration-300 ease-in-out shrink-0 z-20 overflow-hidden',
+              rightSidebarOpen ? 'w-64 min-w-64' : 'w-0 min-w-0 border-l-0 p-0'
+            )}
+          >
+            {isValidElement(rightSidebarContent)
+              ? cloneElement(
+                rightSidebarContent as React.ReactElement<{ onCollapse?: () => void }>,
+                {
+                  onCollapse: () => setRightSidebarOpen(false)
+                }
+              )
+              : rightSidebarContent}
+          </aside>
+        ) : null}
       </div>
     </div>
   )

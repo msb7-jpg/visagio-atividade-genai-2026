@@ -33,10 +33,7 @@ def _check_statement_type(stmt: Statement, cleaned: str) -> tuple[bool, str | No
     if clean_upper.startswith(("WITH", "SELECT")):
         return True, None
 
-    msg = (
-        f"Tipo de instrução não permitida: {first_token}. "
-        "Apenas SELECT e CTEs (WITH) são autorizadas."
-    )
+    msg = f"Tipo de instrução não permitida: {first_token}. Apenas SELECT e CTEs (WITH) são autorizadas."
     return False, msg
 
 

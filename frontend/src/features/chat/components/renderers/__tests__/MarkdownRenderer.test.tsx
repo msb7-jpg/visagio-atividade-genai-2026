@@ -1,6 +1,15 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MarkdownRenderer } from '../MarkdownRenderer'
+
+vi.mock('@/features/chat/hooks/useMovieDetailsQuery', () => ({
+  useMovieDetailsQuery: vi.fn().mockReturnValue({
+    data: null,
+    isLoading: false,
+    error: null,
+    prefetch: vi.fn()
+  })
+}))
 
 describe('MarkdownRenderer', () => {
   it('renders headings and paragraph properly', () => {
@@ -62,5 +71,13 @@ describe('MarkdownRenderer', () => {
     expect(screen.getByText('Análise sem marcador explícito.')).toBeInTheDocument()
     expect(await screen.findByTestId('chart-renderer-container')).toBeInTheDocument()
     expect(screen.getByText('Distribuição por Gênero')).toBeInTheDocument()
+  })
+
+  it('renders movie links with tooltip trigger for both [Name](movie:id) and (Name)[id]', () => {
+    const markdown = 'Destaque para [Avatar](movie:sk-avatar-123) e também (Titanic)[sk-titanic-456].'
+    render(<MarkdownRenderer content={markdown} />)
+
+    expect(screen.getByText('Avatar')).toBeInTheDocument()
+    expect(screen.getByText('Titanic')).toBeInTheDocument()
   })
 })

@@ -44,4 +44,21 @@ describe('TimelineScrollSpy', () => {
     fireEvent.click(screen.getByText('Lucro Médio por Gênero'))
     expect(handleSelect).toHaveBeenCalledWith('turn-2')
   })
+
+  it('renders collapse button and triggers onCollapse when clicked', () => {
+    const handleCollapse = vi.fn()
+    render(
+      <TimelineScrollSpy
+        items={mockItems}
+        activeId="turn-1"
+        onSelectItem={vi.fn()}
+        onCollapse={handleCollapse}
+      />
+    )
+
+    const collapseButton = screen.getByRole('button', { name: 'Recolher turnos da conversa' })
+    expect(collapseButton).toBeInTheDocument()
+    fireEvent.click(collapseButton)
+    expect(handleCollapse).toHaveBeenCalledTimes(1)
+  })
 })

@@ -12,15 +12,9 @@ class ChatStreamRequestDTO(BaseModel):
     """Payload para envio de mensagens com suporte a streaming SSE."""
 
     message: str = Field(..., min_length=1, description="Mensagem ou pergunta analítica do usuário")
-    thread_id: str | None = Field(
-        default=None, description="Identificador da sessão/thread para persistência"
-    )
-    provider: str | None = Field(
-        default=None, description="Provedor selecionado na UI"
-    )
-    model: str | None = Field(
-        default=None, description="Modelo selecionado na UI"
-    )
+    thread_id: str | None = Field(default=None, description="Identificador da sessão/thread para persistência")
+    provider: str | None = Field(default=None, description="Provedor selecionado na UI")
+    model: str | None = Field(default=None, description="Modelo selecionado na UI")
     provider_override: ProviderConfigDTO | None = Field(
         default=None,
         description="Configuração de LLM personalizada opcional para esta requisição",
@@ -60,6 +54,8 @@ class ThreadMessageDTO(BaseModel):
     steps: list[StepEventDTO] | None = Field(
         default=None, description="Lista de etapas executadas para gerar esta resposta"
     )
+    provider: str | None = Field(default=None, description="Provedor de inferência utilizado")
+    model: str | None = Field(default=None, description="Modelo de linguagem utilizado")
 
 
 class ThreadDetailDTO(BaseModel):

@@ -10,9 +10,7 @@ class ChartDataset(BaseModel):
         ...,
         description="Nome da série de dados (ex: 'Receita em R$', 'Quantidade de Filmes')",
     )
-    data: list[float | int] = Field(
-        ..., description="Lista ordenada de valores numéricos"
-    )
+    data: list[float | int] = Field(..., description="Lista ordenada de valores numéricos")
 
 
 class ChartJsConfigDTO(BaseModel):
@@ -29,6 +27,4 @@ class ChartJsConfigDTO(BaseModel):
         ...,
         description="Rótulos das categorias ou eixo horizontal (ex: nomes de filmes, anos)",
     )
-    datasets: list[ChartDataset] = Field(
-        ..., description="Conjunto de métricas numéricas a serem plotadas"
-    )
+    datasets: list[ChartDataset] = Field(..., description="Conjunto de métricas numéricas a serem plotadas")

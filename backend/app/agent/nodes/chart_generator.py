@@ -51,9 +51,7 @@ def _detect_chart_type(query_lower: str) -> ChartType:
     return ChartType.BAR
 
 
-def _extract_columns(
-    first_row: QueryResultRow, keys: list[str]
-) -> tuple[str | None, str | None]:
+def _extract_columns(first_row: QueryResultRow, keys: list[str]) -> tuple[str | None, str | None]:
     """Identifica heuristicamente colunas de rótulo e de métrica numérica."""
     label_col = None
     metric_col = None
@@ -77,9 +75,7 @@ def _extract_columns(
     return label_col, metric_col
 
 
-def _heuristic_chart_builder(
-    user_query: str, query_result: list[QueryResultRow]
-) -> dict[str, Any] | None:
+def _heuristic_chart_builder(user_query: str, query_result: list[QueryResultRow]) -> dict[str, Any] | None:
     """
     Constrói a especificação do gráfico de forma determinística caso os dados sejam adequados.
 
@@ -182,9 +178,7 @@ def _resolve_chart_spec(
     return dto.model_dump()
 
 
-async def chart_generator_node(
-    state: AgentState, config: RunnableConfig | None = None
-) -> AgentStateUpdate:
+async def chart_generator_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
     """
     Nó do LangGraph responsável por avaliar se há intenção e valor em gerar gráfico
     e estruturar o ChartJsConfigDTO correspondente.
@@ -208,9 +202,7 @@ async def chart_generator_node(
             last_user_query = str(msg.content)
             break
 
-    explicit_intent = check_explicit_chart_intent(last_user_query) or bool(
-        state.get("requires_chart")
-    )
+    explicit_intent = check_explicit_chart_intent(last_user_query) or bool(state.get("requires_chart"))
 
     configurable = (config or {}).get("configurable", {})
     try:

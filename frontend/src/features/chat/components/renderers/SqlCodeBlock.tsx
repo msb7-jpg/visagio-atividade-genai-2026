@@ -1,7 +1,8 @@
+import { CollapsibleMotion } from '@/components/animations'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@reactuses/core'
-import { Check, Copy, Database, ChevronRight } from 'lucide-react'
+import { Check, ChevronRight, Copy, Database } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 /**
@@ -33,7 +34,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
         const { codeToHtml } = await import('shiki')
         const html = await codeToHtml(query, {
           lang: 'sql',
-          theme: 'github-dark-dimmed'
+          theme: 'vitesse-dark'
         })
         if (isMounted) {
           setHighlightedHtml(html)
@@ -77,7 +78,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
             setIsExpanded((prev) => !prev)
           }
         }}
-        className="flex cursor-pointer select-none items-center justify-between border-b border-border bg-sidebar px-3 py-2 transition-colors hover:bg-card-hover"
+        className="flex cursor-pointer select-none items-center justify-between border-b border-border bg-sidebar px-3 py-1 transition-colors hover:bg-card-hover"
       >
         <div className="flex items-center gap-2">
           <ChevronRight
@@ -116,7 +117,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
       </div>
 
       {/* Code Area (colapsável) */}
-      {isExpanded ? (
+      <CollapsibleMotion isExpanded={isExpanded}>
         <div className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-foreground border-t border-border bg-card">
           {highlightedHtml ? (
             <div
@@ -127,7 +128,8 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
             <pre className="text-muted-foreground">{query}</pre>
           )}
         </div>
-      ) : null}
+      </CollapsibleMotion>
+
     </div>
   )
 }

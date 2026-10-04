@@ -1,9 +1,10 @@
 import {
   ProviderConfigFormSchema,
-  type ProviderConfig
+  type ProviderConfig,
+  type ProviderType
 } from '@/features/settings/schemas/settings.schema'
 import { useTimeoutFn } from '@reactuses/core'
-import { useForm, useSelector, type FormApi } from '@tanstack/react-form'
+import { useForm, useSelector } from '@tanstack/react-form'
 import { useState, type Dispatch, type SetStateAction } from 'react'
 import { useUpdateProviderConfigMutation } from './useUpdateProviderConfigMutation'
 
@@ -19,15 +20,17 @@ export interface UseProviderFormCoreProps {
   isStreaming?: boolean
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ProviderFormInstance = any
+
 /**
  * Objeto de retorno contendo a instância do formulário TanStack e estados derivados.
  */
 export interface UseProviderFormCoreResult {
   /** Instância do TanStack Form gerenciando validação e valores. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  form: FormApi<any, any>
+  form: ProviderFormInstance
   /** Provedor atualmente selecionado no formulário. */
-  selectedProvider: string
+  selectedProvider: ProviderType
   /** Modelo atualmente digitado ou selecionado. */
   currentModel: string
   /** Chave de API atual no input. */
@@ -47,8 +50,6 @@ export interface UseProviderFormCoreResult {
   /** Define diretamente a mensagem de sucesso de salvamento. */
   setSaveSuccessMessage: Dispatch<SetStateAction<string | null>>
 }
-
-export type ProviderFormInstance = UseProviderFormCoreResult['form']
 
 /**
  * Hook de controle de formulário TanStack Form para edição e validação de configurações de provedor LLM.
@@ -113,7 +114,7 @@ export function useProviderFormCore({
     }
   })
 
-  const selectedProvider = useSelector(form.store, (state) => state.values.provider)
+  const selectedProvider = useSelector(form.store, (state) => state.values.provider) as ProviderType
   const currentModel = useSelector(form.store, (state) => state.values.model)
   const currentApiKey = useSelector(form.store, (state) => state.values.api_key)
   const currentBaseUrl = useSelector(form.store, (state) => state.values.base_url)

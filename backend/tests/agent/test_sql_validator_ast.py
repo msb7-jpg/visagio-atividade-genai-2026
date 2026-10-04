@@ -58,4 +58,3 @@ def test_validate_sql_blocks_system_tables():
     assert is_valid is False
     assert "tabela de sistema" in err
     assert cat == "SECURITY_VIOLATION"
-

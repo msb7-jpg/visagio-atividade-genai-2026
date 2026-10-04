@@ -59,8 +59,6 @@ function AppContent() {
   }, [isStreaming])
 
   const handleNewChat = () => {
-    // Não permite iniciar outra conversa enquanto uma resposta está sendo gerada
-    if (isStreaming) return
     stream.clearMessages()
     setThreadId(null)
     setActiveTitle(null)
@@ -69,6 +67,8 @@ function AppContent() {
   }
 
   const handleSelectThread = (threadId: string) => {
+    if (threadId === activeThreadId) return
+
     setThreadId(threadId)
     const thread = threads.find((item) => item.thread_id === threadId)
     if (thread) {

@@ -59,6 +59,9 @@ INSTRUÇÕES DE RESPOSTA E CONTEXTO TEMPORAL:
    e no texto que o CineData opera apenas em modo de consulta e que comandos de escrita/limpeza são expressamente
    proibidos por segurança.
 5. Inclua ordenações e LIMIT coerentes (padrão top 10 a 20 quando aplicável).
+6. REGRA MANDATÓRIA DE IDs PARA FILMES: Sempre que selecionar filmes/títulos da tabela dim_movies
+   ou fact_movies_performance, inclua explicitamente a coluna `sk_movie_id` (ex: `SELECT m.sk_movie_id, m.titulo, ...`).
+   Isso permite que a interface conecte interatividades ricas, posters e sinopses dinâmicas aos títulos.
 """
 
 
@@ -86,9 +89,7 @@ def extract_thought_and_sql(text: str) -> tuple[str | None, str | None]:
     return thought, None
 
 
-async def sql_generator_node(
-    state: AgentState, config: RunnableConfig | None = None
-) -> AgentStateUpdate:
+async def sql_generator_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
     """
     Nó gerador de SQL que injeta o catálogo semântico compacto e sintetiza a consulta analítica.
 
@@ -110,7 +111,24 @@ async def sql_generator_node(
         temperature=0.0,
     )
 
-    system_msg = SystemMessage(content=CINEDATA_CATALOG_PROMPT)
+    semantic_results = state.get("semantic_results")
+    prompt_text = CINEDATA_CATALOG_PROMPT
+    if semantic_results:
+        candidates = [
+            f"- ID: '{r['sk_movie_id']}', Título: '{r['titulo']}'" for r in semantic_results if r.get("sk_movie_id")
+        ]
+        if candidates:
+            cand_str = "\n".join(candidates[:10])
+            prompt_text += (
+                f"\n\nCONTEXTO SEMÂNTICO ENCONTRADO (FLUXO HÍBRIDO RAG):\n"
+                f"A busca semântica prévia em sinopses/resenhas identificou os seguintes filmes candidatos:\n"
+                f"{cand_str}\n"
+                f"IMPORTANTE: Restrinja sua consulta aos filmes identificados acima "
+                f"(ex: WHERE m.sk_movie_id IN (...)) e combine com os filtros analíticos adicionais "
+                f"solicitados pelo usuário (ex: bilheteria, faturamento, notas, ano)."
+            )
+
+    system_msg = SystemMessage(content=prompt_text)
     llm_input = [system_msg, *messages]
 
     response = await llm.ainvoke(llm_input)
@@ -129,8 +147,17 @@ async def sql_generator_node(
                 break
 
         destructive_terms = (
-            "limpar", "apagar", "deletar", "drop", "delete", "truncate",
-            "remover tabelas", "excluir", "zerar", "destruir", "modificar",
+            "limpar",
+            "apagar",
+            "deletar",
+            "drop",
+            "delete",
+            "truncate",
+            "remover tabelas",
+            "excluir",
+            "zerar",
+            "destruir",
+            "modificar",
         )
         if any(term in last_user_msg for term in destructive_terms):
             error_category = SqlErrorCategory.SECURITY_VIOLATION

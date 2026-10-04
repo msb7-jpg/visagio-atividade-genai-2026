@@ -30,21 +30,17 @@ class ThreadRepository:
                 """
             )
             await cur.execute(
-                "CREATE INDEX IF NOT EXISTS idx_thread_metadata_updated "
-                "ON thread_metadata(updated_at DESC)"
+                "CREATE INDEX IF NOT EXISTS idx_thread_metadata_updated ON thread_metadata(updated_at DESC)"
             )
             await saver.conn.commit()
 
     @classmethod
-    async def get_or_create_thread(
-        cls, thread_id: str, default_title: str = "Nova Conversa"
-    ) -> ThreadSummaryDTO:
+    async def get_or_create_thread(cls, thread_id: str, default_title: str = "Nova Conversa") -> ThreadSummaryDTO:
         now = time.time()
         await cls.init_schema()
         async with get_checkpointer() as saver, saver.conn.cursor() as cur:
             await cur.execute(
-                "SELECT thread_id, title, created_at, updated_at "
-                "FROM thread_metadata WHERE thread_id = ?",
+                "SELECT thread_id, title, created_at, updated_at FROM thread_metadata WHERE thread_id = ?",
                 (thread_id,),
             )
             row = await cur.fetchone()
@@ -144,8 +140,7 @@ class ThreadRepository:
         await cls.init_schema()
         async with get_checkpointer() as saver, saver.conn.cursor() as cur:
             await cur.execute(
-                "SELECT thread_id, title, created_at, updated_at "
-                "FROM thread_metadata WHERE thread_id = ?",
+                "SELECT thread_id, title, created_at, updated_at FROM thread_metadata WHERE thread_id = ?",
                 (thread_id,),
             )
             row = await cur.fetchone()

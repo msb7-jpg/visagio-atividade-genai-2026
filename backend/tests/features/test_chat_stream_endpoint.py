@@ -27,7 +27,7 @@ async def test_chat_stream_endpoint_success():
     mock_synth_response = AIMessage(content="Aqui estão os 5 maiores filmes em bilheteria...")
 
     with (
-        patch("app.agent.graph.get_chat_model") as mock_r,
+        patch("app.agent.nodes.router_node.get_chat_model") as mock_r,
         patch("app.agent.nodes.sql_generator.get_chat_model") as mock_g,
         patch("app.agent.nodes.synthesizer.get_chat_model") as mock_s,
     ):

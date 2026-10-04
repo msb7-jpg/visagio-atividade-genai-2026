@@ -24,13 +24,18 @@ def _resolve_saved_credentials(
 ) -> tuple[str | None, str | None]:
     """Recupera credenciais salvas no banco de dados para o provedor quando não passadas explicitamente."""
     from app.db.settings_db import get_user_provider_config_sync
+    from app.features.settings.security import is_masked_api_key
+
+    resolved_key = api_key if (api_key and not is_masked_api_key(api_key)) else None
+    resolved_url = base_url
 
     saved = get_user_provider_config_sync("default_user", provider)
-    if not saved:
-        return api_key, base_url
+    if saved:
+        if not resolved_key and saved.get("api_key"):
+            resolved_key = saved.get("api_key")
+        if not resolved_url and saved.get("base_url"):
+            resolved_url = saved.get("base_url")
 
-    resolved_key = api_key or saved.get("api_key")
-    resolved_url = base_url or saved.get("base_url")
     return resolved_key, resolved_url
 
 

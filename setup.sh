@@ -1,8 +1,3 @@
 #!/usr/bin/env bash
-
-bunx concurrently \
-  --names "FRONT,BACK,LLAMA" \
-  --prefix-colors "cyan,magenta,yellow" \
-  "cd frontend && bun run dev" \
-  "cd backend && uv run uvicorn main:app --reload" \
-  "./llama-up.sh"
+# Encaminha execucao para o orquestrador completo em scripts/setup.sh
+exec "$(dirname "$0")/scripts/setup.sh" "$@"

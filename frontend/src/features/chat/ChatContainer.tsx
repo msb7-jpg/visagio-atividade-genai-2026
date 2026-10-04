@@ -1,11 +1,13 @@
+import { AmbientGlow } from '@/components/animations'
 import { Button } from '@/components/ui/button'
+import { EncryptedText } from '@/components/ui/encrypted-text'
 import { SuggestionExplorer } from '@/features/chat/components/empty-state/SuggestionsExplorer'
 import { ChatMessage } from '@/features/chat/components/feed/ChatMessage'
 import { ChatInput } from '@/features/chat/components/input/ChatInput'
 import type { AgentStream } from '@/features/chat/hooks/useAgentStream'
 import { useChatSync } from '@/features/chat/hooks/useChatSync'
 import { cn } from '@/lib/utils'
-import { Clapperboard, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 /**
  * Propriedades para o container principal da interface de chat.
@@ -69,14 +71,11 @@ export function ChatContainer({
       >
         <div className="mx-auto max-w-4xl space-y-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center sm:py-20 animate-fade-in">
-              <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-sidebar shadow-xl">
-                <Clapperboard className="size-7 text-primary" />
-              </div>
-              <h2 className="mt-5 text-xl font-bold text-foreground">
-                CineData Analytics Intelligence
-              </h2>
-              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            <div className="relative flex flex-col items-center justify-center py-12 text-center sm:py-20 animate-fade-in">
+              <AmbientGlow size="lg" />
+
+              <EncryptedText text="Bem-vindo ao CineData Analytics!" className="relative z-10 mt-5 text-xl font-bold text-foreground" />
+              <p className="relative z-10 mt-2 max-w-md text-sm text-muted-foreground">
                 Consulte bilheterias, diretores, atores, lucros médios e estatísticas do
                 catálogo de cinema em linguagem natural com validação SQL em tempo real.
               </p>
@@ -108,7 +107,7 @@ export function ChatContainer({
       </div>
 
       {/* Input de envio fixo no rodapé */}
-      <div className="border-t border-border bg-background/80 p-4 backdrop-blur-md sm:px-6">
+      <div className="bg-background/80 p-4 backdrop-blur-md sm:px-6">
         <div className="mx-auto max-w-4xl space-y-2">
           {isLockedByOtherThread || isRunningRemotely ? (
             <Button
@@ -125,7 +124,11 @@ export function ChatContainer({
               </span>
             </Button>
           ) : null}
-          <ChatInput onSendMessage={handleSend} isStreaming={isModelLocked} />
+          <ChatInput
+            onSendMessage={handleSend}
+            onAbortStream={stream.abortStream}
+            isStreaming={isModelLocked}
+          />
         </div>
       </div>
     </div>

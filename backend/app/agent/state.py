@@ -4,7 +4,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
-from app.core.constants import QueryResultRow, SqlErrorCategory, StepStatus
+from app.core.constants import AgentNode, QueryResultRow, SqlErrorCategory, StepStatus
 
 
 class AgentStepInfo(TypedDict):
@@ -16,6 +16,72 @@ class AgentStepInfo(TypedDict):
     label: str
 
 
+def append_steps(
+    existing: list[AgentStepInfo] | None,
+    new: list[AgentStepInfo] | AgentStepInfo | None,
+) -> list[AgentStepInfo]:
+    """
+    Combina ou anexa etapas de execução do agente preservando a ordem cronológica.
+
+    Ao encontrar a etapa 'router', sinaliza o início de uma nova rodada de processamento,
+    reinicializando os passos do turno corrente.
+
+    Args:
+        existing: Lista pré-existente de etapas acumuladas no estado.
+        new: Nova etapa ou lista de etapas retornada pelo nó concluído.
+
+    Returns:
+        Lista consolidada de AgentStepInfo atualizada para o estado.
+    """
+    if not new:
+        return list(existing or [])
+
+    new_items: list[AgentStepInfo] = [new] if isinstance(new, dict) else list(new)
+
+    # Início de um novo turno conversacional: reinicializa a lista deste turno
+    if any(s.get("node") == AgentNode.ROUTER.value for s in new_items):
+        return list(new_items)
+
+    current = list(existing or [])
+    for item in new_items:
+        current = [s for s in current if s.get("node") != item.get("node")]
+        current.append(item)
+    return current
+
+
+def append_thought(existing: str | None, new: str | None) -> str | None:
+    """
+    Concatena raciocínios intermediários gerados por diferentes etapas do pipeline analítico.
+
+    Preserva pensamentos úteis de etapas prévias (RAG, SQL, Correção, Sandbox)
+    evitando sobrescrita indesejada do contexto reflexivo do agente.
+
+    Args:
+        existing: Cadeia de pensamentos acumulada até a etapa anterior.
+        new: Novo bloco de raciocínio retornado pelo nó corrente.
+
+    Returns:
+        String consolidada com os pensamentos de cada etapa concatenados ou None.
+    """
+    if not new:
+        return existing
+
+    if new.startswith("__RESET__"):
+        clean = new.replace("__RESET__", "").strip()
+        return clean or None
+
+    if not existing:
+        return new
+
+    if new in existing:
+        return existing
+
+    return f"{existing}\n\n{new}"
+
+
+RouteType = Literal["sql", "rag", "hybrid", "direct"]
+
+
 class AgentState(TypedDict):
     """
     Estado do LangGraph para o CineData Analytics Agent.
@@ -23,8 +89,8 @@ class AgentState(TypedDict):
     """
 
     messages: Annotated[list[BaseMessage], add_messages]
-    route: Literal["sql", "rag", "hybrid", "direct"] | None
-    thought: str | None
+    route: RouteType | None
+    thought: Annotated[str | None, append_thought]
     generated_sql: str | None
     query_result: list[QueryResultRow] | None
     error_count: int
@@ -32,15 +98,17 @@ class AgentState(TypedDict):
     error_category: SqlErrorCategory | Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX", "UNSUPPORTED_REQUEST"] | None
     chart_spec: dict[str, Any] | None
     requires_chart: bool | None
+    semantic_results: list[dict[str, Any]] | None
+    data_analysis_result: str | None
     title: str | None
-    steps: list[AgentStepInfo]
+    steps: Annotated[list[AgentStepInfo], append_steps]
 
 
 class AgentStateUpdate(TypedDict, total=False):
     """Atualização parcial retornada pelos nós do LangGraph."""
 
     messages: list[BaseMessage]
-    route: Literal["sql", "rag", "hybrid", "direct"] | None
+    route: RouteType | None
     thought: str | None
     generated_sql: str | None
     query_result: list[QueryResultRow] | None
@@ -49,5 +117,7 @@ class AgentStateUpdate(TypedDict, total=False):
     error_category: SqlErrorCategory | Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX", "UNSUPPORTED_REQUEST"] | None
     chart_spec: dict[str, Any] | None
     requires_chart: bool | None
+    semantic_results: list[dict[str, Any]] | None
+    data_analysis_result: str | None
     title: str | None
     steps: list[AgentStepInfo]

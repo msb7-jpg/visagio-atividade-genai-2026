@@ -17,9 +17,7 @@ class LLMProviderRegistry:
         normalized = provider_name.strip().lower()
         if normalized not in self._strategies:
             valid_options = ", ".join(sorted(self._strategies.keys()))
-            raise ValueError(
-                f"Provedor '{provider_name}' não suportado. Opções válidas: {valid_options}"
-            )
+            raise ValueError(f"Provedor '{provider_name}' não suportado. Opções válidas: {valid_options}")
         return self._strategies[normalized]
 
     def is_registered(self, provider_name: str) -> bool:

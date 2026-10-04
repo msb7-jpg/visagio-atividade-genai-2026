@@ -485,14 +485,15 @@ Expandir o assistente para além do SQL puro, habilitando:
 4. **Hub de Sugestões de Prompts:** Exibir pílulas categorizadas de perguntas na interface inicial (Categorias A, B e C).
 
 ### 2. Documentos de Apoio & Referências
+* `plan/plan-slice-5-implementation.md` (Novo: Plano de implementação detalhado e refatoração arquitetural baseada nos achados).
 * `Atividade GenAI.pdf` (Página 2: Agente híbrido com busca semântica em sinopses e resenhas).
 * `plan/ai-implementation.md` (Seção 1: Estados `semantic_search_node` e `data_analysis_node`; Seção 2: Tools `search_movie_synopsis_and_reviews` e `calculate_data_metrics`; Seção 4: Catálogo de Perguntas Padronizadas - Categoria C).
 * `plan/db-semantics.md` (Seção 2.1 e 2.6: Colunas `sinopse` e `movie_reviews.text`).
 * `plan/langchain-langgraph-standards.md` (Seção 2 e 4: Banimento de `langchain-experimental` e implementação canônica da ferramenta de análise de dados segura).
 
 ### 3. Arquivos Criados e Modificados
-* `backend/app/agent/embeddings/embedding_model.py` — Carregador singleton encapsulado de embeddings locais (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`).
-* `backend/app/agent/embeddings/vector_store.py` — Gerenciador de índice vetorial local com busca por similaridade de cosseno para sinopses e avaliações.
+* `backend/app/agent/embeddings/embedding_model.py` — Carregador singleton encapsulado de embeddings locais (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`) com aquecimento eager (*warm-up*) no `lifespan` do FastAPI.
+* `backend/app/agent/embeddings/vector_store.py` — Gerenciador de índice vetorial local com busca por similaridade de cosseno para sinopses e avaliações e cache persistente em disco.
 * `backend/app/agent/tools/semantic_search.py` — Tool `@tool` `search_movie_synopsis_and_reviews` consumindo o `vector_store`.
 * `backend/app/agent/tools/sandbox_env.py` — Ambiente de execução restrito (`RestrictedExecutionEnvironment`) com `SAFE_BUILTINS`, limites de memória/timeout e bloqueio estrito de builtins perigosos.
 * `backend/app/agent/tools/data_analysis.py` — Tool `@tool` `calculate_data_metrics` delegando a execução ao `sandbox_env`.

@@ -1,10 +1,14 @@
 import { chatQueryKeys } from '@/features/chat/api/threadsApi'
 import { findPrecedingUserPrompt } from '@/features/chat/lib/chatHistorySearch'
-import { applyNetworkErrorToMessage, applySseEventToMessage } from '@/features/chat/lib/chatMessageReducer'
+import {
+  applyAbortToMessage,
+  applyNetworkErrorToMessage,
+  applySseEventToMessage
+} from '@/features/chat/lib/chatMessageReducer'
 import { executeChatStream } from '@/features/chat/lib/chatStreamTransport'
 import type { ChatMessageItem } from '@/features/chat/types/chat.types'
 import { queryClient } from '@/lib/query-client'
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
 /**
  * Opções de configuração para envio de uma nova mensagem.
@@ -13,11 +17,13 @@ export interface SendMessageOptions {
   /** Texto da pergunta analítica enviada pelo usuário. */
   message: string
   /** Identificador opcional da thread persistida. */
-  threadId?: string
+  threadId?: string | null
   /** Provedor de LLM a ser utilizado. */
   provider?: string
   /** Modelo de LLM a ser utilizado. */
   model?: string
+  /** Callback acionado quando uma nova thread é criada pelo backend. */
+  onThreadCreated?: (threadId: string) => void
 }
 
 /**
@@ -38,6 +44,8 @@ export interface UseAgentStreamResult {
   sendMessage: (options: SendMessageOptions) => Promise<void>
   /** Re-executa uma mensagem do assistente localizando a pergunta anterior. */
   retryMessage: (assistantMessageId: string, options?: { provider?: string; model?: string }) => Promise<void>
+  /** Aborta a transmissão SSE ativa no momento liberando o estado. */
+  abortStream: () => void
   /** Carrega mensagens de uma thread histórica salva no SQLite. */
   loadThreadMessages: (threadId: string, title: string, loadedMessages: ChatMessageItem[]) => void
   /** Limpa o histórico de mensagens e reseta a sessão. */
@@ -73,15 +81,30 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId)
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const abortStream = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsStreaming(false)
+  }, [])
 
   const sendMessage = async ({
     message,
     threadId,
     provider,
-    model
+    model,
+    onThreadCreated
   }: SendMessageOptions) => {
     if (!message.trim() || isStreaming) return
 
+    abortStream()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    let effectiveThreadId = threadId ?? activeThreadId
     const assistantMessageId = `agent-${Date.now()}`
     const userMessageId = `user-${Date.now()}`
 
@@ -113,13 +136,15 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
       await executeChatStream(
         {
           message,
-          threadId: threadId ?? activeThreadId,
+          threadId: threadId ?? null,
           provider,
           model
         },
         {
           onSession: (newThreadId) => {
+            effectiveThreadId = newThreadId
             setActiveThreadId(newThreadId)
+            onThreadCreated?.(newThreadId)
             void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
           },
           onTitle: (newTitle) => {
@@ -133,18 +158,32 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
               )
             )
           }
-        }
+        },
+        controller.signal
       )
-
-      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Falha na comunicação com o assistente.'
-      setMessages((prev) =>
-        updateMessageById(prev, assistantMessageId, (msg) =>
-          applyNetworkErrorToMessage(msg, errorMsg)
+      const isAbort =
+        (err instanceof DOMException && err.name === 'AbortError') ||
+        (err instanceof Error && err.name === 'AbortError')
+
+      if (isAbort) {
+        setMessages((prev) =>
+          updateMessageById(prev, assistantMessageId, (msg) =>
+            applyAbortToMessage(msg)
+          )
         )
-      )
+      } else {
+        const errorMsg = err instanceof Error ? err.message : 'Falha na comunicação com o assistente.'
+        setMessages((prev) =>
+          updateMessageById(prev, assistantMessageId, (msg) =>
+            applyNetworkErrorToMessage(msg, errorMsg)
+          )
+        )
+      }
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+      }
       setIsStreaming(false)
       setMessages((prev) =>
         updateMessageById(prev, assistantMessageId, (msg) => ({
@@ -152,6 +191,10 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
           isStreaming: false
         }))
       )
+      if (effectiveThreadId) {
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
+      }
+      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
     }
   }
 
@@ -172,11 +215,11 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
     })
   }
 
-  const loadThreadMessages = (threadId: string, title: string, loadedMessages: ChatMessageItem[]) => {
+  const loadThreadMessages = useCallback((threadId: string, title: string, loadedMessages: ChatMessageItem[]) => {
     setActiveThreadId(threadId)
     setActiveTitle(title)
     setMessages(loadedMessages)
-  }
+  }, [setActiveThreadId, setActiveTitle, setMessages])
 
   const clearMessages = () => {
     setMessages([])
@@ -192,6 +235,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
     setActiveTitle,
     sendMessage,
     retryMessage,
+    abortStream,
     loadThreadMessages,
     clearMessages
   }

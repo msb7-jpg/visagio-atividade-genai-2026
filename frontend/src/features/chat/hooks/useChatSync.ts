@@ -1,7 +1,6 @@
 import { useThreadDetailQuery } from '@/features/chat/hooks/useThreadDetailQuery'
 import {
   CHAT_BLOCK_TYPE,
-  STEP_STATUS,
   type ChatMessageBlock,
   type ChatMessageItem,
   type ThreadDetail
@@ -51,28 +50,7 @@ export function rehydrateThreadMessages(threadDetail: ThreadDetail): ChatMessage
       })
     }
 
-    // Se for mensagem de assistente persistida sem steps gravados, fornece os steps padrão para o NodeStepper
-    let steps = msg.steps || []
-    const isInterruptedMessage = msg.id.startsWith('interrupted-') || (!msg.content && !msg.generated_sql && !msg.chart_spec)
-    if (msg.role === 'assistant' && steps.length === 0) {
-      if (isInterruptedMessage) {
-        steps = [
-          { step: 'interrupted', label: 'Processamento interrompido', status: STEP_STATUS.ERROR }
-        ]
-      } else {
-        steps = [
-          { step: 'router', label: 'Classificando intenção', status: STEP_STATUS.DONE },
-          ...(msg.generated_sql ? [
-            { step: 'sql_generator', label: 'Escrevendo consulta SQL', status: STEP_STATUS.DONE },
-            { step: 'sql_executor', label: 'Executando no cinerocket.db', status: STEP_STATUS.DONE }
-          ] : []),
-          ...(msg.chart_spec ? [
-            { step: 'chart_generator', label: 'Avaliando visualização gráfica', status: STEP_STATUS.DONE }
-          ] : []),
-          { step: 'synthesizer', label: 'Formatando análise executiva', status: STEP_STATUS.DONE }
-        ]
-      }
-    }
+    const steps = msg.steps ?? []
 
     return {
       id: msg.id,
@@ -80,7 +58,9 @@ export function rehydrateThreadMessages(threadDetail: ThreadDetail): ChatMessage
       content: msg.content,
       blocks,
       steps,
-      timestamp: threadDetail.updated_at ? threadDetail.updated_at * 1000 : Date.now()
+      timestamp: threadDetail.updated_at ? threadDetail.updated_at * 1000 : Date.now(),
+      provider: msg.provider,
+      model: msg.model
     }
   })
 
@@ -183,13 +163,15 @@ export function useChatSync({
 
   useEffect(() => {
     if (!currentDetail || isStreaming) return
+    // Evita loop de reidratação quando o stream já estiver posicionado nesta conversa
+    if (activeThreadId === currentDetail.thread_id) return
 
     loadThreadMessages(
       currentDetail.thread_id,
       currentDetail.title,
       viewMessages
     )
-  }, [currentDetail, viewMessages, isStreaming, loadThreadMessages])
+  }, [currentDetail, viewMessages, isStreaming, activeThreadId, loadThreadMessages])
 
   const messages = streamOwnsView ? streamMessages : viewMessages
 
@@ -206,19 +188,14 @@ export function useChatSync({
     onTimelineItemsChange?.(timelineItems)
   }, [timelineItems, onTimelineItemsChange])
 
-  // Notifica App sobre thread ativa sincronizada
-  useEffect(() => {
-    onActiveThreadChange?.(activeThreadId)
-  }, [activeThreadId, onActiveThreadChange])
-
   // Notifica título da thread (prioriza título gerado durante streaming)
   useEffect(() => {
     if (activeTitle) {
       onTitleChange?.(activeTitle)
-    } else if (currentDetail) {
+    } else if (currentDetail?.title) {
       onTitleChange?.(currentDetail.title)
     }
-  }, [activeTitle, currentDetail, onTitleChange])
+  }, [activeTitle, currentDetail?.title, onTitleChange])
 
   // Auto-scroll suave para o final conforme novas mensagens chegam
   useEffect(() => {
@@ -229,9 +206,12 @@ export function useChatSync({
     if (isModelLocked) return
     void sendMessage({
       message: text,
-      threadId: externalThreadId ?? undefined,
+      threadId: externalThreadId ?? null,
       provider: config?.provider,
-      model: config?.model
+      model: config?.model,
+      onThreadCreated: (newThreadId) => {
+        onActiveThreadChange?.(newThreadId)
+      }
     })
   }
 

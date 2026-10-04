@@ -166,3 +166,18 @@ async def test_sqlite_persistence_and_saved_providers():
         assert saved_groq["saved_configs"]["groq"]["model"] == "llama-3.3-70b-versatile"
         assert saved_groq["saved_configs"]["local"]["model"] == "Qwen3.5-4B-Q4_K_M"
 
+        # Garante que no banco SQLite a chave está fisicamente cifrada (enc::...) e não em texto puro
+        import sqlite3
+
+        from app.db.settings_db import get_settings_db_path
+
+        db_file = get_settings_db_path()
+        with sqlite3.connect(str(db_file)) as conn:
+            row = conn.execute(
+                "SELECT api_key FROM user_model_configs WHERE user_id = 'default_user' AND provider = 'groq'"
+            ).fetchone()
+            assert row is not None
+            raw_stored_key = row[0]
+            assert raw_stored_key.startswith("enc::")
+            assert "gsk_persist_12345678" not in raw_stored_key
+

@@ -12,6 +12,7 @@
   --color-primary: #FF5E2B;
   --color-primary-hover: #E04D1C;
   --color-primary-foreground: #FFFFFF;
+  --color-primary-soft: #FFB8A1;
 
   --color-muted: #1B202B;
   --color-muted-foreground: #9CA3AF;
@@ -29,6 +30,7 @@
   --color-accent-cyan: #00D2FF;
   --color-accent-blue: #3B82F6;
   --color-accent-emerald: #10B981;
+  --color-accent-amber: #F59E0B;
 }
 
 :root {
@@ -51,11 +53,13 @@
   --primary: #FF5E2B;
   --primary-hover: #E04D1C;
   --primary-foreground: #FFFFFF;
+  --primary-soft: #FFB8A1;
   --secondary: #1B202B;
   --secondary-foreground: #F3F4F6;
   --accent-cyan: #00D2FF;
   --accent-blue: #3B82F6;
   --accent-emerald: #10B981;
+  --accent-amber: #F59E0B;
 
   /* Font Tokens */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -106,4 +110,29 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #3B4455;
+}
+
+@keyframes shimmer-h {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmer-v {
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes shimmer-text {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.cinedata-ambient-glow {
+  background-image: radial-gradient(circle, rgba(255, 94, 43, 0.14) 0%, rgba(255, 94, 43, 0.03) 50%, transparent 70%);
 }

@@ -1,3 +1,4 @@
+import { SlidingIndicator } from '@/components/animations'
 import { Card } from '@/components/ui/card'
 import { PROVIDER_METADATA } from '@/features/settings/constants/providerDefaults'
 import type { ProviderConfig, ProviderType } from '@/features/settings/schemas/settings.schema'
@@ -57,9 +58,15 @@ export function ProviderCardGrid({
               disabled={isStreaming}
               onClick={() => onSelect(prov)}
               data-testid={`provider-option-${prov}`}
-              className="p-3 relative"
+              className="p-3 relative overflow-hidden"
             >
-              <div className="flex items-center justify-between">
+              {isSelected ? (
+                <SlidingIndicator
+                  layoutId="activeProviderIndicator"
+                  className="border border-primary/50 bg-primary/5 rounded-xl"
+                />
+              ) : null}
+              <div className="relative z-10 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Icon className={isSelected ? 'h-4 w-4 text-primary' : 'h-4 w-4 text-muted-foreground'} />
                   <div>

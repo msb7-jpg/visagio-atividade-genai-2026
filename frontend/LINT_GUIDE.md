@@ -164,3 +164,113 @@ import { Button } from '@/components/ui/button'
 * **Proibição estrita:** É vedado trocar um `<Button>` por `<span>` com `onClick` ou `<div>` para evitar mensagens do linter.
 * **Resolução correta:** Adicione as variantes necessárias (como `card-option` ou `pill`) em `src/components/ui/button.tsx` para manter o código 100% semântico e acessível.
 
+---
+
+## 10. A Armadilha de `react-hooks/exhaustive-deps`: O Mito do "Erro na Regra" e a Anatomia dos Loops Infinitos
+
+### 🛑 O Sintoma Clássico
+Ao escrever um `useEffect` que consome uma função definida fora dele (por exemplo, retornada de um custom hook ou passada via props):
+```tsx
+useEffect(() => {
+  if (!currentDetail) return
+  loadThreadMessages(currentDetail.thread_id, currentDetail.title, viewMessages)
+}, [currentDetail, viewMessages])
+```
+O linter dispara o aviso:
+> `React Hook useEffect has a missing dependency: 'loadThreadMessages'. Either include it or remove the dependency array. (react-hooks/exhaustive-deps)`
+
+---
+
+### 🪤 A Falsa Premissa e o "Auto-Fix" Destrutivo
+Muitos desenvolvedores e assistentes de IA assumem erroneamente que:
+1. *"O linter está sendo excessivamente burocrático e reclamando sem motivo."*
+2. *"Vou apenas aceitar a sugestão rápida da IDE (Quick Fix) ou executar `eslint --fix` para silenciar o linter."*
+
+Ao aceitar a sugestão cega:
+```tsx
+useEffect(() => {
+  if (!currentDetail) return
+  loadThreadMessages(currentDetail.thread_id, currentDetail.title, viewMessages)
+}, [currentDetail, viewMessages, loadThreadMessages]) // ⚠️ BOMBA-RELÓGIO ADICIONADA
+```
+
+---
+
+### 💥 A Reação em Cadeia (Por que o App Congela e Sofre "Tearing"?)
+Se `loadThreadMessages` foi declarada no hook de origem como uma função normal (sem `useCallback`):
+1. **Instabilidade Referencial:** Em cada ciclo de renderização do componente ou hook pai, o JavaScript aloca uma **nova closure na memória** para `loadThreadMessages`. Para o React, `Object.is(oldFn, newFn) === false`.
+2. **Execução Imediata do Efeito:** Como a referência da função mudou na comparação do array de dependências, o `useEffect` executa novamente.
+3. **Disparo de `setState`:** O corpo do efeito chama `loadThreadMessages(...)`, que internamente executa `setState(...)`.
+4. **Re-renderização em Cascata:** O `setState` força o componente ou hook pai a re-renderizar. Nova referência de função é alocada.
+5. **Loop Infinito Síncrono:** O `useEffect` dispara novamente. O ciclo se repete milhares de vezes por segundo.
+6. **Esgotamento do Event Loop (Event Loop Starvation):**
+   - O thread principal do navegador é monopolizado pela fila ininterrupta de microtasks e renderizações do React.
+   - O browser **não ganha tempo de CPU para repintar a tela** nem processar novos eventos de entrada (`pointerleave`, `click`).
+   - Botões clicados ficam travados com o aspecto visual de `:hover` ou `:active`.
+   - Mudanças de URL (via `history.pushState` / `replaceState`) entram em disputa e alternam descontroladamente ("tearing").
+   - Ferramentas de inspeção (como Chrome DevTools) tomam *timeout* de 10 segundos porque o runtime não responde.
+
+---
+
+### 💡 A Realidade: O Linter Não Estava Errado!
+O linter **nunca esteve errado**:
+* A regra `exhaustive-deps` existe precisamente para alertar: *"Seu efeito depende de uma função cuja identidade o React não pode garantir que seja estável"*.
+* O erro **não estava na regra do linter**, mas sim na **falta de identidade estável (`useCallback`) na função de origem** e na ausência de uma **guarda de idempotência**!
+
+---
+
+### ✅ Como Resolver Corretamente (Checklist de 3 Passos)
+
+#### 1. Estabilize a Função com `useCallback` no Hook de Origem
+Sempre que uma função exportada por um hook ou componente puder ser consumida dentro de um `useEffect`, envolva-a obrigatoriamente com `useCallback`:
+```tsx
+// ✅ No hook de origem (ex: useAgentStream.ts):
+const loadThreadMessages = useCallback(
+  (threadId: string, title: string, loadedMessages: ChatMessageItem[]) => {
+    setActiveThreadId(threadId)
+    setActiveTitle(title)
+    setMessages(loadedMessages)
+  },
+  [setActiveThreadId, setActiveTitle, setMessages]
+)
+```
+
+#### 2. Adicione Guarda de Idempotência (Reentrancy Guard)
+Efeitos disparados por sincronização devem ser **idempotentes**. Antes de disparar mutações ou carregamentos, certifique-se de que a operação já não foi realizada:
+```tsx
+// ✅ No componente consumidor (ex: useChatSync.ts):
+useEffect(() => {
+  if (!currentDetail || isStreaming) return
+  // Guarda: se já estamos posicionados nesta thread, aborte imediatamente
+  if (activeThreadId === currentDetail.thread_id) return
+
+  loadThreadMessages(
+    currentDetail.thread_id,
+    currentDetail.title,
+    viewMessages
+  )
+}, [currentDetail, viewMessages, isStreaming, activeThreadId, loadThreadMessages])
+```
+
+#### 3. Avalie se a Função Realmente Precisa Viver Fora do Efeito
+Se a função for utilizada **exclusivamente** dentro daquele `useEffect`, mova sua declaração para dentro do corpo do próprio efeito. Dessa forma, ela não precisa entrar no array de dependências e não afeta o ciclo de renderização externo.
+```tsx
+// ✅ Função interna: dispensa useCallback e dependências externas
+useEffect(() => {
+  function syncInternalData() {
+    // ...
+  }
+  syncInternalData()
+}, [dependencyA])
+```
+
+---
+
+### 🛡️ Sobre Customização e Bloqueio de Auto-Fix no ESLint
+
+* **É possível desativar o auto-fix?**  
+  Sim! Por padrão no ESLint CLI, os próprios criadores do `eslint-plugin-react-hooks` deixam o auto-fix perigoso desativado através da flag interna `enableDangerousAutofixThisMayCauseInfiniteLoops = false`. No entanto, em IDEs (como VS Code), o plugin expõe `meta.hasSuggestions = true`, o que oferece o "Quick Fix" no menu de lâmpada. Podemos desabilitar completamente essa sugestão automática no `eslint.config.js` envolvendo a regra (`wrapper`) para remover as propriedades `fix` e `suggest` do relatório, forçando o desenvolvedor a refletir sobre a estabilidade referencial antes de adicionar dependências.
+* **É possível customizar a mensagem de erro?**  
+  Nativamente, o `eslint-plugin-react-hooks` não possui opção de mensagem customizada via schema de configuração. Porém, interceptando o método `context.report` através de um wrapper de regra no `eslint.config.js`, podemos enriquecer o texto do aviso adicionando um alerta explícito sobre a necessidade de `useCallback` e o risco de loops infinitos.
+
+

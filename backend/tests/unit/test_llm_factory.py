@@ -130,4 +130,3 @@ async def test_local_provider_fast_probe_override():
         is_healthy, msg = await strategy.fast_probe(base_url="http://localhost:1234/v1")
         assert is_healthy is True
         assert "Health check" in msg
-

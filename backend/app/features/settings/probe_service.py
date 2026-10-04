@@ -18,9 +18,7 @@ class ProviderProbeService:
     """
 
     @classmethod
-    async def resolve_credentials(
-        cls, user_id: str, request: TestProviderRequestDTO
-    ) -> tuple[str | None, str | None]:
+    async def resolve_credentials(cls, user_id: str, request: TestProviderRequestDTO) -> tuple[str | None, str | None]:
         """
         Determina as credenciais efetivas a serem testadas.
 
@@ -37,7 +35,9 @@ class ProviderProbeService:
         provider = request.provider
         key_to_use = request.api_key
 
-        if not key_to_use:
+        from app.features.settings.security import is_masked_api_key
+
+        if not key_to_use or is_masked_api_key(key_to_use):
             saved_prov = await get_user_provider_config(user_id, provider)
             if saved_prov and saved_prov.get("api_key"):
                 key_to_use = saved_prov["api_key"]
@@ -45,7 +45,7 @@ class ProviderProbeService:
                 if provider == LLMProvider.GROQ:
                     key_to_use = os.getenv("GROQ_API_KEY")
                 elif provider == LLMProvider.OPENROUTER:
-                    key_to_use = os.getenv("OPENROUTER_API_KEY")
+                    key_to_use = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPEN_ROUTER_API_KEY")
                 elif provider == LLMProvider.GOOGLE:
                     key_to_use = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
@@ -78,9 +78,7 @@ class ProviderProbeService:
                 timeout_seconds=timeout_seconds,
             )
             if not is_healthy:
-                raise ConnectionRefusedError(
-                    f"Não foi possível conectar ao servidor local em {base_url}"
-                )
+                raise ConnectionRefusedError(f"Não foi possível conectar ao servidor local em {base_url}")
 
         return await strategy.list_models(
             api_key=key,
@@ -138,10 +136,9 @@ class ProviderProbeService:
                 available_models=[],
             )
 
-        is_conn_error = (
-            any(term in error_str for term in ("connection refused", "connecterror", "failed to connect"))
-            or isinstance(exc, ConnectionRefusedError)
-        )
+        is_conn_error = any(
+            term in error_str for term in ("connection refused", "connecterror", "failed to connect")
+        ) or isinstance(exc, ConnectionRefusedError)
         if is_conn_error:
             url_tested = base_url_to_use or "localhost"
             return TestProviderResponseDTO(
@@ -176,9 +173,7 @@ class ProviderProbeService:
         )
 
     @classmethod
-    async def test_provider(
-        cls, user_id: str, request: TestProviderRequestDTO
-    ) -> TestProviderResponseDTO:
+    async def test_provider(cls, user_id: str, request: TestProviderRequestDTO) -> TestProviderResponseDTO:
         """
         Executa teste de conectividade e listagem de modelos contra o provedor especificado.
 
@@ -193,21 +188,13 @@ class ProviderProbeService:
         key_to_use, base_url_to_use = await cls.resolve_credentials(user_id, request)
         timeout = float(request.timeout_seconds)
 
-        strategy = (
-            provider_registry.get(provider)
-            if provider_registry.is_registered(provider)
-            else None
-        )
+        strategy = provider_registry.get(provider) if provider_registry.is_registered(provider) else None
 
         with ExecutionTimer() as timer:
             try:
-                available_models = await cls._probe_strategy(
-                    strategy, provider, key_to_use, base_url_to_use, timeout
-                )
+                available_models = await cls._probe_strategy(strategy, provider, key_to_use, base_url_to_use, timeout)
 
-                effective_model = await cls._resolve_effective_model(
-                    user_id, provider, request.model, available_models
-                )
+                effective_model = await cls._resolve_effective_model(user_id, provider, request.model, available_models)
 
                 model_count = len(available_models)
                 success_msg = (

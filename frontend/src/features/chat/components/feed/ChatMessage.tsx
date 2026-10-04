@@ -127,20 +127,10 @@ export function ChatMessage({
       <AgentAvatar isStreaming={message.isStreaming} />
 
       <div className="flex flex-1 flex-col gap-3 min-w-0">
-        {/* Metadados de Provedor e Modelo */}
-        {message.provider || message.model ? (
-          <div className="flex items-center gap-1.5 text-xs text-subtle-foreground font-mono">
-            <span className="font-semibold text-foreground uppercase tracking-wider">
-              {message.provider || 'AI'}
-            </span>
-            {message.model ? <span>• {message.model}</span> : null}
-          </div>
-        ) : null}
-
         {/* Linha do tempo das etapas do agente */}
-        {message.steps && message.steps.length > 0 ? (
+        {(message.steps && message.steps.length > 0) || message.isStreaming ? (
           <NodeStepper
-            steps={message.steps}
+            steps={message.steps || []}
             isStreaming={message.isStreaming}
           />
         ) : null}
@@ -148,14 +138,30 @@ export function ChatMessage({
         {/* Blocos de conteúdo modulares ou Markdown fallback */}
         {renderMessageBlocks(message, chartConfig, onOpenSettings, effectiveRetry, textualContent)}
 
-        {/* Barra de ações (Copiar, Regenerar, Trocar Modelo) */}
-        {showActions ? (
-          <ChatMessageActions
-            content={textualContent}
-            onRetry={effectiveRetry}
-            onOpenSettings={onOpenSettings}
-            isStreaming={actionsDisabled}
-          />
+        {/* Rodapé da mensagem: Ações e Metadados de Provedor e Modelo */}
+        {showActions || message.provider || message.model ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            {showActions ? (
+              <ChatMessageActions
+                turnId={`msg-${message.id}`}
+                content={textualContent}
+                onRetry={effectiveRetry}
+                onOpenSettings={onOpenSettings}
+                isStreaming={actionsDisabled}
+              />
+            ) : (
+              <div />
+            )}
+
+            {message.provider || message.model ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                <span className="font-semibold uppercase tracking-wider">
+                  {message.provider || 'AI'}
+                </span>
+                {message.model ? <span>• {message.model}</span> : null}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

@@ -1,8 +1,10 @@
 import { Spinner } from '@/components/ui/spinner'
+import { MovieTooltipCard } from '@/features/chat/components/tooltip/MovieTooltipCard'
 import type { ChartJsConfigDTO } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
-import { lazy, Suspense } from 'react'
-import ReactMarkdown from 'react-markdown'
+import { useEagerMoviePrefetch } from '@/features/chat/hooks/useEagerMoviePrefetch'
+import { lazy, Suspense, useMemo } from 'react'
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TableRenderer } from './TableRenderer'
 
@@ -23,13 +25,25 @@ export interface MarkdownRendererProps {
 }
 
 /**
- * Renderizador de Markdown enriquecido com suporte a tabelas analíticas (TableRenderer) e gráficos Chart.js.
+ * Renderizador de Markdown enriquecido com suporte a tabelas analíticas (TableRenderer),
+ * gráficos Chart.js e preview dinâmico de filmes via MovieTooltipCard.
  *
  * @param props - Propriedades com conteúdo textual e gráficos opcionais.
  * @returns Elemento JSX contendo o Markdown processado e estilizado.
  */
 export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRendererProps) {
+  useEagerMoviePrefetch(content)
+
   const hasInlineChartMarker = /```chart\b/i.test(content)
+
+  // Normalização dupla: converte `(Filme)[id]` para `[Filme](movie:id)` de forma transparente
+  const processedContent = useMemo(() => {
+    if (!content) return ''
+    return content.replace(
+      /\(([^)]+)\)\[([a-zA-Z0-9_-]+)\]/g,
+      '[$1](movie:$2)'
+    )
+  }, [content])
 
   return (
     <div
@@ -49,8 +63,29 @@ export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRe
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={(value: string) => {
+          if (value.startsWith('movie:')) return value
+          return defaultUrlTransform(value)
+        }}
         components={{
           table: ({ children }) => <TableRenderer>{children}</TableRenderer>,
+          a: ({ href, children }) => {
+            if (href?.startsWith('movie:')) {
+              const movieId = href.replace('movie:', '')
+              return (
+                <MovieTooltipCard movieId={movieId}>
+                  <span className="font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-4 cursor-pointer hover:text-foreground hover:decoration-foreground/50 transition-colors">
+                    {children}
+                  </span>
+                </MovieTooltipCard>
+              )
+            }
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                {children}
+              </a>
+            )
+          },
           pre: ({ children }) => {
             const childArray = Array.isArray(children) ? children : [children]
             const firstChild = childArray[0]
@@ -93,7 +128,7 @@ export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRe
           }
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
 
       {/* Fallback gracioso: se o gráfico existe mas o modelo não emitiu o marcador ```chart``` */}

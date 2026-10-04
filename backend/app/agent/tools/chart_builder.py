@@ -32,10 +32,7 @@ def generate_chartjs_spec(
     validated_datasets = [
         ChartDataset(
             label=str(ds.get("label", "Valor")),
-            data=[
-                float(val) if isinstance(val, (int, float)) else 0.0
-                for val in ds.get("data", [])
-            ],
+            data=[float(val) if isinstance(val, (int, float)) else 0.0 for val in ds.get("data", [])],
         )
         for ds in datasets
     ]

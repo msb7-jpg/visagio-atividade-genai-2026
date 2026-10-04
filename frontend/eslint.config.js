@@ -1,6 +1,5 @@
 import js from '@eslint/js'
 import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import reactPlugin from 'eslint-plugin-react'
@@ -10,7 +9,8 @@ import stylistic from '@stylistic/eslint-plugin'
 import tsdoc from 'eslint-plugin-tsdoc'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import designSystemPolicy from './design-system.lint.json' with { type: 'json' }
-import jsdoc from 'eslint-plugin-jsdoc';
+import jsdoc from 'eslint-plugin-jsdoc'
+import { safeReactHooksConfig } from './eslint-config/safe-react-hooks.js'
 
 export default defineConfig([
   globalIgnores(['dist', 'node_modules', '.tmp']),
@@ -19,7 +19,7 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
+      safeReactHooksConfig,
       reactRefresh.configs.vite,
     ],
     languageOptions: {

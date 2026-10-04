@@ -3,7 +3,7 @@ import {
   SSE_EVENT,
   STEP_STATUS,
   type AgentStepItem,
-  type ChatJsConfigDTO,
+  type ChartJsConfigDTO,
   type ChatMessageBlock,
   type ChatMessageItem,
   type SseChartPayload,
@@ -70,12 +70,24 @@ const handleStepEnd: EventHandler<SseStepEndPayload> = (msg, payload) => {
 
 const handleThought: EventHandler<SseThoughtPayload> = (msg, payload) => {
   if (!payload.thought) return msg
+  const existingThoughtBlock = msg.blocks.find(block => block.type === CHAT_BLOCK_TYPE.THOUGHT)
+  const existingContent =
+    existingThoughtBlock && 'content' in existingThoughtBlock ? existingThoughtBlock.content : ''
+
+  const incoming = payload.thought.trim()
+  let newContent = incoming
+  if (existingContent) {
+    newContent = existingContent.includes(incoming)
+      ? existingContent
+      : `${existingContent}\n\n${incoming}`
+  }
+
   return {
     ...msg,
     blocks: upsertBlock(msg.blocks, {
-      id: `th-${Date.now()}`,
+      id: existingThoughtBlock?.id ?? `th-${Date.now()}`,
       type: CHAT_BLOCK_TYPE.THOUGHT,
-      content: payload.thought
+      content: newContent
     })
   }
 }
@@ -93,7 +105,7 @@ const handleSql: EventHandler<SseSqlPayload> = (msg, payload) => {
   }
 }
 
-const handleChart: EventHandler<SseChartPayload | ChatJsConfigDTO> = (msg, payload) => {
+const handleChart: EventHandler<SseChartPayload | ChartJsConfigDTO> = (msg, payload) => {
   if (!payload.type || !payload.datasets) return msg
   return {
     ...msg,
@@ -198,5 +210,51 @@ export function applyNetworkErrorToMessage(
       code: 'NETWORK_ERROR'
     }),
     steps: markLastStepFailed(msg.steps, 'Falha de conexão')
+  }
+}
+
+/**
+ * Atualiza a mensagem marcando o processamento como interrompido pelo usuário.
+ *
+ * Converte etapas ativas/pendentes em erro com rótulo de interrupção, ou anexa
+ * uma etapa explícita 'Processamento interrompido' caso as anteriores já tenham sido concluídas.
+ *
+ * @param msg - Mensagem atual do assistente que sofreu cancelamento.
+ * @returns Mensagem atualizada com a interrupção refletida nos steps de execução.
+ */
+export function applyAbortToMessage(msg: ChatMessageItem): ChatMessageItem {
+  const hasActiveOrPending = msg.steps.some(
+    (step) => step.status === STEP_STATUS.ACTIVE || step.status === STEP_STATUS.PENDING
+  )
+
+  let updatedSteps: AgentStepItem[]
+
+  if (hasActiveOrPending) {
+    updatedSteps = msg.steps.map((stepItem, idx) => {
+      if (stepItem.status === STEP_STATUS.ACTIVE || stepItem.status === STEP_STATUS.PENDING) {
+        return {
+          ...stepItem,
+          status: STEP_STATUS.ERROR,
+          label: idx === msg.steps.length - 1 && !stepItem.label.includes('interromp')
+            ? `${stepItem.label} (interrompido)`
+            : stepItem.label
+        }
+      }
+      return stepItem
+    })
+  } else {
+    updatedSteps = [
+      ...msg.steps,
+      {
+        step: 'interrupted',
+        label: 'Processamento interrompido',
+        status: STEP_STATUS.ERROR
+      }
+    ]
+  }
+
+  return {
+    ...msg,
+    steps: updatedSteps
   }
 }

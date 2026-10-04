@@ -13,9 +13,7 @@ class StreamErrorHandler:
     """
 
     @classmethod
-    def format_error(
-        cls, exc: Exception, active_provider: str | None = None
-    ) -> StreamErrorPayload:
+    def format_error(cls, exc: Exception, active_provider: str | None = None) -> StreamErrorPayload:
         """
         Categoriza a exceção capturada e constrói um payload explicativo para o usuário final.
 

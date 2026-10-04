@@ -24,6 +24,10 @@ class DomainError(Exception):
 DomainException = DomainError
 
 
+class SecurityError(Exception):
+    """Exceção levantada quando código não autorizado tenta violar a sandbox."""
+
+
 class DatabaseReadError(DomainError):
     """
     Lançada quando ocorre uma falha na consulta somente-leitura ao banco analítico.

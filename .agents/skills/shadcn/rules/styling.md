@@ -17,7 +17,7 @@ See [customization.md](../customization.md) for theming, CSS variables, and addi
 
 ---
 
-## Semantic colors
+## Semantic colors & Preservation of Design Semantics
 
 **Incorrect:**
 
@@ -34,6 +34,11 @@ See [customization.md](../customization.md) for theming, CSS variables, and addi
   <p className="text-muted-foreground">Secondary text</p>
 </div>
 ```
+
+### ⚠️ IMPORTANT: Preservation of Design Intent (Do Not Arbitrarily Substitute Colors)
+When a linter or rule flags an unauthorized or raw color (e.g., a specific white, custom orange, or brand accent required by the design/user):
+- **DO NOT** simply replace it with a random pre-existing variable (e.g. replacing a custom white with orange/primary just to silence the linter). Doing so compromises the visual aesthetic conceived in the design.
+- **DO**: Create and register the new semantic variable in the global CSS theme (or Tailwind config) first (e.g. `--brand-highlight`, `--surface-elevated`), and then use the semantic class corresponding to that variable across the components.
 
 ---
 

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { MovieTooltipCard } from '@/features/chat/components/tooltip/MovieTooltipCard'
 import { cn } from '@/lib/utils'
 import {
   ArrowDown,
@@ -102,6 +103,31 @@ export function TableRenderer({
     )
   }
 
+  const renderCellContent = (cell: string) => {
+    if (!cell) {
+      return <span className="text-subtle-foreground">NULL</span>
+    }
+
+    // Suporta [Título](movie:id) ou (Título)[id] dentro de células da tabela
+    const movieMarkdownMatch = cell.match(/\[([^\]]+)\]\(movie:([a-zA-Z0-9_-]+)\)/)
+    const movieAltMatch = cell.match(/\(([^)]+)\)\[([a-zA-Z0-9_-]+)\]/)
+    const match = movieMarkdownMatch || movieAltMatch
+
+    if (match) {
+      const title = match[1]
+      const movieId = match[2]
+      return (
+        <MovieTooltipCard movieId={movieId}>
+          <span className="font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-4 cursor-pointer hover:text-foreground hover:decoration-foreground/50 transition-colors">
+            {title}
+          </span>
+        </MovieTooltipCard>
+      )
+    }
+
+    return cell
+  }
+
   return (
     <div
       ref={containerRef}
@@ -187,7 +213,7 @@ export function TableRenderer({
               >
                 {rowItem.cells.map((cell, colIdx) => (
                   <td key={colIdx} className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
-                    {cell !== '' ? cell : <span className="text-subtle-foreground">NULL</span>}
+                    {renderCellContent(cell)}
                   </td>
                 ))}
               </tr>

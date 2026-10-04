@@ -33,15 +33,18 @@ export interface StreamChatCallbacks {
  *
  * @param payload - Dados da mensagem e identificadores de sessão/modelo.
  * @param callbacks - Manipuladores dos eventos do ciclo de vida da transmissão.
+ * @param signal - Sinal opcional para cancelamento/aborto da transmissão.
  * @returns Promessa resolvida quando o streaming for finalizado com sucesso.
  * @throws Error se o corpo da resposta HTTP for nulo ou falhar.
  */
 export async function executeChatStream(
   payload: StreamChatPayload,
-  callbacks: StreamChatCallbacks
+  callbacks: StreamChatCallbacks,
+  signal?: AbortSignal
 ): Promise<void> {
   const response = await apiFetch('/chat/stream', {
     method: 'POST',
+    signal,
     headers: {
       Accept: 'text/event-stream'
     },

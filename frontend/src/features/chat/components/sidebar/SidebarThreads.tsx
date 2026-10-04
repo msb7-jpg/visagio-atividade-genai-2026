@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import type { ThreadSummary } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
-import { Loader2, MessageSquare, Trash2 } from 'lucide-react'
+import { Loader2, Trash2 } from 'lucide-react'
 
 /**
  * Propriedades para renderização da lista de conversas salvas na barra lateral.
@@ -65,26 +65,19 @@ export function SidebarThreads({
                   key={thread.thread_id}
                   onClick={() => onSelectThread(thread.thread_id)}
                   className={cn(
-                    'group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors',
+                    'group flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors',
                     isActive
                       ? 'bg-primary/15 text-foreground font-medium'
                       : 'text-muted-foreground hover:bg-card-hover hover:text-foreground'
                   )}
                 >
-                  <div className="flex flex-1 items-center gap-2 overflow-hidden text-left min-w-0">
+                  <div className="flex flex-1 items-center gap-3 overflow-hidden text-left min-w-0">
                     {isThreadStreaming ? (
                       <Loader2
                         aria-label="Gerando resposta"
-                        className="h-3.5 w-3.5 shrink-0 animate-spin text-primary"
+                        className="h-4 w-4 shrink-0 animate-spin text-primary"
                       />
-                    ) : (
-                      <MessageSquare
-                        className={cn(
-                          'h-3.5 w-3.5 shrink-0',
-                          isActive ? 'text-primary' : 'text-subtle-foreground'
-                        )}
-                      />
-                    )}
+                    ) : null}
                     <span className="truncate">{thread.title}</span>
                   </div>
 
@@ -99,9 +92,9 @@ export function SidebarThreads({
                         onDeleteThread(thread.thread_id)
                       }}
                       title="Excluir conversa"
-                      className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>

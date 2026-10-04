@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { copyMessageWithChart } from '@/features/chat/lib/clipboardRichUtils'
 import { Check, Copy, RotateCcw, Settings2 } from 'lucide-react'
 import { useState, type JSX } from 'react'
 
@@ -10,6 +11,8 @@ export interface ChatMessageActionsProps {
   messageContent?: string
   /** Alias para messageContent. */
   content?: string
+  /** Identificador do container da mensagem no DOM para localização de gráficos renderizados. */
+  turnId?: string
   /** Callback para regerar a resposta com a mesma consulta. */
   onRetry?: () => void
   /** Callback para abrir o modal de configurações de IA. */
@@ -30,6 +33,7 @@ export interface ChatMessageActionsProps {
 export function ChatMessageActions({
   messageContent,
   content,
+  turnId,
   onRetry,
   onOpenSettings,
   isStreaming = false
@@ -38,12 +42,15 @@ export function ChatMessageActions({
   const effectiveText = messageContent || content || ''
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(effectiveText)
+    const container = turnId ? document.getElementById(turnId) : null
+    const canvas = container?.querySelector('canvas') || null
+    const chartTitle =
+      canvas?.closest('[data-chart-container]')?.getAttribute('data-chart-title') || undefined
+
+    const success = await copyMessageWithChart(effectiveText, canvas, chartTitle)
+    if (success) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Fallback
     }
   }
 

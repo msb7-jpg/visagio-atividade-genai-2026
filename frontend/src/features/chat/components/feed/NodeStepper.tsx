@@ -1,3 +1,4 @@
+import { CollapsibleMotion, StaggerItem } from '@/components/animations'
 import type { AgentStepItem } from '@/features/chat/types/chat.types'
 import { cn } from '@/lib/utils'
 import { ChevronRight, Workflow } from 'lucide-react'
@@ -73,20 +74,21 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
         </div>
       </div>
 
-      {/* Conteúdo das etapas (colapsável) */}
-      {isExpanded ? (
+      {/* Conteúdo das etapas (com expansão e recolhimento elástico com Motion) */}
+      <CollapsibleMotion isExpanded={isExpanded}>
         <div className="border-t border-border bg-sidebar/50 p-3">
           <div className="relative space-y-3 pl-1">
             {displaySteps.map((step, index) => (
-              <StepItem
-                key={`${step.step}-${index}`}
-                step={step}
-                isLast={index === displaySteps.length - 1}
-              />
+              <StaggerItem key={`${step.step}-${index}`} delay={index * 0.04}>
+                <StepItem
+                  step={step}
+                  isLast={index === displaySteps.length - 1}
+                />
+              </StaggerItem>
             ))}
           </div>
         </div>
-      ) : null}
+      </CollapsibleMotion>
     </div>
   )
 }

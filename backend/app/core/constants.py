@@ -21,12 +21,26 @@ class AgentNode(StrEnum):
     """Nós do grafo de execução orquestrado via LangGraph."""
 
     ROUTER = "router"
+    SEMANTIC_SEARCH = "semantic_search"
     SQL_GENERATOR = "sql_generator"
     SQL_VALIDATOR = "sql_validator"
     SQL_EXECUTOR = "sql_executor"
     SQL_CORRECTOR = "sql_corrector"
+    DATA_ANALYSIS = "data_analysis"
     CHART_GENERATOR = "chart_generator"
     SYNTHESIZER = "synthesizer"
+
+
+NODE_LABELS: dict[str, str] = {
+    AgentNode.ROUTER.value: "Classificando intenção",
+    AgentNode.SEMANTIC_SEARCH.value: "Buscando contexto semântico (RAG)",
+    AgentNode.SQL_GENERATOR.value: "Escrevendo consulta SQL",
+    AgentNode.SQL_EXECUTOR.value: "Executando no cinerocket.db",
+    AgentNode.SQL_CORRECTOR.value: "Auto-corrigindo consulta SQL",
+    AgentNode.DATA_ANALYSIS.value: "Executando sandbox estatística",
+    AgentNode.CHART_GENERATOR.value: "Avaliando visualização gráfica",
+    AgentNode.SYNTHESIZER.value: "Formatando análise executiva",
+}
 
 
 class SSEEventType(StrEnum):
@@ -39,6 +53,7 @@ class SSEEventType(StrEnum):
     STEP_END = "step_end"
     THOUGHT = "thought"
     SQL = "sql"
+    SEMANTIC = "semantic"
     CHART = "chart"
     DATA = "data"
     TOKEN = "token"  # ruff: ignore[hardcoded-password-string]

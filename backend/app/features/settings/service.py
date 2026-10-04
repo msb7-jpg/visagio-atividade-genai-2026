@@ -130,7 +130,9 @@ class SettingsService:
         await self._ensure_db_loaded()
         updated_key = new_config.api_key
 
-        if updated_key and ("..." in updated_key or updated_key == "********"):
+        from app.features.settings.security import is_masked_api_key
+
+        if updated_key and is_masked_api_key(updated_key):
             saved_prov = await get_user_provider_config(self.user_id, new_config.provider)
             if saved_prov and saved_prov.get("api_key"):
                 updated_key = saved_prov["api_key"]

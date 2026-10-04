@@ -109,19 +109,37 @@ class ThreadsService:
         # Se a última mensagem for do usuário e não houver execução ativa,
         # o assistente foi interrompido antes da conclusão
         if not is_running and formatted_messages and formatted_messages[-1].role == "user":
+            raw_steps = state.values.get("steps") or []
+            interrupted_steps: list[StepEventDTO] = [
+                StepEventDTO(
+                    step=s.get("step", s.get("node", "")),
+                    label=s.get("label", s.get("node", "")),
+                    status=s.get("status", "done"),
+                    duration_ms=s.get("duration_ms"),
+                )
+                for s in raw_steps
+            ]
+            interrupted_steps.append(
+                StepEventDTO(
+                    step="interrupted",
+                    label="Processamento interrompido",
+                    status="error",
+                )
+            )
+
+            raw_thought = state.values.get("thought")
+            clean_thought = str(raw_thought).replace("__RESET__", "").strip() if raw_thought else None
+
             formatted_messages.append(
                 ThreadMessageDTO(
                     id=f"interrupted-{thread_id}-{len(formatted_messages)}",
                     role="assistant",
                     content="",
                     type="ai",
-                    steps=[
-                        StepEventDTO(
-                            step="interrupted",
-                            label="Processamento interrompido",
-                            status="error",
-                        )
-                    ],
+                    thought=clean_thought,
+                    generated_sql=state.values.get("generated_sql"),
+                    chart_spec=state.values.get("chart_spec"),
+                    steps=interrupted_steps,
                 )
             )
 
@@ -155,23 +173,30 @@ class ThreadsService:
         generated_sql: str | None = None
         chart_spec: Any = None
         steps: list[StepEventDTO] | None = None
+        provider: str | None = None
+        model: str | None = None
 
         if role == "assistant":
             extra = getattr(msg, "additional_kwargs", {}) or {}
-            thought = extra.get("thought") or (state_values.get("thought") if is_last else None)
+            raw_thought = extra.get("thought") or (state_values.get("thought") if is_last else None)
+            thought = str(raw_thought).replace("__RESET__", "").strip() if raw_thought else None
             generated_sql = extra.get("generated_sql") or (state_values.get("generated_sql") if is_last else None)
             chart_spec = extra.get("chart_spec") or (state_values.get("chart_spec") if is_last else None)
             raw_steps = extra.get("steps") or (state_values.get("steps") if is_last else None)
+            provider = extra.get("provider")
+            model = extra.get("model")
             if raw_steps:
                 steps = [
                     StepEventDTO(
                         step=s.get("step", s.get("node", "")),
-                        label=s.get("label", ""),
+                        label=s.get("label", s.get("node", "")),
                         status=s.get("status", "done"),
                         duration_ms=s.get("duration_ms"),
                     )
                     for s in raw_steps
                 ]
+            else:
+                steps = []
 
         return ThreadMessageDTO(
             id=f"persisted-{thread_id}-{idx}",
@@ -182,4 +207,6 @@ class ThreadsService:
             generated_sql=generated_sql,
             chart_spec=chart_spec,
             steps=steps,
+            provider=provider,
+            model=model,
         )

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Navigation } from 'lucide-react'
+import { Navigation, PanelRightClose } from 'lucide-react'
 
 /**
  * Propriedades para a barra de navegação rápida por turnos da conversa.
@@ -12,6 +12,8 @@ export interface TimelineScrollSpyProps {
   activeId: string | null
   /** Callback para rolar suavemente até o turno clicado. */
   onSelectItem: (id: string) => void
+  /** Callback para recolher a barra lateral da timeline. */
+  onCollapse?: () => void
   /** Se `true`, indica que o painel lateral está visível. */
   isOpen?: boolean
   /** Classes CSS adicionais. */
@@ -28,6 +30,7 @@ export function TimelineScrollSpy({
   items,
   activeId,
   onSelectItem,
+  onCollapse,
   className
 }: TimelineScrollSpyProps) {
   if (items.length === 0) {
@@ -36,9 +39,24 @@ export function TimelineScrollSpy({
         data-testid="timeline-scroll-spy"
         className={cn('flex flex-col h-full w-full', className)}
       >
-        <div className="flex items-center gap-2 px-3 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          <Navigation className="h-3.5 w-3.5 text-primary" />
-          <span>Turnos da Conversa</span>
+        <div className="flex items-center justify-between px-3 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <div className="flex items-center gap-2">
+            <Navigation className="h-3.5 w-3.5 text-primary" />
+            <span>Turnos da Conversa</span>
+          </div>
+          {onCollapse ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onCollapse}
+              aria-label="Recolher turnos da conversa"
+              title="Recolher histórico de turnos"
+              className="h-6 w-6"
+            >
+              <PanelRightClose className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
         </div>
         <div className="p-4 text-xs text-muted-foreground italic">
           Nenhuma pergunta enviada ainda
@@ -52,9 +70,24 @@ export function TimelineScrollSpy({
       data-testid="timeline-scroll-spy"
       className={cn('flex flex-col h-full w-full', className)}
     >
-      <div className="flex items-center gap-2 px-3 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0">
-        <Navigation className="h-3.5 w-3.5 text-muted-foreground" />
-        <span>Turnos da Conversa</span>
+      <div className="flex items-center justify-between px-3 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0">
+        <div className="flex items-center gap-2">
+          <Navigation className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>Turnos da Conversa</span>
+        </div>
+        {onCollapse ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onCollapse}
+            aria-label="Recolher turnos da conversa"
+            title="Recolher histórico de turnos"
+            className="h-6 w-6"
+          >
+            <PanelRightClose className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">

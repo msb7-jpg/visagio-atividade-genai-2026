@@ -243,6 +243,8 @@ export interface ThreadDetail extends ThreadSummary {
     generated_sql?: string
     chart_spec?: ChartJsConfigDTO
     steps?: AgentStepItem[]
+    provider?: string
+    model?: string
   }[]
   /** Indica que o backend ainda está gerando a resposta desta thread. */
   is_running?: boolean
@@ -298,4 +300,25 @@ export interface SseErrorPayload {
 export interface SseDonePayload {
   status: string
   thread_id: string
+}
+
+export interface MovieDetailDTO {
+  sk_movie_id: string
+  id_filme?: string | null
+  titulo: string
+  ano_lancamento?: number | null
+  duracao_minutos?: number | null
+  status_filme?: string | null
+  sinopse?: string | null
+  url_poster?: string | null
+  url_backdrop?: string | null
+  generos: string[]
+  diretores: string[]
+  nota_imdb?: number | null
+  qtd_imdb?: number | null
+  nota_tmdb?: number | null
+  qtd_tmdb?: number | null
+  receita_brl?: number | null
+  orcamento_brl?: number | null
+  lucro_brl?: number | null
 }

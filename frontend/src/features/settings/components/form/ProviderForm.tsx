@@ -60,8 +60,6 @@ function ProviderFormContent({
   // 2. Hook Granular: Descoberta e Seleção de Modelos
   const {
     discoveredModels,
-    isCustomModel,
-    setIsCustomModel,
     handleModelsDiscovered,
     resetDiscovery
   } = useModelDiscovery((firstModel) => {
@@ -154,7 +152,6 @@ function ProviderFormContent({
         savedConfigs={savedConfigs}
         isEditingKey={isEditingKey}
         discoveredModels={discoveredModels}
-        isCustomModel={isCustomModel}
         isConnected={isConnected}
         isFailed={isFailed}
         isTesting={isTesting}
@@ -162,7 +159,6 @@ function ProviderFormContent({
         probeErrorMessage={probeErrorMessage}
         inputStatus={inputStatus}
         setIsEditingKey={setIsEditingKey}
-        setIsCustomModel={setIsCustomModel}
         resetTest={resetTest}
       />
 

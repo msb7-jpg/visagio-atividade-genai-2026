@@ -108,9 +108,7 @@ def analyze_queries_for_n_plus_one(records: list[QueryRecord]) -> list[tuple[str
     # Normaliza whitespace para agrupamento
     normalized = [" ".join(r.statement.split()) for r in records]
     counts = Counter(normalized)
-    return [
-        (stmt, count) for stmt, count in counts.items() if count >= N_PLUS_ONE_DUPLICATE_THRESHOLD
-    ]
+    return [(stmt, count) for stmt, count in counts.items() if count >= N_PLUS_ONE_DUPLICATE_THRESHOLD]
 
 
 class QueryProfilerMiddleware(BaseHTTPMiddleware):

@@ -34,9 +34,7 @@ def test_db_readonly_blocks_insert_and_write_operations():
     with get_readonly_db_connection() as conn:
         cursor = conn.cursor()
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
-            cursor.execute(
-                "INSERT INTO dim_movies (id_filme, titulo) VALUES (999999, 'Test Movie')"
-            )
+            cursor.execute("INSERT INTO dim_movies (id_filme, titulo) VALUES (999999, 'Test Movie')")
 
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             cursor.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY)")
@@ -65,20 +63,23 @@ async def test_agent_graph_compiles_and_invokes():
         "steps": [],
     }
     with (
-        patch("app.agent.graph.get_chat_model") as mock_r,
+        patch("app.agent.nodes.router_node.get_chat_model") as mock_r,
         patch("app.agent.nodes.sql_generator.get_chat_model") as mock_g,
         patch("app.agent.nodes.synthesizer.get_chat_model") as mock_s,
     ):
         mock_r.return_value = AsyncMock(ainvoke=AsyncMock(return_value=AIMessage(content="sql")))
         mock_msg = "<thought>teste</thought>```sql\nSELECT titulo FROM dim_movies LIMIT 1\n```"
-        mock_g.return_value = AsyncMock(
-            ainvoke=AsyncMock(return_value=AIMessage(content=mock_msg))
-        )
-        mock_s.return_value = AsyncMock(
-            ainvoke=AsyncMock(return_value=AIMessage(content="Resposta final"))
-        )
+        mock_g.return_value = AsyncMock(ainvoke=AsyncMock(return_value=AIMessage(content=mock_msg)))
+        mock_s.return_value = AsyncMock(ainvoke=AsyncMock(return_value=AIMessage(content="Resposta final")))
 
         result = await graph.ainvoke(initial_state)
         assert result["route"] == "sql"
         assert result["generated_sql"] is not None
         assert len(result["messages"]) >= 2
+        assert len(result["steps"]) >= 3
+        step_nodes = [s["node"] for s in result["steps"]]
+        assert "router" in step_nodes
+        assert "sql_generator" in step_nodes
+        assert "synthesizer" in step_nodes
+        assert "[Escrevendo consulta SQL]" in str(result["thought"])
+        assert len(result["messages"][-1].additional_kwargs.get("steps", [])) >= 3

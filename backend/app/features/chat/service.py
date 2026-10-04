@@ -29,9 +29,7 @@ class AgentChatService:
     def __init__(self):
         self.graph = create_agent_graph()
 
-    async def stream_chat(
-        self, request: ChatStreamRequestDTO
-    ) -> AsyncGenerator[dict[str, str], None]:
+    async def stream_chat(self, request: ChatStreamRequestDTO) -> AsyncGenerator[dict[str, str], None]:
         """
         Executa o grafo analítico do LangGraph e despacha os eventos em tempo real via SSE.
 
@@ -89,6 +87,7 @@ class AgentChatService:
             title_queue: asyncio.Queue[str] = asyncio.Queue()
 
             if is_first_turn:
+
                 def on_title_ready(_tid: str, title: str):
                     title_queue.put_nowait(title)
 
@@ -100,9 +99,7 @@ class AgentChatService:
                 )
 
             # 3. Emite handshake da sessão
-            yield SSEEventDispatcher.emit_session(
-                thread_id, provider_cfg.provider, provider_cfg.model
-            )
+            yield SSEEventDispatcher.emit_session(thread_id, provider_cfg.provider, provider_cfg.model)
 
             timer = ExecutionTimer().start()
 
@@ -112,19 +109,14 @@ class AgentChatService:
                     graph = create_agent_graph(checkpointer=saver)
 
                     # Prioriza mock se chat_service.graph foi patcheado nos testes
-                    is_mocked = (
-                        hasattr(self.graph, "astream")
-                        and (
-                            hasattr(self.graph.astream, "assert_called")
-                            or bool(getattr(self.graph.astream, "side_effect", None))
-                        )
+                    is_mocked = hasattr(self.graph, "astream") and (
+                        hasattr(self.graph.astream, "assert_called")
+                        or bool(getattr(self.graph.astream, "side_effect", None))
                     )
                     stream_target = self.graph if is_mocked else graph
 
                     # 4. Itera pelas atualizações de cada nó do LangGraph
-                    async for event in stream_target.astream(
-                        inputs, config=runnable_config, stream_mode="updates"
-                    ):
+                    async for event in stream_target.astream(inputs, config=runnable_config, stream_mode="updates"):
                         # Despacha título se tiver ficado pronto no intervalo
                         while not title_queue.empty():
                             ready_title = title_queue.get_nowait()
@@ -148,7 +140,5 @@ class AgentChatService:
 
             except Exception as exc:
                 logger.error("Erro durante stream_chat para thread %s: %s", thread_id, exc)
-                err_data = StreamErrorHandler.format_error(
-                    exc, active_provider=provider_cfg.provider
-                )
+                err_data = StreamErrorHandler.format_error(exc, active_provider=provider_cfg.provider)
                 yield SSEEventDispatcher.emit_error(err_data)

@@ -14,11 +14,12 @@ wheels/
 .env
 
 # Local checkpoints database
-db/
+/db/
 *.db
 *.db-shm
 *.db-wal
 *.db-journal
+*.sql
 
 # Local models and document caches
 models/
@@ -30,4 +31,3 @@ docs/
 .vscode/
 .idea/
 .DS_Store
-

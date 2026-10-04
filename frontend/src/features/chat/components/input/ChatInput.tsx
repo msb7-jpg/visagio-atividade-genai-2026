@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { ArrowUp, Sparkles } from 'lucide-react'
+import { ArrowUp, Pause, Sparkles } from 'lucide-react'
 import { useState, type JSX, type KeyboardEvent } from 'react'
 
 /**
@@ -10,6 +10,8 @@ import { useState, type JSX, type KeyboardEvent } from 'react'
 export interface ChatInputProps {
   /** Callback executado ao submeter o texto digitado pelo usuário. */
   onSendMessage: (message: string) => void
+  /** Callback executado para interromper e cancelar a transmissão da resposta em andamento. */
+  onAbortStream?: () => void
   /** Indica se o assistente está gerando resposta ativamente, bloqueando novos disparos. */
   isStreaming: boolean
   /** Classes CSS adicionais. */
@@ -17,12 +19,17 @@ export interface ChatInputProps {
 }
 
 /**
- * Caixa de texto flutuante com suporte a submissão via teclado (Enter) e botão de envio.
+ * Caixa de texto flutuante com suporte a submissão via teclado (Enter) e botão de envio ou cancelamento.
  *
- * @param props - Propriedades de controle e callback de envio.
- * @returns Elemento JSX do campo de texto com botão de ação.
+ * @param props - Propriedades de controle e callbacks de envio e aborto.
+ * @returns Elemento JSX do campo de texto com botão de ação contextual.
  */
-export function ChatInput({ onSendMessage, isStreaming, className }: ChatInputProps): JSX.Element {
+export function ChatInput({
+  onSendMessage,
+  onAbortStream,
+  isStreaming,
+  className
+}: ChatInputProps): JSX.Element {
   const [text, setText] = useState('')
 
   const handleSend = () => {
@@ -60,15 +67,28 @@ export function ChatInput({ onSendMessage, isStreaming, className }: ChatInputPr
           className="border-0 bg-transparent px-2 placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
         />
 
-        <Button
-          type="button"
-          size="icon"
-          onClick={handleSend}
-          disabled={!text.trim() || isStreaming}
-          aria-label="Enviar mensagem"
-        >
-          <ArrowUp className="h-4 w-4" />
-        </Button>
+        {isStreaming ? (
+          <Button
+            type="button"
+            size="icon"
+            variant="destructive"
+            onClick={onAbortStream}
+            aria-label="Cancelar geração"
+            className="transition-transform active:scale-95"
+          >
+            <Pause className="h-4 w-4 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="icon"
+            onClick={handleSend}
+            disabled={!text.trim()}
+            aria-label="Enviar mensagem"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   )

@@ -43,13 +43,7 @@ async def test_chat_stream_emits_chart_event():
                     }
                 }
             },
-            {
-                "synthesizer": {
-                    "messages": [
-                        AsyncMock(content="Aqui está o gráfico das produtoras mais lucrativas.")
-                    ]
-                }
-            },
+            {"synthesizer": {"messages": [AsyncMock(content="Aqui está o gráfico das produtoras mais lucrativas.")]}},
         ]
 
         async def fake_astream(*args, **kwargs):

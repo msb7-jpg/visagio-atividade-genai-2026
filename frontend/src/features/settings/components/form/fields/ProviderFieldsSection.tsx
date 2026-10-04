@@ -1,3 +1,4 @@
+import { DirectionalSlide } from '@/components/animations'
 import { DEFAULT_PROVIDER_MODELS } from '@/features/settings/constants/providerDefaults'
 import type { ProviderFormInstance } from '@/features/settings/hooks/useProviderFormCore'
 import type { ProviderConfig, ProviderType } from '@/features/settings/schemas/settings.schema'
@@ -22,8 +23,6 @@ export interface ProviderFieldsSectionProps {
   isEditingKey: boolean
   /** Lista de modelos descobertos via probe. */
   discoveredModels: string[]
-  /** Flag de modelo customizado. */
-  isCustomModel: boolean
   /** Flag indicando sucesso no health check. */
   isConnected: boolean
   /** Flag indicando falha no health check. */
@@ -38,8 +37,6 @@ export interface ProviderFieldsSectionProps {
   inputStatus: 'default' | 'success' | 'error'
   /** Altera o modo de edição da chave secreta. */
   setIsEditingKey: (editing: boolean) => void
-  /** Alterna o modo de modelo customizado. */
-  setIsCustomModel: (updater: (prev: boolean) => boolean) => void
   /** Reseta o estado do teste de conexão. */
   resetTest: () => void
 }
@@ -57,7 +54,6 @@ export function ProviderFieldsSection({
   savedConfigs,
   isEditingKey,
   discoveredModels,
-  isCustomModel,
   isConnected,
   isFailed,
   isTesting,
@@ -65,73 +61,77 @@ export function ProviderFieldsSection({
   probeErrorMessage,
   inputStatus,
   setIsEditingKey,
-  setIsCustomModel,
   resetTest
 }: ProviderFieldsSectionProps): JSX.Element {
   return (
     <div className="space-y-3 pt-2 border-t border-border">
-      {selectedProvider !== 'local' ? (
-        <form.Field name="api_key">
-          {(field) => (
-            <ApiKeyField
-              provider={selectedProvider}
-              value={field.state.value}
-              savedKey={savedConfigs[selectedProvider]?.api_key}
-              isSaved={savedProviders.includes(selectedProvider)}
-              isEditing={isEditingKey}
-              isConnected={isConnected}
-              isFailed={isFailed}
-              latencyMs={latencyMs}
-              probeErrorMessage={probeErrorMessage}
-              inputStatus={inputStatus}
-              onEditChange={setIsEditingKey}
-              onChange={(val) => {
-                resetTest()
-                field.handleChange(val)
-              }}
-              onBlur={field.handleBlur}
-            />
+      <DirectionalSlide activeKey={selectedProvider} direction="vertical" distance={14}>
+        <div className="space-y-3">
+          {selectedProvider !== 'local' ? (
+            <form.Field name="api_key">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(field: any) => (
+                <ApiKeyField
+                  provider={selectedProvider}
+                  value={String(field.state.value ?? '')}
+                  savedKey={savedConfigs[selectedProvider]?.api_key}
+                  isSaved={savedProviders.includes(selectedProvider)}
+                  isEditing={isEditingKey}
+                  isConnected={isConnected}
+                  isFailed={isFailed}
+                  latencyMs={latencyMs}
+                  probeErrorMessage={probeErrorMessage}
+                  inputStatus={inputStatus}
+                  onEditChange={setIsEditingKey}
+                  onChange={(val) => {
+                    resetTest()
+                    field.handleChange(val)
+                  }}
+                  onBlur={field.handleBlur}
+                />
+              )}
+            </form.Field>
+          ) : (
+            <form.Field name="base_url">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(field: any) => (
+                <BaseUrlField
+                  value={field.state.value}
+                  isConnected={isConnected}
+                  isFailed={isFailed}
+                  latencyMs={latencyMs}
+                  probeErrorMessage={probeErrorMessage}
+                  inputStatus={inputStatus}
+                  onChange={(val) => {
+                    resetTest()
+                    field.handleChange(val)
+                  }}
+                  onBlur={field.handleBlur}
+                />
+              )}
+            </form.Field>
           )}
-        </form.Field>
-      ) : (
-        <form.Field name="base_url">
-          {(field) => (
-            <BaseUrlField
-              value={field.state.value}
-              isConnected={isConnected}
-              isFailed={isFailed}
-              latencyMs={latencyMs}
-              probeErrorMessage={probeErrorMessage}
-              inputStatus={inputStatus}
-              onChange={(val) => {
-                resetTest()
-                field.handleChange(val)
-              }}
-              onBlur={field.handleBlur}
-            />
-          )}
-        </form.Field>
-      )}
 
-      <form.Field name="model">
-        {(field) => (
-          <ModelSelectorField
-            provider={selectedProvider}
-            value={field.state.value}
-            discoveredModels={discoveredModels}
-            fallbackModels={[
-              savedConfigs[selectedProvider]?.model || '',
-              DEFAULT_PROVIDER_MODELS[selectedProvider]
-            ].filter(Boolean)}
-            isCustomModel={isCustomModel}
-            isConnected={isConnected}
-            isTesting={isTesting}
-            onToggleCustomModel={() => setIsCustomModel((prev) => !prev)}
-            onChange={field.handleChange}
-            onBlur={field.handleBlur}
-          />
-        )}
-      </form.Field>
+          <form.Field name="model">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(field: any) => (
+              <ModelSelectorField
+                provider={selectedProvider}
+                value={field.state.value}
+                discoveredModels={discoveredModels}
+                fallbackModels={[
+                  savedConfigs[selectedProvider]?.model || '',
+                  DEFAULT_PROVIDER_MODELS[selectedProvider]
+                ].filter(Boolean)}
+                isConnected={isConnected}
+                isTesting={isTesting}
+                onChange={field.handleChange}
+                onBlur={field.handleBlur}
+              />
+            )}
+          </form.Field>
+        </div>
+      </DirectionalSlide>
     </div>
   )
 }

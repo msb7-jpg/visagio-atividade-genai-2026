@@ -6,7 +6,7 @@ from app.core.timer import ExecutionTimer
 def test_timer_context_manager():
     with ExecutionTimer() as timer:
         time.sleep(0.01)
-    
+
     assert timer.elapsed_seconds >= 0.009
     assert timer.elapsed_ms >= 9.0
     assert timer.duration_ms_int >= 9

@@ -1,3 +1,4 @@
+import { DirectionalSlide, SlidingIndicator } from '@/components/animations'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -6,6 +7,8 @@ import {
   DialogTitle,
   DialogTrigger
 } from '@/components/ui/dialog'
+import { Tooltip } from '@/components/ui/tooltip-card'
+import { MarkdownRenderer } from '@/features/chat/components/renderers/MarkdownRenderer'
 import { PROMPT_CATEGORIES } from '@/features/chat/constants/promptCategories'
 import { cn } from '@/lib/utils'
 import { ArrowUpRight, HelpCircle } from 'lucide-react'
@@ -40,49 +43,66 @@ export function SuggestionExplorer({ onSelectPrompt }: SuggestionExplorerProps) 
             <Button
               key={category.id}
               type="button"
-              variant={isActive ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setActiveTab(category.id)}
               className={cn(
-                'rounded-full px-3 text-xs',
-                isActive ? 'shadow-md shadow-primary/20' : 'text-muted-foreground hover:text-foreground'
+                'relative rounded-full px-3 text-xs transition-colors',
+                isActive ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Icon className="h-3.5 w-3.5 mr-1.5" />
-              <span>{category.label}</span>
+              {isActive ? (
+                <SlidingIndicator
+                  layoutId="activeCategoryPill"
+                  className="rounded-full bg-primary/15 border border-primary/30"
+                />
+              ) : null}
+              <span className="relative z-10 flex items-center">
+                <Icon className="h-3.5 w-3.5 mr-1.5" />
+                <span>{category.label}</span>
+              </span>
             </Button>
           )
         })}
       </div>
 
-      {/* Grid com apenas 3 cards da aba ativa */}
-      <div className="mt-4 grid w-full grid-cols-1 sm:grid-cols-3 gap-2.5">
-        {currentCategory.prompts.slice(0, 3).map((item, index) => {
-          const ItemIcon = item.icon || currentCategory.icon
-          return (
-            <Button
-              key={index}
-              type="button"
-              variant="outline"
-              onClick={() => onSelectPrompt(item.prompt)}
-              className="group relative flex flex-col items-start justify-between text-left h-auto rounded-xl border border-border bg-sidebar/50 p-3 hover:border-primary/40 hover:bg-sidebar transition-all whitespace-normal"
-            >
-              <div className="w-full">
-                <div className="flex items-center justify-between mb-2 w-full">
-                  <span className="flex items-center gap-1.5 text-xs uppercase font-semibold tracking-wider text-muted-foreground">
-                    <ItemIcon className="h-3.5 w-3.5 text-primary" />
-                    <span>{item.subCategory}</span>
+      {/* Grid com apenas 3 cards da aba ativa com transição direcional suave */}
+      <DirectionalSlide activeKey={activeTab} direction="horizontal" className="mt-4">
+        <div className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {currentCategory.prompts.slice(0, 3).map((item, index) => {
+            const ItemIcon = item.icon || currentCategory.icon
+            return (
+              <Tooltip
+                key={index}
+                content={(
+                  <div className="p-3 text-xs text-muted-foreground leading-relaxed">
+                    {item.prompt}
+                  </div>
+                )}
+                containerClassName="h-full"
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onSelectPrompt(item.prompt)}
+                  className="group relative flex flex-col items-start justify-center text-left h-full w-full rounded-xl border border-border bg-sidebar/50 p-4 hover:border-primary/40 hover:bg-sidebar transition-all whitespace-normal"
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <ItemIcon className="h-4 w-4 text-primary" />
+                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
+                  </div>
+                  <span className="text-sm font-semibold text-foreground mt-2 line-clamp-2">
+                    <MarkdownRenderer
+                      content={item.title}
+                      className="text-sm font-semibold prose-p:my-0 prose-p:leading-tight prose-a:font-semibold text-foreground"
+                    />
                   </span>
-                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
-                </div>
-                <p className="text-xs font-medium text-foreground line-clamp-2">
-                  {item.title}
-                </p>
-              </div>
-            </Button>
-          )
-        })}
-      </div>
+                </Button>
+              </Tooltip>
+            )
+          })}
+        </div>
+      </DirectionalSlide>
 
       {/* Gatilho para abrir a biblioteca completa sem poluir o chat */}
       <div className="mt-3">
@@ -116,9 +136,17 @@ export function SuggestionExplorer({ onSelectPrompt }: SuggestionExplorerProps) 
                         onClick={() => onSelectPrompt(example.prompt)}
                         className="p-4 text-left h-auto rounded-xl border border-border bg-sidebar hover:border-primary/50 hover:bg-card-hover transition-all flex flex-col items-start gap-1.5 whitespace-normal"
                       >
-                        <span className="text-xs font-semibold text-foreground">{example.title}</span>
+                        <span className="text-xs font-semibold text-foreground">
+                          <MarkdownRenderer
+                            content={example.title}
+                            className="text-xs font-semibold prose-p:my-0 prose-a:font-semibold text-foreground"
+                          />
+                        </span>
                         <span className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                          {example.prompt}
+                          <MarkdownRenderer
+                            content={example.prompt}
+                            className="text-xs text-muted-foreground prose-p:my-0 prose-a:font-medium"
+                          />
                         </span>
                       </Button>
                     ))}

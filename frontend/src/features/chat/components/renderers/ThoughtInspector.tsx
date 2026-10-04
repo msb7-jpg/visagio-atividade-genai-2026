@@ -1,6 +1,7 @@
+import { CollapsibleMotion } from '@/components/animations'
+import { cn } from '@/lib/utils'
 import { Brain, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
 
 /**
  * Propriedades para renderização do inspetor de pensamento do agente.
@@ -61,11 +62,11 @@ export function ThoughtInspector({ thought, className }: ThoughtInspectorProps) 
         </div>
       </div>
 
-      {isOpen ? (
+      <CollapsibleMotion isExpanded={isOpen}>
         <div className="border-t border-border bg-sidebar/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
           {thought}
         </div>
-      ) : null}
+      </CollapsibleMotion>
     </div>
   )
 }

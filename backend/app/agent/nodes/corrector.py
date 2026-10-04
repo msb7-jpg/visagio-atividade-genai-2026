@@ -16,9 +16,7 @@ REGRAS:
 """
 
 
-async def sql_corrector_node(
-    state: AgentState, config: RunnableConfig | None = None
-) -> AgentStateUpdate:
+async def sql_corrector_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
     """
     Nó de auto-recuperação (self-correction): analisa o erro anterior e gera nova tentativa de SQL.
 

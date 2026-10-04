@@ -326,8 +326,17 @@ You only need referential stability in two specific scenarios:
    return <HeavyComponent onSelect={handleSelect} />
    ```
 
-2. **The Function is Used as a Dependency in Another Hook**  
-   If your function is included in the dependency array of a `useEffect`, `useMemo`, or a custom hook, it must be stable to prevent infinite loops or accidental triggers.
+2. **The Function is Used as a Dependency in Another Hook (`react-hooks/exhaustive-deps` Trap)**  
+   If your function is included in the dependency array of a `useEffect`, `useMemo`, or a custom hook, it **must** be referentially stable to prevent infinite loops, UI freezes, or accidental triggers.
+
+   #### ⚠️ The Myth of the "Bad Linter Rule"
+   Developers often think `react-hooks/exhaustive-deps` is being "annoying" when it warns that an external function is missing from the dependency array. A common mistake is accepting an IDE Quick Fix or running `eslint --fix` to blindly append the function to the array.
+   - If the function was declared without `useCallback`, every render allocates a new function closure in memory (`Object.is(fn1, fn2) === false`).
+   - The `useEffect` triggers on every render because its dependency changed.
+   - Inside the effect, calling that function triggers `setState`, forcing another render.
+   - This creates an **infinite synchronous re-render loop**, starving the browser's Event Loop: user input freezes, buttons stay in `:hover`, and history transitions tear.
+   - **The linter was right all along:** the effect truly depended on something unstable. The fix is stabilizing the function at its origin with `useCallback` and adding an idempotency guard.
+
    ```tsx
    // ✅ GOOD: Prevents the useEffect from executing on every single render
    const fetchData = useCallback(() => {
@@ -335,8 +344,10 @@ You only need referential stability in two specific scenarios:
    }, [id])
 
    useEffect(() => {
+     // Reentrancy guard: do not re-fetch if already populated
+     if (isLoaded) return
      fetchData()
-   }, [fetchData])
+   }, [fetchData, isLoaded])
    ```
 
 ---
