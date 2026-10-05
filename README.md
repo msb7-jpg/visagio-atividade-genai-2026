@@ -61,6 +61,12 @@
 
 ---
 
+### Gráficos de Linha & Séries Temporais
+![Gráfico de Linha](midia/agent-chart-line-chart.png)
+<sub>*Evolução temporal e séries históricas com identificação de tendências*</sub>
+
+---
+
 ### Gráficos de Rosca / Donut
 ![Gráfico Donut](midia/agent-doghnut-chart.png)
 <sub>*Distribuição de catálogos e agrupamentos analíticos interativos*</sub>
