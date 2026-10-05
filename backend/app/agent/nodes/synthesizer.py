@@ -1,3 +1,4 @@
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -12,6 +13,51 @@ from app.agent.prompts import (
 )
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
+
+
+def _enrich_movie_annotations(
+    content: str,
+    records: Sequence[Mapping[str, object]] | None,
+) -> str:
+    """
+    Enriquece menções literais de títulos de filmes com links Markdown interativos.
+
+    Caso o LLM tenha citado títulos entre aspas (ex: "Avatar: The Way Of Water")
+    sem incluir o link Markdown movie:id, esta função mapeia os títulos presentes nos dados
+    e aplica a formatação canônica [Título](movie:id).
+
+    Args:
+        content: Conteúdo textual gerado pelo LLM.
+        records: Registros retornados pela consulta analítica ou busca semântica.
+
+    Returns:
+        Conteúdo enriquecido com links interativos nos títulos reconhecidos.
+    """
+    if not records or not content:
+        return content
+
+    title_to_id: dict[str, str] = {}
+    for record in records:
+        raw_title = record.get("titulo") or record.get("title") or record.get("nome_filme")
+        raw_id = record.get("sk_movie_id") or record.get("id_filme")
+        if raw_title and raw_id and isinstance(raw_title, str) and isinstance(raw_id, str):
+            clean_title = raw_title.strip()
+            if len(clean_title) >= 3 and clean_title not in title_to_id:
+                title_to_id[clean_title] = raw_id.strip()
+
+    if not title_to_id:
+        return content
+
+    sorted_titles = sorted(title_to_id.keys(), key=len, reverse=True)
+    enriched_content = content
+
+    for title in sorted_titles:
+        movie_id = title_to_id[title]
+        # Padrão: Título citado com aspas duplas ("Título") que não esteja dentro de link Markdown
+        quoted_pattern = re.compile(rf'(?<!\[)"{re.escape(title)}"')
+        enriched_content = quoted_pattern.sub(f"[{title}](movie:{movie_id})", enriched_content)
+
+    return enriched_content
 
 
 def _check_movie_ids_integrity(sample_results: Sequence[Mapping[str, object]]) -> str:
@@ -131,6 +177,9 @@ async def synthesizer_node(state: AgentState, config: RunnableConfig | None = No
 
     response = await llm.ainvoke(llm_input)
     ai_content = response.content if isinstance(response.content, str) else str(response.content)
+
+    analytics_data = state.get("query_result") or state.get("semantic_results")
+    ai_content = _enrich_movie_annotations(ai_content, analytics_data)
 
     additional_kwargs = _build_additional_kwargs(state, configurable)
 

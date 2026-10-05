@@ -42,20 +42,34 @@ export function extractTableFromRows(rows: Record<string, unknown>[]): ParsedTab
 }
 
 /**
- * Extrai recursivamente o texto plano contido em nós JSX ou arrays de ReactNode.
+ * Extrai recursivamente o texto contido em nós JSX ou arrays de ReactNode,
+ * preservando a sintaxe de links Markdown [texto](href) quando presentes.
  *
  * @param node - Nó React a ser inspecionado.
- * @returns String consolidada de texto.
+ * @returns String consolidada com links markdown preservados.
  */
 function extractText(node: ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') {
-    return String(node).trim()
+    return String(node)
   }
   if (Array.isArray(node)) {
     return node.map(extractText).join('')
   }
-  if (isValidElement(node) && node.props && 'children' in (node.props as Record<string, unknown>)) {
-    return extractText((node.props as { children?: ReactNode }).children)
+  if (isValidElement(node)) {
+    const props = node.props as Record<string, unknown>
+    const childrenText = props.children ? extractText(props.children as ReactNode) : ''
+
+    // Preserva links no formato Markdown [texto](href)
+    if (typeof props.href === 'string') {
+      return `[${childrenText}](${props.href})`
+    }
+
+    // Suporte caso seja um MovieTooltipCard já instanciado diretamente com prop movieId
+    if (typeof props.movieId === 'string') {
+      return `[${childrenText}](movie:${props.movieId})`
+    }
+
+    return childrenText
   }
   return ''
 }
@@ -81,7 +95,7 @@ export function extractTableFromChildren(children: ReactNode): ParsedTableData {
         const trProps = trNode.props as { children?: ReactNode }
         Children.forEach(trProps.children, (thNode) => {
           if (!isValidElement(thNode)) return
-          headers.push(extractText((thNode.props as { children?: ReactNode }).children))
+          headers.push(extractText((thNode.props as { children?: ReactNode }).children).trim())
         })
       })
     }
@@ -94,7 +108,7 @@ export function extractTableFromChildren(children: ReactNode): ParsedTableData {
         const cells: string[] = []
         Children.forEach(trProps.children, (tdNode) => {
           if (!isValidElement(tdNode)) return
-          cells.push(extractText((tdNode.props as { children?: ReactNode }).children))
+          cells.push(extractText((tdNode.props as { children?: ReactNode }).children).trim())
         })
         if (cells.length > 0) {
           tableData.push({ cells })

@@ -80,4 +80,24 @@ describe('MarkdownRenderer', () => {
     expect(screen.getByText('Avatar')).toBeInTheDocument()
     expect(screen.getByText('Titanic')).toBeInTheDocument()
   })
+
+  it('renders movie links with tooltip inside markdown tables with underline styling', () => {
+    const tableMarkdown = `
+| Rank | Título |
+| :--- | :----- |
+| 1 | [Avatar: The Way of Water](movie:sk-avatar-123) |
+| 2 | (Titanic)[sk-titanic-456] (Relançamento) |
+`
+    render(<MarkdownRenderer content={tableMarkdown} />)
+
+    const avatarElement = screen.getByText('Avatar: The Way of Water')
+    expect(avatarElement).toBeInTheDocument()
+    expect(avatarElement).toHaveClass('underline')
+
+    const titanicElement = screen.getByText('Titanic')
+    expect(titanicElement).toBeInTheDocument()
+    expect(titanicElement).toHaveClass('underline')
+
+    expect(screen.getByText('(Relançamento)')).toBeInTheDocument()
+  })
 })

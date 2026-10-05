@@ -108,24 +108,34 @@ export function TableRenderer({
       return <span className="text-subtle-foreground">NULL</span>
     }
 
-    // Suporta [Título](movie:id) ou (Título)[id] dentro de células da tabela
-    const movieMarkdownMatch = cell.match(/\[([^\]]+)\]\(movie:([a-zA-Z0-9_-]+)\)/)
-    const movieAltMatch = cell.match(/\(([^)]+)\)\[([a-zA-Z0-9_-]+)\]/)
-    const match = movieMarkdownMatch || movieAltMatch
+    // Normaliza (Título)[id] para [Título](movie:id)
+    const normalizedCell = cell.replace(/\(([^)]+)\)\[([a-zA-Z0-9_-]+)\]/g, '[$1](movie:$2)')
 
-    if (match) {
-      const title = match[1]
-      const movieId = match[2]
-      return (
-        <MovieTooltipCard movieId={movieId}>
-          <span className="font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-4 cursor-pointer hover:text-foreground hover:decoration-foreground/50 transition-colors">
-            {title}
-          </span>
-        </MovieTooltipCard>
-      )
+    if (!normalizedCell.includes('(movie:')) {
+      return normalizedCell
     }
 
-    return cell
+    // Divide a célula preservando delimitadores de links [Título](movie:id)
+    const parts = normalizedCell.split(/(\[[^\]]+\]\(movie:[a-zA-Z0-9_-]+\))/g)
+
+    return (
+      <>
+        {parts.map((part, index) => {
+          const match = part.match(/^\[([^\]]+)\]\(movie:([a-zA-Z0-9_-]+)\)$/)
+          if (match) {
+            const [, title, movieId] = match
+            return (
+              <MovieTooltipCard key={`${movieId}-${index}`} movieId={movieId}>
+                <span className="font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-4 cursor-pointer hover:text-foreground hover:decoration-foreground/50 transition-colors">
+                  {title}
+                </span>
+              </MovieTooltipCard>
+            )
+          }
+          return part
+        })}
+      </>
+    )
   }
 
   return (

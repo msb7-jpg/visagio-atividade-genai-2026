@@ -13,34 +13,34 @@
 
 ## 📑 Tabela de Conteúdos (Table of Contents)
 
-- [Demonstração da Interface (Showcase)](#-demonstração-da-interface-showcase)
-- [Configuração da Inferência do Modelo (LLM Setup)](#-configuração-da-inferência-do-modelo-llm-setup)
-  - [Opção 1: Execução Local com Qwen3-4B Llamafile (Recomendado Offline)](#-opção-1-execução-local-com-qwen3-4b-llamafile-recomendado-offline)
-  - [Opção 2: Execução Local com Ollama via Docker](#-opção-2-execução-local-com-ollama-via-docker)
-  - [Opção 3: Provedores em Nuvem (Groq, Google Gemini, OpenRouter)](#-opção-3-provedores-em-nuvem-groq-google-gemini-openrouter)
-- [Visão Geral & Arquitetura](#-visão-geral--arquitetura)
-- [Máquina de Estados Finita (LangGraph FSM)](#-máquina-de-estados-finita-langgraph-fsm)
-- [Perguntas que o Sistema é Capaz de Responder](#-perguntas-que-o-sistema-é-capaz-de-responder)
-  - [1. Análises Relacionais (Text-to-SQL)](#1-análises-relacionais-text-to-sql)
-  - [2. Visualizações & Gráficos Declarativos](#2-visualizações--gráficos-declarativos)
-  - [3. Busca Semântica Direta (RAG Qualitativo)](#3-busca-semântica-direta-rag-qualitativo)
-  - [4. Busca Semântica Híbrida (Vetor + SQL Relacional)](#4-busca-semântica-híbrida-vetor--sql-relacional)
-- [Capabilities do Sistema & Diferenciais](#-capabilities-do-sistema--diferenciais)
-- [Como o Sistema Reage a Diferentes Tipos de Entrada](#-como-o-sistema-reage-a-diferentes-tipos-de-entrada)
-- [Estrutura do Data Lakehouse (Camada Gold)](#-estrutura-do-data-lakehouse-camada-gold)
-- [Guia de Execução & Setup Rápido](#-guia-de-execução--setup-rápido)
-  - [1. Configurar Variáveis de Ambiente](#1-configurar-variáveis-de-ambiente)
-  - [2. Setup Automático em Um Comando](#2-setup-automático-em-um-comando)
-    - [Linux / macOS / WSL](#21-linux--macos--wsl)
-    - [Windows (PowerShell)](#22-windows-powershell)
+- [📸 Demonstração da Interface (Showcase)](#demonstracao-da-interface-showcase)
+- [🤖 Configuração da Inferência do Modelo (LLM Setup)](#configuracao-da-inferencia-do-modelo-llm-setup)
+  - [Opção 1: Execução Local com Qwen3-4B Llamafile (Recomendado Offline)](#opcao-1-execucao-local-com-qwen3-4b-llamafile-recomendado-offline)
+  - [Opção 2: Execução Local com Ollama via Docker](#opcao-2-execucao-local-com-ollama-via-docker)
+  - [Opção 3: Provedores em Nuvem (Groq, Google Gemini, OpenRouter)](#opcao-3-provedores-em-nuvem-groq-google-gemini-openrouter)
+- [🏛️ Visão Geral & Arquitetura](#visao-geral-arquitetura)
+- [🔄 Máquina de Estados Finita (LangGraph FSM)](#maquina-de-estados-finita-langgraph-fsm)
+- [🎯 Perguntas que o Sistema é Capaz de Responder](#perguntas-que-o-sistema-e-capaz-de-responder)
+  - [1. Análises Relacionais (Text-to-SQL)](#1-analises-relacionais-text-to-sql)
+  - [2. Visualizações & Gráficos Declarativos](#2-visualizacoes-graficos-declarativos)
+  - [3. Busca Semântica Direta (RAG Qualitativo)](#3-busca-semantica-direta-rag-qualitativo)
+  - [4. Busca Semântica Híbrida (Vetor + SQL Relacional)](#4-busca-semantica-hibrida-vetor-sql-relacional)
+- [🚀 Capabilities do Sistema & Diferenciais](#capabilities-do-sistema-diferenciais)
+- [🗄️ Estrutura do Data Lakehouse (Camada Gold)](#estrutura-do-data-lakehouse-camada-gold)
+- [🛠️ Guia de Execução & Setup Rápido](#guia-de-execucao-setup-rapido)
+  - [1. Configurar Variáveis de Ambiente](#1-configurar-variaveis-de-ambiente)
+  - [2. Setup Automático em Um Comando](#2-setup-automatico-em-um-comando)
+    - [2.1 Linux / macOS / WSL](#21-linux-macos-wsl)
+    - [2.2 Windows (PowerShell)](#22-windows-powershell)
   - [3. Setup Manual Passo a Passo](#3-setup-manual-passo-a-passo)
-    - [Etapa A: Descompactação do Banco SQLite (Dump .sql / .xz)](#etapa-a-descompactação-do-banco-sqlite-dump-sql--xz)
-    - [Etapa B: Geração do Contexto GenAI e Vetorização](#etapa-b-geração-do-contexto-genai-e-vetorização)
-    - [Etapa C: Execução Manual no Linux / WSL](#etapa-c-execução-manual-no-linux--wsl)
-    - [Etapa D: Execução Manual no Windows](#etapa-d-execução-manual-no-windows)
+    - [Etapa A: Descompactação do Banco SQLite (Dump .sql / .xz)](#etapa-a-descompactacao-do-banco-sqlite-dump-sql-xz)
+    - [Etapa B: Geração do Contexto GenAI e Vetorização](#etapa-b-geracao-do-contexto-genai-e-vetorizacao)
+    - [Etapa C: Execução Manual no Linux / WSL](#etapa-c-execucao-manual-no-linux-wsl)
+    - [Etapa D: Execução Manual no Windows](#etapa-d-execucao-manual-no-windows)
 
 ---
 
+<a id="demonstracao-da-interface-showcase"></a>
 ## 📸 Demonstração da Interface (Showcase)
 
 ### Visão Geral do Sistema & Chat
@@ -97,7 +97,13 @@
 
 ---
 
+### Resiliência & Fallback de Provedor sob Falhas
+![Fallback e Troca de Modelo](midia/agent-model-fallback-when-error-in-conversation.png)
+<sub>*Tolerância a falhas na conversa: detecção graciosa de timeouts ou sobrecarga do modelo com diagnóstico imediato, atalho para reconfigurar/trocar de provedor e prosseguimento transparente do chat sem perda de histórico*</sub>
 
+---
+
+<a id="configuracao-da-inferencia-do-modelo-llm-setup"></a>
 ## 🤖 Configuração da Inferência do Modelo (LLM Setup)
 
 O **CineData Analytics** é 100% agnóstico a provedores de LLM. Você pode rodar a inferência localmente na sua máquina (sem custos de cota e com privacidade total) ou utilizar provedores em nuvem via API.
@@ -121,6 +127,7 @@ O **CineData Analytics** é 100% agnóstico a provedores de LLM. Você pode roda
 
 ### Detalhes de Cada Alternativa de Inferência
 
+<a id="opcao-1-execucao-local-com-qwen3-4b-llamafile-recomendado-offline"></a>
 <details>
 <summary><b>Opção 1: Execução Local com Qwen3-4B Llamafile (Recomendado Offline)</b></summary>
 
@@ -154,6 +161,7 @@ O [Mozilla AI Qwen3-4B-llamafile](https://huggingface.co/mozilla-ai/Qwen3-4B-lla
 
 </details>
 
+<a id="opcao-2-execucao-local-com-ollama-via-docker"></a>
 <details>
 <summary><b>Opção 2: Execução Local com Ollama via Docker</b></summary>
 
@@ -180,6 +188,7 @@ Se você utiliza Docker, o Ollama fornece uma maneira isolada e pronta para uso:
 
 </details>
 
+<a id="opcao-3-provedores-em-nuvem-groq-google-gemini-openrouter"></a>
 <details>
 <summary><b>Opção 3: Provedores em Nuvem (Groq, Google Gemini, OpenRouter)</b></summary>
 
@@ -198,6 +207,7 @@ Caso não deseje alocar memória local, você pode obter uma chave de API gratui
 
 ---
 
+<a id="visao-geral-arquitetura"></a>
 ## 🏛️ Visão Geral & Arquitetura
 
 O sistema atua como uma ponte analítica entre tomadores de decisão de negócio e a camada Gold do Lakehouse dimensional (`cinerocket.db`). 
@@ -211,6 +221,7 @@ Em vez de depender de tool-calling repetitivo e cego para inspeção de tabelas 
 
 ---
 
+<a id="maquina-de-estados-finita-langgraph-fsm"></a>
 ## 🔄 Máquina de Estados Finita (LangGraph FSM)
 
 O fluxo do agente é modelado como um grafo de estados determinístico:
@@ -292,10 +303,12 @@ stateDiagram-v2
 
 ---
 
+<a id="perguntas-que-o-sistema-e-capaz-de-responder"></a>
 ## 🎯 Perguntas que o Sistema é Capaz de Responder
 
 O agente foi projetado para cobrir todas as demandas da atividade oficial CineData Analytics e expandido com busca semântica avançada:
 
+<a id="1-analises-relacionais-text-to-sql"></a>
 ### 1. Análises Relacionais (Text-to-SQL)
 * **Top 10 Bilheteria:** *"Quais são os 10 filmes com maior receita em R$?"*  
   *(Consulta `fact_movies_performance` ordenada por `receita_brl DESC` com junção em `dim_movies`).*
@@ -316,6 +329,7 @@ O agente foi projetado para cobrir todas as demandas da atividade oficial CineDa
 * **Rentabilidade por Estúdio:** *"Qual produtora obteve o maior lucro total acumulado?"*  
   *(Agregação sobre `bridge_movie_company` e `dim_companies`).*
 
+<a id="2-visualizacoes-graficos-declarativos"></a>
 ### 2. Visualizações & Gráficos Declarativos
 * **Gráfico de Barras Financeiro:** *"Gere um gráfico de barras com as 5 produtoras mais lucrativas do catálogo."*
 * **Distribuição em Pizza/Rosca:** *"Exiba um gráfico de pizza com a distribuição percentual de filmes pelos 5 principais gêneros."*
@@ -324,6 +338,7 @@ O agente foi projetado para cobrir todas as demandas da atividade oficial CineDa
 * **Volume Histórico:** *"Exiba um gráfico de linha comparando a quantidade de lançamentos por ano entre 2016 e 2026."*
 * **Status do Pipeline:** *"Qual a proporção de filmes lançados vs em produção no catálogo?"*
 
+<a id="3-busca-semantica-direta-rag-qualitativo"></a>
 ### 3. Busca Semântica Direta (RAG Qualitativo)
 * **Conceitos de Ficção Científica:** *"Encontre filmes que falem sobre viagens no tempo ou realidades paralelas."*  
   *(Recuperação por proximidade de embeddings nas sinopses de `dim_movies` sem necessidade de SQL).*
@@ -332,6 +347,7 @@ O agente foi projetado para cobrir todas as demandas da atividade oficial CineDa
 * **Temas Contemporâneos:** *"Identifique filmes sobre inteligência artificial ou ciborgues."*
 * **Superação e Dramas:** *"Busque filmes com sinopses sobre superação de perdas familiares ou desafios esportivos."*
 
+<a id="4-busca-semantica-hibrida-vetor-sql-relacional"></a>
 ### 4. Busca Semântica Híbrida (Vetor + SQL Relacional)
 * **Sci-Fi com Finanças:** *"Encontre filmes que falem sobre viagens no tempo ou realidades paralelas e mostre o orçamento e a nota IMDb de cada um."*  
   *(A FSM localiza os IDs mais similares via vetor e injeta uma cláusula `WHERE sk_movie_id IN (...)` no gerador de SQL).*
@@ -340,11 +356,14 @@ O agente foi projetado para cobrir todas as demandas da atividade oficial CineDa
   *(Combina filtro vetorial temático com métrica `receita_brl > 100000000`).*
 * **Dramas de Alta Avaliação:** *"Busque filmes com sinopses sobre superação de perdas familiares com nota de usuário acima de 8.0."*
 
+---
 
+<a id="capabilities-do-sistema-diferenciais"></a>
 ## 🚀 Capabilities do Sistema & Diferenciais
 
 - 🛡️ **Zero Vulnerability & Read-Only Governance:** Validação de AST impede comandos `DROP`, `DELETE`, `UPDATE` ou acesso a tabelas de sistema do SQLite. Abertura do SQLite em modo estritamente `mode=ro`.
 - 🔁 **Self-Healing SQL Loop:** Capacidade de autocorreção automática com até 3 iterações perante eventuais erros de sintaxe ou funções inexistentes.
+- ⚡ **Resiliência & Troca de Modelo sob Falhas:** Tratamento amigável de timeouts ou indisponibilidades de modelos (ex.: LLM local sobrecarregado), com modal direto para alternar provedor/modelo sem perder o histórico do chat.
 - 🌐 **Agnóstico a Provedores de LLM:** Suporte plug-and-play para **OpenRouter** (`:free`), **Groq**, **Google Gemini**, **LM Studio**, **Ollama**, e executáveis locais **Llamafile**.
 - 📊 **Visualização Multimodal:** Renderização dinâmica de gráficos com **Chart.js** (barras, linha, rosca, pizza) e tabelas interativas com ordenação e exportação de dados.
 - 🔍 **RAG Multilíngue Híbrido:** Embeddings sobre português brasileiro cobrindo tanto tramas ficcionais quanto sentimentos de resenhas de usuários.
@@ -354,6 +373,7 @@ O agente foi projetado para cobrir todas as demandas da atividade oficial CineDa
 
 ---
 
+<a id="estrutura-do-data-lakehouse-camada-gold"></a>
 ## 🗄️ Estrutura do Data Lakehouse (Camada Gold)
 
 O agente interage com o banco dimensional SQLite (`cinerocket.db`), estruturado nas seguintes tabelas:
@@ -378,6 +398,7 @@ cinerocket.db (Star Schema)
 
 ---
 
+<a id="guia-de-execucao-setup-rapido"></a>
 ## 🛠️ Guia de Execução & Setup Rápido
 
 O projeto conta com um script orquestrador universal que configura ambientes, descompacta a base de dados SQLite se necessário e inicializa os serviços.
@@ -386,6 +407,7 @@ O projeto conta com um script orquestrador universal que configura ambientes, de
 * **Python 3.12+** gerenciado com **`uv`** (recomendado para alta performance) ou `python3-venv`.
 * **Node.js** com **`bun`** (recomendado) ou `npm`.
 
+<a id="1-configurar-variaveis-de-ambiente"></a>
 ### 1. Configurar Variáveis de Ambiente
 ```bash
 cp .env.example .env
@@ -394,10 +416,12 @@ cp .env.example .env
 
 ---
 
+<a id="2-setup-automatico-em-um-comando"></a>
 ### 2. Setup Automático em Um Comando
 
 O projeto possui orquestradores inteligentes que detectam os runtimes instalados (**`uv`** / **`pip`**, **`bun`** / **`npm`**), configuram o ambiente virtual, descompactam a base de dados se necessário, geram os vetores de busca e iniciam o backend e o frontend simultaneamente.
 
+<a id="21-linux-macos-wsl"></a>
 #### 2.1 Linux / macOS / WSL
 
 Abra o terminal na raiz do projeto e execute:
@@ -409,6 +433,7 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+<a id="22-windows-powershell"></a>
 #### 2.2 Windows (PowerShell)
 
 Abra o terminal do PowerShell na raiz do projeto e execute:
@@ -429,10 +454,12 @@ Abra o terminal do PowerShell na raiz do projeto e execute:
 
 ---
 
+<a id="3-setup-manual-passo-a-passo"></a>
 ### 3. Setup Manual Passo a Passo
 
 Caso prefira configurar e rodar cada camada manualmente, siga o fluxo detalhado abaixo:
 
+<a id="etapa-a-descompactacao-do-banco-sqlite-dump-sql-xz"></a>
 #### Etapa A: Descompactação do Banco SQLite (Dump `.sql` / `.xz`)
 
 O catálogo analítico depende da base `cinerocket.db` na raiz do projeto. Caso você tenha apenas o dump compactado (`database.sql.xz`) ou o arquivo `.sql` (`database_dump.sql`):
@@ -455,6 +482,7 @@ O catálogo analítico depende da base `cinerocket.db` na raiz do projeto. Caso 
   python3 -c "import sqlite3; conn = sqlite3.connect('cinerocket.db'); conn.executescript(open('database_dump.sql', 'r', encoding='utf-8').read()); conn.close()"
   ```
 
+<a id="etapa-b-geracao-do-contexto-genai-e-vetorizacao"></a>
 #### Etapa B: Geração do Contexto GenAI e Vetorização
 
 O agente utiliza uma coluna pré-agregada `genai_context` em `fact_movies_performance` e uma tabela virtual vetorial `vec_movies` (`sqlite-vec`). Para gerar ou atualizar essa estrutura com aceleração de hardware (GPU NVIDIA CUDA com FP16, Apple Silicon MPS ou CPU multi-thread):
@@ -471,6 +499,7 @@ O agente utiliza uma coluna pré-agregada `genai_context` em `fact_movies_perfor
   python scripts/generate_genai_context.py --batch-size 64
   ```
 
+<a id="etapa-c-execucao-manual-no-linux-wsl"></a>
 #### Etapa C: Execução Manual no Linux / WSL
 
 1. **Instalar dependências e iniciar o Backend:**
@@ -486,6 +515,7 @@ O agente utiliza uma coluna pré-agregada `genai_context` em `fact_movies_perfor
    bun run dev
    ```
 
+<a id="etapa-d-execucao-manual-no-windows"></a>
 #### Etapa D: Execução Manual no Windows
 
 1. **Instalar dependências e iniciar o Backend:**

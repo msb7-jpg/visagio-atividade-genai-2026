@@ -57,9 +57,18 @@ class EmbeddingModelManager:
             settings = get_settings()
             model_name = settings.embedding_model_name
             logger.info("Carregando modelo de embeddings local: %s...", model_name)
-            self._model = SentenceTransformer(model_name)
-            # Dry-run rápido para aquecer grafos de execução
-            self._model.encode(["CineData Analytics Warmup"], normalize_embeddings=True)
+            try:
+                self._model = SentenceTransformer(model_name)
+                # Dry-run rápido para aquecer grafos de execução
+                self._model.encode(["CineData Analytics Warmup"], normalize_embeddings=True)
+            except Exception as load_error:
+                logger.warning(
+                    "Não foi possível alocar embeddings na GPU (%s). Ativando fallback resiliente em CPU...",
+                    load_error,
+                )
+                self._model = SentenceTransformer(model_name, device="cpu")
+                self._model.encode(["CineData Analytics Warmup"], normalize_embeddings=True)
+
             logger.info("Modelo de embeddings carregado e aquecido com sucesso.")
 
     def encode(self, texts: list[str], batch_size: int = 64) -> np.ndarray:

@@ -32,13 +32,20 @@ export function useTableSort(tableData: ParsedRow[]): UseTableSortResult {
     if (sortColIndex === null) return tableData
 
     return [...tableData].sort((rowA, rowB) => {
-      const valA = rowA.cells[sortColIndex] || ''
-      const valB = rowB.cells[sortColIndex] || ''
+      const rawValA = rowA.cells[sortColIndex] || ''
+      const rawValB = rowB.cells[sortColIndex] || ''
+
+      const valA = rawValA
+        .replace(/\[([^\]]+)\]\(movie:[^)]+\)/g, '$1')
+        .replace(/\(([^)]+)\)\[[^\]]+\]/g, '$1')
+      const valB = rawValB
+        .replace(/\[([^\]]+)\]\(movie:[^)]+\)/g, '$1')
+        .replace(/\(([^)]+)\)\[[^\]]+\]/g, '$1')
 
       const numA = Number(valA.replace(/[^0-9.-]+/g, ''))
       const numB = Number(valB.replace(/[^0-9.-]+/g, ''))
 
-      if (!Number.isNaN(numA) && !Number.isNaN(numB) && valA !== '' && valB !== '') {
+      if (!Number.isNaN(numA) && !Number.isNaN(numB) && valA.trim() !== '' && valB.trim() !== '') {
         return sortDirection === 'asc' ? numA - numB : numB - numA
       }
 

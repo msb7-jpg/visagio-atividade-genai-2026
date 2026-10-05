@@ -47,10 +47,17 @@ export function useTableExport(headers: string[], sortedData: ParsedRow[]): UseT
     }
   }, [isMenuOpen])
 
+  const cleanCellForExport = (cell: string) =>
+    cell
+      .replace(/\[([^\]]+)\]\(movie:[^)]+\)/g, '$1')
+      .replace(/\(([^)]+)\)\[[^\]]+\]/g, '$1')
+
   const handleCopy = () => {
     if (headers.length === 0 && sortedData.length === 0) return
     const headerLine = headers.join('\t')
-    const bodyLines = sortedData.map((rowItem) => rowItem.cells.join('\t')).join('\n')
+    const bodyLines = sortedData
+      .map((rowItem) => rowItem.cells.map(cleanCellForExport).join('\t'))
+      .join('\n')
     const tsv = `${headerLine}\n${bodyLines}`
 
     copyToClipboard(tsv)
@@ -65,7 +72,9 @@ export function useTableExport(headers: string[], sortedData: ParsedRow[]): UseT
     if (headers.length === 0 && sortedData.length === 0) return
     const escapeCsv = (str: string) => `"${str.replace(/"/g, '""')}"`
     const headerLine = headers.map(escapeCsv).join(',')
-    const bodyLines = sortedData.map((rowItem) => rowItem.cells.map(escapeCsv).join(',')).join('\n')
+    const bodyLines = sortedData
+      .map((rowItem) => rowItem.cells.map((cell) => escapeCsv(cleanCellForExport(cell))).join(','))
+      .join('\n')
     const csvContent = `${headerLine}\n${bodyLines}`
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
