@@ -53,9 +53,12 @@ def _enrich_movie_annotations(
 
     for title in sorted_titles:
         movie_id = title_to_id[title]
-        # Padrão: Título citado com aspas duplas ("Título") que não esteja dentro de link Markdown
+        # Padrão 1: Título citado com aspas duplas ("Título") que não esteja dentro de link Markdown
         quoted_pattern = re.compile(rf'(?<!\[)"{re.escape(title)}"')
         enriched_content = quoted_pattern.sub(f"[{title}](movie:{movie_id})", enriched_content)
+        # Padrão 2: Título citado em negrito (**Título**) que não esteja dentro de link Markdown
+        bold_pattern = re.compile(rf'(?<!\[)\*\*{re.escape(title)}\*\*')
+        enriched_content = bold_pattern.sub(f"[{title}](movie:{movie_id})", enriched_content)
 
     return enriched_content
 

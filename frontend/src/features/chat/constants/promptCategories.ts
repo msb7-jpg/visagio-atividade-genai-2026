@@ -6,11 +6,13 @@ import {
   Film,
   Layers,
   LineChart,
+  MessageSquare,
   PieChart,
   Search,
   SlidersHorizontal,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  Users
 } from 'lucide-react'
 
 export interface PromptExample {
@@ -45,7 +47,10 @@ export const PROMPT_CATEGORIES: PromptCategory[] = [
       { title: 'Média IMDb por Ano', prompt: 'Qual a nota média IMDb dos filmes por ano de lançamento?', subCategory: 'Crítica', icon: LineChart },
       { title: 'Ator Mais Ativo', prompt: 'Qual ator possui mais participações em filmes nos últimos 5 anos?', subCategory: 'Elenco', icon: Search },
       { title: 'Diretores Prolíficos', prompt: 'Quais diretores têm a maior nota média com pelo menos 5 filmes dirigidos?', subCategory: 'Elenco', icon: Sparkles },
-      { title: 'Maior Lucro Produtora', prompt: 'Qual produtora obteve o maior lucro total acumulado?', subCategory: 'Produtoras', icon: Database }
+      { title: 'Dupla Ator-Diretor', prompt: 'Qual a dupla de ator e diretor que mais trabalhou junta?', subCategory: 'Elenco', icon: Users },
+      { title: 'Maior Lucro Produtora', prompt: 'Qual produtora obteve o maior lucro total acumulado?', subCategory: 'Produtoras', icon: Database },
+      { title: 'Mais Avaliados', prompt: 'Quais são os filmes mais avaliados pelos usuários no catálogo?', subCategory: 'Reviews', icon: MessageSquare },
+      { title: 'Divergência Usuários vs IMDb', prompt: 'Em quais filmes a nota média dos usuários mais diverge da nota IMDb?', subCategory: 'Reviews', icon: SlidersHorizontal }
     ]
   },
   {

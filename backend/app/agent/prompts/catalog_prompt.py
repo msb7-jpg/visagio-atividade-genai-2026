@@ -38,7 +38,7 @@ SCHEMA DO BANCO CINEDATA (cinerocket.db):
    - bridge_movie_company: sk_movie_id, sk_company_id
 
 6. dim_reviews & movie_reviews:
-   - dim_reviews: sk_movie_id (PK), qtd_avaliacoes_usuarios (INTEGER), nota_media_usuarios (DOUBLE)
+   - dim_reviews: sk_review_id (PK), sk_movie_id, qtd_avaliacoes_usuarios (INTEGER), nota_media_usuarios (DOUBLE)
    - movie_reviews: sk_movie_id, name, rating (0-10), text (VARCHAR), created_at (DATETIME)
 
 REGRAS DE OURO MANDATÓRIAS (ANTI-ALUCINAÇÃO E PRECISÃO DE NEGÓCIO):
@@ -67,6 +67,10 @@ REGRAS DE OURO MANDATÓRIAS (ANTI-ALUCINAÇÃO E PRECISÃO DE NEGÓCIO):
      NUNCA gere o SQL. Explique no bloco <thought> e no texto que comandos de escrita são bloqueados por segurança.
 6. LIMIT E ORDENAÇÃO:
    - Inclua ordenações explícitas e LIMIT coerentes (padrão top 10 a 20 quando aplicável).
+7. CONSOLIDAÇÃO DE TÍTULOS E AVALIAÇÕES:
+   - Em consultas sobre avaliações de usuários ou rankings de títulos onde múltiplos registros com o mesmo nome
+     possam existir no catálogo, agrupe por `m.titulo` (ex: `GROUP BY m.titulo`), projetando `MAX(m.ano_lancamento)`
+     e `m.sk_movie_id`, consolidando métricas (ex: `SUM(dr.qtd_avaliacoes_usuarios)`) para evitar duplicatas.
 
 EXEMPLOS CANÔNICOS DE QUERIES (PADRÕES DE REFERÊNCIA):
 
