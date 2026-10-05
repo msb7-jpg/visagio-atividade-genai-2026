@@ -119,6 +119,46 @@ export interface UseChatSyncResult {
   handleRetry: (assistantMsgId: string) => void
 }
 
+interface LockAndOwnershipState {
+  isThreadAborted: boolean
+  isLockedByOtherThread: boolean
+  streamOwnsView: boolean
+  isRunningRemotely: boolean
+  isModelLocked: boolean
+}
+
+function computeLockAndOwnership(
+  externalThreadId: string | null | undefined,
+  activeThreadId: string | null,
+  isStreaming: boolean,
+  isRunningDetail: boolean | undefined,
+  checkThreadAborted?: (id: string) => boolean
+): LockAndOwnershipState {
+  const isAborted = Boolean(
+    (externalThreadId && checkThreadAborted?.(externalThreadId)) ||
+    (activeThreadId && checkThreadAborted?.(activeThreadId))
+  )
+  const isManagedLocally = Boolean(
+    activeThreadId && (activeThreadId === externalThreadId || (!externalThreadId && activeThreadId))
+  )
+  const isViewingStreamThread = isStreaming && (externalThreadId ? activeThreadId === externalThreadId : true)
+  const isLockedByOtherThread = isStreaming && !isViewingStreamThread
+  const streamOwnsView = isViewingStreamThread || activeThreadId === (externalThreadId ?? null)
+  const isRunningRemotely =
+    Boolean(isRunningDetail) &&
+    !isViewingStreamThread &&
+    !isAborted &&
+    !isManagedLocally
+
+  return {
+    isThreadAborted: isAborted,
+    isLockedByOtherThread,
+    streamOwnsView,
+    isRunningRemotely,
+    isModelLocked: isStreaming || isRunningRemotely
+  }
+}
+
 /**
  * Hook de orquestração que sincroniza o stream ativo em memória com a thread persistida consultada via URL.
  *
@@ -148,26 +188,19 @@ export function useChatSync({
   const { data: threadDetail } = useThreadDetailQuery(externalThreadId)
   const currentDetail = threadDetail && threadDetail.thread_id === externalThreadId ? threadDetail : undefined
 
-  const isThreadAborted = Boolean(
-    (externalThreadId && stream.isThreadAborted?.(externalThreadId)) ||
-    (activeThreadId && stream.isThreadAborted?.(activeThreadId))
+  const {
+    isThreadAborted,
+    isLockedByOtherThread,
+    streamOwnsView,
+    isRunningRemotely,
+    isModelLocked
+  } = computeLockAndOwnership(
+    externalThreadId,
+    activeThreadId,
+    isStreaming,
+    currentDetail?.is_running,
+    stream.isThreadAborted
   )
-  const isManagedLocally = Boolean(
-    activeThreadId && (activeThreadId === externalThreadId || (!externalThreadId && activeThreadId))
-  )
-
-  const isViewingStreamThread = isStreaming && (externalThreadId ? activeThreadId === externalThreadId : true)
-  // Há geração em andamento em OUTRA thread: a tela atual fica somente-leitura
-  const isLockedByOtherThread = isStreaming && !isViewingStreamThread
-  // O estado do stream corresponde à thread exibida
-  const streamOwnsView = isViewingStreamThread || activeThreadId === (externalThreadId ?? null)
-  // Backend ainda processa esta thread sem stream local (ex.: após recarregar a página)
-  const isRunningRemotely =
-    Boolean(currentDetail?.is_running) &&
-    !isViewingStreamThread &&
-    !isThreadAborted &&
-    !isManagedLocally
-  const isModelLocked = isStreaming || isRunningRemotely
 
   const viewMessages = useMemo(
     () => (currentDetail ? rehydrateThreadMessages(currentDetail, isThreadAborted) : []),

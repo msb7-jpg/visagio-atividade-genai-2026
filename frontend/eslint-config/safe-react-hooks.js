@@ -8,7 +8,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
  *    para impedir que a IDE/VS Code injete funções instáveis às cegas no array de dependências.
  * 3. Enriquece a mensagem de aviso com alerta explícito sobre estabilização referencial via useCallback/useMemo.
  */
-export const safeExhaustiveDepsRule = {
+const safeExhaustiveDepsRule = {
   ...reactHooks.rules['exhaustive-deps'],
   meta: {
     ...reactHooks.rules['exhaustive-deps'].meta,
@@ -41,7 +41,7 @@ export const safeExhaustiveDepsRule = {
 /**
  * Plugin seguro de react-hooks com a regra de exhaustive-deps protegida.
  */
-export const safeReactHooksPlugin = {
+const safeReactHooksPlugin = {
   ...reactHooks,
   rules: {
     ...reactHooks.rules,

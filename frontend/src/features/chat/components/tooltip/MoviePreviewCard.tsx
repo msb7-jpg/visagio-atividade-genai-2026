@@ -19,53 +19,140 @@ function formatBRL(value?: number | null): string {
   }).format(value)
 }
 
+function MoviePreviewLoading({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        'w-80 rounded-xl border border-border/80 bg-card/95 p-4 shadow-2xl backdrop-blur-md animate-pulse space-y-3',
+        className
+      )}
+    >
+      <div className="flex gap-3">
+        <div className="h-28 w-20 shrink-0 rounded-lg bg-muted" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-3/4 rounded bg-muted" />
+          <div className="h-3 w-1/2 rounded bg-muted" />
+          <div className="h-3 w-2/3 rounded bg-muted" />
+        </div>
+      </div>
+      <div className="h-12 w-full rounded bg-muted" />
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="h-6 rounded bg-muted" />
+        <div className="h-6 rounded bg-muted" />
+      </div>
+    </div>
+  )
+}
+
+function MoviePreviewError({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        'w-72 rounded-xl border border-border/80 bg-card/95 p-4 shadow-xl backdrop-blur-md text-xs text-muted-foreground',
+        className
+      )}
+    >
+      <div className="flex items-center gap-2 text-destructive font-medium">
+        <Film className="size-4" />
+        <span>Informações indisponíveis</span>
+      </div>
+      <p className="mt-1 text-xs">
+        Não foi possível carregar os detalhes do filme no catálogo analítico.
+      </p>
+    </div>
+  )
+}
+
+interface MovieRatingsProps {
+  nota_imdb?: number | null
+  qtd_imdb?: number | null
+  nota_tmdb?: number | null
+  qtd_tmdb?: number | null
+}
+
+function MovieRatingsBadges({ nota_imdb, qtd_imdb, nota_tmdb, qtd_tmdb }: MovieRatingsProps) {
+  const hasImdb = nota_imdb !== null && nota_imdb !== undefined
+  const hasTmdb = nota_tmdb !== null && nota_tmdb !== undefined
+
+  if (!hasImdb && !hasTmdb) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+      {hasImdb ? (
+        <div className="flex items-center gap-1 rounded-md bg-accent-amber/15 px-1.5 py-0.5 text-xs font-semibold text-accent-amber border border-accent-amber/30">
+          <Star className="size-2.5 fill-accent-amber" />
+          <span>IMDb {nota_imdb.toFixed(1)}</span>
+          {qtd_imdb ? (
+            <span className="text-xs text-accent-amber/80 font-normal">
+              ({(qtd_imdb / 1000).toFixed(0)}k)
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {hasTmdb ? (
+        <div className="flex items-center gap-1 rounded-md bg-accent-cyan/15 px-1.5 py-0.5 text-xs font-semibold text-accent-cyan border border-accent-cyan/30">
+          <Star className="size-2.5 fill-accent-cyan" />
+          <span>TMDB {nota_tmdb.toFixed(1)}</span>
+          {qtd_tmdb ? (
+            <span className="text-xs text-accent-cyan/80 font-normal">
+              ({(qtd_tmdb / 1000).toFixed(0)}k)
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+interface MovieFinancialsProps {
+  receita_brl?: number | null
+  lucro_brl?: number | null
+}
+
+function MovieFinancials({ receita_brl, lucro_brl }: MovieFinancialsProps) {
+  if (!receita_brl && !lucro_brl) return null
+
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border/40 pt-2 text-xs">
+      <div>
+        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+          <DollarSign className="size-2.5" />
+          Receita
+        </span>
+        <span className="font-semibold text-foreground text-xs">
+          {formatBRL(receita_brl)}
+        </span>
+      </div>
+
+      <div>
+        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+          <DollarSign className="size-2.5" />
+          Lucro
+        </span>
+        <span
+          className={cn(
+            'font-semibold text-xs',
+            (lucro_brl ?? 0) >= 0 ? 'text-accent-emerald' : 'text-destructive'
+          )}
+        >
+          {formatBRL(lucro_brl)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 /**
  * Conteúdo visual puro do card de detalhes do filme (poster, sinopse, notas e dados financeiros).
  */
 export function MoviePreviewCard({ movie, isLoading, error, className }: MoviePreviewCardProps) {
   if (isLoading) {
-    return (
-      <div
-        className={cn(
-          'w-80 rounded-xl border border-border/80 bg-card/95 p-4 shadow-2xl backdrop-blur-md',
-          'animate-pulse space-y-3',
-          className
-        )}
-      >
-        <div className="flex gap-3">
-          <div className="h-28 w-20 shrink-0 rounded-lg bg-muted" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-3/4 rounded bg-muted" />
-            <div className="h-3 w-1/2 rounded bg-muted" />
-            <div className="h-3 w-2/3 rounded bg-muted" />
-          </div>
-        </div>
-        <div className="h-12 w-full rounded bg-muted" />
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <div className="h-6 rounded bg-muted" />
-          <div className="h-6 rounded bg-muted" />
-        </div>
-      </div>
-    )
+    return <MoviePreviewLoading className={className} />
   }
 
   if (error || !movie) {
-    return (
-      <div
-        className={cn(
-          'w-72 rounded-xl border border-border/80 bg-card/95 p-4 shadow-xl backdrop-blur-md text-xs text-muted-foreground',
-          className
-        )}
-      >
-        <div className="flex items-center gap-2 text-destructive font-medium">
-          <Film className="size-4" />
-          <span>Informações indisponíveis</span>
-        </div>
-        <p className="mt-1 text-xs">
-          Não foi possível carregar os detalhes do filme no catálogo analítico.
-        </p>
-      </div>
-    )
+    return <MoviePreviewError className={className} />
   }
 
   const {
@@ -92,7 +179,6 @@ export function MoviePreviewCard({ movie, isLoading, error, className }: MoviePr
         className
       )}
     >
-      {/* Top Header com Poster e Metadados Principais */}
       <div className="flex gap-3.5">
         {url_poster ? (
           <img
@@ -136,36 +222,15 @@ export function MoviePreviewCard({ movie, isLoading, error, className }: MoviePr
             ) : null}
           </div>
 
-          {/* Badges de Notas */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-            {nota_imdb !== null && nota_imdb !== undefined ? (
-              <div className="flex items-center gap-1 rounded-md bg-accent-amber/15 px-1.5 py-0.5 text-xs font-semibold text-accent-amber border border-accent-amber/30">
-                <Star className="size-2.5 fill-accent-amber" />
-                <span>IMDb {nota_imdb.toFixed(1)}</span>
-                {qtd_imdb ? (
-                  <span className="text-xs text-accent-amber/80 font-normal">
-                    ({(qtd_imdb / 1000).toFixed(0)}k)
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-
-            {nota_tmdb !== null && nota_tmdb !== undefined ? (
-              <div className="flex items-center gap-1 rounded-md bg-accent-cyan/15 px-1.5 py-0.5 text-xs font-semibold text-accent-cyan border border-accent-cyan/30">
-                <Star className="size-2.5 fill-accent-cyan" />
-                <span>TMDB {nota_tmdb.toFixed(1)}</span>
-                {qtd_tmdb ? (
-                  <span className="text-xs text-accent-cyan/80 font-normal">
-                    ({(qtd_tmdb / 1000).toFixed(0)}k)
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <MovieRatingsBadges
+            nota_imdb={nota_imdb}
+            qtd_imdb={qtd_imdb}
+            nota_tmdb={nota_tmdb}
+            qtd_tmdb={qtd_tmdb}
+          />
         </div>
       </div>
 
-      {/* Gêneros */}
       {generos.length > 0 ? (
         <div className="mt-2.5 flex flex-wrap gap-1">
           {generos.slice(0, 4).map((genero) => (
@@ -179,42 +244,13 @@ export function MoviePreviewCard({ movie, isLoading, error, className }: MoviePr
         </div>
       ) : null}
 
-      {/* Sinopse */}
       {sinopse ? (
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-3">
           {sinopse}
         </p>
       ) : null}
 
-      {/* Finanças (Receita e Lucro em BRL) */}
-      {receita_brl || lucro_brl ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border/40 pt-2 text-xs">
-          <div>
-            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-              <DollarSign className="size-2.5" />
-              Receita
-            </span>
-            <span className="font-semibold text-foreground text-xs">
-              {formatBRL(receita_brl)}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-              <DollarSign className="size-2.5" />
-              Lucro
-            </span>
-            <span
-              className={cn(
-                'font-semibold text-xs',
-                (lucro_brl ?? 0) >= 0 ? 'text-accent-emerald' : 'text-destructive'
-              )}
-            >
-              {formatBRL(lucro_brl)}
-            </span>
-          </div>
-        </div>
-      ) : null}
+      <MovieFinancials receita_brl={receita_brl} lucro_brl={lucro_brl} />
     </div>
   )
 }

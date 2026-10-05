@@ -10,7 +10,7 @@ export interface SlashCommandItem extends SlashCommandDefinition {
   icon: LucideIcon
 }
 
-export const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
+const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   {
     name: '/chart',
     label: '/chart',
@@ -77,6 +77,42 @@ export interface UseSlashCommandsControllerResult {
   handleSend: () => void
 }
 
+interface MenuNavContext {
+  onNavigateDown: () => void
+  onNavigateUp: () => void
+  onSelect: () => void
+  onDismiss: () => void
+}
+
+function handleMenuKeyNavigation(
+  key: string,
+  event: KeyboardEvent<HTMLInputElement>,
+  hasSpaceInText: boolean,
+  ctx: MenuNavContext
+): boolean {
+  if (key === 'ArrowDown') {
+    event.preventDefault()
+    ctx.onNavigateDown()
+    return true
+  }
+  if (key === 'ArrowUp') {
+    event.preventDefault()
+    ctx.onNavigateUp()
+    return true
+  }
+  if (key === 'Tab' || (key === 'Enter' && !hasSpaceInText)) {
+    event.preventDefault()
+    ctx.onSelect()
+    return true
+  }
+  if (key === 'Escape') {
+    event.preventDefault()
+    ctx.onDismiss()
+    return true
+  }
+  return false
+}
+
 /**
  * Hook headless especialista que gerencia o ciclo de vida, autocomplete e navegação
  * de comandos de barra (slash commands) no chat input.
@@ -95,7 +131,7 @@ export function useSlashCommandsController({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const itemsRef = useRef<(HTMLButtonElement | null)[]>([])
 
   // Fecha o menu de comandos ao clicar fora do container do input via @reactuses/core
   useClickOutside(containerRef, () => {
@@ -111,7 +147,7 @@ export function useSlashCommandsController({
 
   useEffect(() => {
     if (showCommandMenu) {
-      const targetElement = itemRefs.current[selectedIndex]
+      const targetElement = itemsRef.current[selectedIndex]
       if (targetElement && typeof targetElement.scrollIntoView === 'function') {
         targetElement.scrollIntoView({
           block: 'nearest',
@@ -133,7 +169,7 @@ export function useSlashCommandsController({
   }
 
   const registerItemRef = (index: number, element: HTMLButtonElement | null) => {
-    itemRefs.current[index] = element
+    itemsRef.current[index] = element
   }
 
   const toggleMenu = () => {
@@ -173,32 +209,28 @@ export function useSlashCommandsController({
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (showCommandMenu) {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault()
-        setSelectedIndex((prev) => (prev + 1) % filteredCommands.length)
-        return
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault()
-        setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length)
-        return
-      }
-      if (event.key === 'Tab' || (event.key === 'Enter' && !text.trim().includes(' '))) {
-        event.preventDefault()
-        const chosen = filteredCommands[selectedIndex] || filteredCommands[0]
-        if (chosen) {
-          selectCommand(chosen.name)
+      const handled = handleMenuKeyNavigation(
+        event.key,
+        event,
+        text.trim().includes(' '),
+        {
+          onNavigateDown: () => setSelectedIndex((prev) => (prev + 1) % filteredCommands.length),
+          onNavigateUp: () => setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length),
+          onSelect: () => {
+            const chosen = filteredCommands[selectedIndex] || filteredCommands[0]
+            if (chosen) {
+              selectCommand(chosen.name)
+            }
+          },
+          onDismiss: () => {
+            setIsMenuOpenExplicit(false)
+            if (isCommandTriggered) {
+              setText('')
+            }
+          }
         }
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setIsMenuOpenExplicit(false)
-        if (isCommandTriggered) {
-          setText('')
-        }
-        return
-      }
+      )
+      if (handled) return
     }
 
     if (event.key === 'Backspace' && !text && activeCommand) {
@@ -225,7 +257,7 @@ export function useSlashCommandsController({
     hasContentToSend,
     containerRef,
     inputRef,
-    itemRefs,
+    itemRefs: itemsRef,
     registerItemRef,
     toggleMenu,
     setSelectedIndex,

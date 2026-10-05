@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx'
+import type React from 'react'
 import { twMerge } from 'tailwind-merge'
 
 /**
@@ -12,37 +13,17 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Formata um valor numérico em moeda Real Brasileiro (BRL).
+ * Trata eventos de teclado para elementos interativos acessíveis (Enter ou Espaço).
  *
- * @param value - Valor numérico a ser formatado.
- * @returns String formatada no padrão R$ 1.234,56.
+ * @param event - Evento de teclado originado da interação.
+ * @param callback - Função disparada ao acionar a tecla de seleção.
  */
-export function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(value)
-}
-
-/**
- * Formata um valor numérico em Dólares Americanos (USD).
- *
- * @param value - Valor numérico a ser formatado.
- * @returns String formatada no padrão $1,234.56.
- */
-export function formatUSD(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(value)
-}
-
-/**
- * Formata um valor numérico decimal genérico no padrão pt-BR com separadores de milhar.
- *
- * @param value - Valor numérico a ser formatado.
- * @returns String formatada com pontos e vírgulas (ex: 1.234,5).
- */
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-BR').format(value)
+export function handleKeyboardClick(
+  event: React.KeyboardEvent,
+  callback: () => void
+): void {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    callback()
+  }
 }

@@ -72,6 +72,59 @@ function updateMessageById(
   return list.with(index, updater(list[index]))
 }
 
+function createOptimisticTurn(message: string, provider?: string, model?: string): {
+  userMsg: ChatMessageItem
+  assistantMsg: ChatMessageItem
+} {
+  const now = Date.now()
+  return {
+    userMsg: {
+      id: `user-${now}`,
+      role: 'user',
+      content: message,
+      blocks: [{ id: `block-${now}-1`, type: 'text', content: message }],
+      steps: [],
+      timestamp: now
+    },
+    assistantMsg: {
+      id: `agent-${now}`,
+      role: 'assistant',
+      content: '',
+      blocks: [],
+      steps: [],
+      timestamp: now,
+      isStreaming: true,
+      provider,
+      model
+    }
+  }
+}
+
+function resolveIsAbortError(err: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || (err instanceof Error && err.name === 'AbortError')
+}
+
+function finalizeStreamCache(
+  effectiveThreadId: string | undefined,
+  isAborted: boolean,
+  abortedThreadIds: Set<string>
+): void {
+  if (isAborted) {
+    if (effectiveThreadId) {
+      abortedThreadIds.add(effectiveThreadId)
+      void queryClient.cancelQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
+      queryClient.setQueryData<ThreadDetail | undefined>(
+        chatQueryKeys.threadDetail(effectiveThreadId),
+        (old) => (old ? { ...old, is_running: false } : old)
+      )
+    }
+  } else if (effectiveThreadId) {
+    void queryClient.invalidateQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
+  }
+
+  void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
+}
+
 /**
  * Hook central de streaming SSE que orquestra a comunicação bidirecional com o agente LangGraph.
  *
@@ -138,30 +191,9 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
       abortedThreadIdsRef.current.delete(effectiveThreadId)
     }
 
-    const assistantMessageId = `agent-${Date.now()}`
-    const userMessageId = `user-${Date.now()}`
+    const { userMsg, assistantMsg } = createOptimisticTurn(message, provider, model)
+    const assistantMessageId = assistantMsg.id
     activeAssistantMessageIdRef.current = assistantMessageId
-
-    const userMsg: ChatMessageItem = {
-      id: userMessageId,
-      role: 'user',
-      content: message,
-      blocks: [{ id: `block-${Date.now()}-1`, type: 'text', content: message }],
-      steps: [],
-      timestamp: Date.now()
-    }
-
-    const assistantMsg: ChatMessageItem = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      blocks: [],
-      steps: [],
-      timestamp: Date.now(),
-      isStreaming: true,
-      provider,
-      model
-    }
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
@@ -199,12 +231,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
         controller.signal
       )
     } catch (err: unknown) {
-      const isAbort =
-        controller.signal.aborted ||
-        (err instanceof DOMException && err.name === 'AbortError') ||
-        (err instanceof Error && err.name === 'AbortError')
-
-      if (isAbort) {
+      if (resolveIsAbortError(err, controller.signal)) {
         setMessages((prev) =>
           updateMessageById(prev, assistantMessageId, (msg) => ({
             ...applyAbortToMessage(msg),
@@ -232,20 +259,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
         }))
       )
 
-      if (controller.signal.aborted) {
-        if (effectiveThreadId) {
-          abortedThreadIdsRef.current.add(effectiveThreadId)
-          void queryClient.cancelQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
-          queryClient.setQueryData<ThreadDetail | undefined>(
-            chatQueryKeys.threadDetail(effectiveThreadId),
-            (old) => (old ? { ...old, is_running: false } : old)
-          )
-        }
-      } else if (effectiveThreadId) {
-        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
-      }
-
-      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
+      finalizeStreamCache(effectiveThreadId, controller.signal.aborted, abortedThreadIdsRef.current)
     }
   }
 

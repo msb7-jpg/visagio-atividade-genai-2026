@@ -15,6 +15,15 @@ export interface ChartRendererProps {
 }
 
 /**
+ * Componente estático de ícone correspondente ao tipo de gráfico configurado.
+ */
+function ChartHeaderIcon({ type, className }: { type: string; className?: string }): JSX.Element {
+  if (type === CHART_TYPE.LINE) return <LineChart className={className} />
+  if (type === CHART_TYPE.PIE || type === CHART_TYPE.DOUGHNUT) return <PieChart className={className} />
+  return <BarChart3 className={className} />
+}
+
+/**
  * Renderizador reativo de gráficos Chart.js com temas escuros e paleta cinematográfica.
  *
  * @param props - Propriedades contendo a especificação do gráfico.
@@ -92,12 +101,6 @@ export function ChartRenderer({ config }: ChartRendererProps): JSX.Element {
 
   const options = useMemo(() => getChartOptions(config.type), [config.type])
 
-  const ChartIcon = useMemo(() => {
-    if (config.type === CHART_TYPE.LINE) return LineChart
-    if (config.type === CHART_TYPE.PIE || config.type === CHART_TYPE.DOUGHNUT) return PieChart
-    return BarChart3
-  }, [config.type])
-
   const renderChartContent = () => {
     if (config.type === CHART_TYPE.BAR) {
       return <Bar data={chartData} options={options} />
@@ -121,7 +124,7 @@ export function ChartRenderer({ config }: ChartRendererProps): JSX.Element {
     >
       <div className="flex items-center justify-between border-b border-border bg-sidebar px-3 py-2">
         <div className="flex items-center gap-2">
-          <ChartIcon className="h-3.5 w-3.5 text-primary" />
+          <ChartHeaderIcon type={config.type} className="h-3.5 w-3.5 text-primary" />
           <h4 className="text-xs font-semibold text-foreground tracking-wide">
             {config.title}
           </h4>
@@ -165,5 +168,3 @@ export function ChartRenderer({ config }: ChartRendererProps): JSX.Element {
     </div>
   )
 }
-
-export default ChartRenderer

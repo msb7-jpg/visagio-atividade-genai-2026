@@ -1,7 +1,7 @@
 /**
  * Formato padrão esperado no corpo de respostas de erro da API FastAPI.
  */
-export interface ApiErrorResponse {
+interface ApiErrorResponse {
   /** Mensagem descritiva do erro. */
   message: string
   /** Código semântico padronizado do erro. */

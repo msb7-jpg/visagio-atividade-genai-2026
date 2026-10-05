@@ -1,8 +1,31 @@
 'use client'
 import { cn } from '@/lib/utils'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+function clampDimension(cursor: number, size: number, maxViewport: number, padding = 12): number {
+  let pos = cursor + padding
+  if (pos + size > maxViewport - padding) {
+    pos = cursor - size - padding
+  }
+  return Math.max(padding, pos)
+}
+
+function computeClampedTooltipPosition(
+  viewportX: number,
+  viewportY: number,
+  tooltipWidth: number,
+  tooltipHeight: number
+): { x: number; y: number } {
+  if (typeof window === 'undefined') {
+    return { x: viewportX + 12, y: viewportY + 12 }
+  }
+  return {
+    x: clampDimension(viewportX, tooltipWidth, window.innerWidth),
+    y: clampDimension(viewportY, tooltipHeight, window.innerHeight)
+  }
+}
 
 export const Tooltip = ({
   content,
@@ -32,41 +55,9 @@ export const Tooltip = ({
   }, [isVisible, content])
 
   const calculatePosition = React.useCallback((viewportX: number, viewportY: number) => {
-    if (typeof window === 'undefined') {
-      return { x: viewportX + 12, y: viewportY + 12 }
-    }
-
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    // Approximate width if not yet rendered or measured
     const tooltipWidth = contentRef.current?.offsetWidth || 340
     const tooltipHeight = contentRef.current?.offsetHeight || height || 60
-
-    let finalX = viewportX + 12
-    let finalY = viewportY + 12
-
-    // Check if tooltip goes beyond right edge of viewport
-    if (finalX + tooltipWidth > viewportWidth - 12) {
-      finalX = viewportX - tooltipWidth - 12
-    }
-
-    // Check if tooltip goes beyond left edge of viewport
-    if (finalX < 12) {
-      finalX = 12
-    }
-
-    // Check if tooltip goes beyond bottom edge of viewport
-    if (finalY + tooltipHeight > viewportHeight - 12) {
-      finalY = viewportY - tooltipHeight - 12
-    }
-
-    // Check if tooltip goes beyond top edge of viewport
-    if (finalY < 12) {
-      finalY = 12
-    }
-
-    return { x: finalX, y: finalY }
+    return computeClampedTooltipPosition(viewportX, viewportY, tooltipWidth, tooltipHeight)
   }, [height])
 
   const updateMousePosition = (clientX: number, clientY: number) => {

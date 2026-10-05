@@ -273,4 +273,80 @@ useEffect(() => {
 * **É possível customizar a mensagem de erro?**  
   Nativamente, o `eslint-plugin-react-hooks` não possui opção de mensagem customizada via schema de configuração. Porém, interceptando o método `context.report` através de um wrapper de regra no `eslint.config.js`, podemos enriquecer o texto do aviso adicionando um alerta explícito sobre a necessidade de `useCallback` e o risco de loops infinitos.
 
+---
+
+## 8. Regras Avançadas do `@eslint-react` (React 19, Compiler & Web APIs)
+
+1. **`@eslint-react/static-components` — Componentes Estáticos Fora do Render:**
+   * **A regra:** Nunca declare funções de componentes ou instâncias de componentes dinâmicos dentro do corpo de renderização de outro componente.
+   * **Por quê:** O React Compiler e o motor de reconciliação tratam funções recriadas a cada render como novos tipos de nós, destruindo o estado interno e desmontando a sub-árvore do DOM.
+   * **Como resolver:** Mova o subcomponente para o escopo de módulo (fora da função principal) e passe props normalmente:
+     ```tsx
+     // ❌ ERRADO: Criação dentro do render
+     export function Dashboard() {
+       const StatIcon = useMemo(() => isTrending ? ArrowUp : ArrowDown, [isTrending])
+       return <StatIcon />
+     }
+
+     // ✅ CORRETO: Componente estático no nível do arquivo
+     function StatIcon({ isTrending }: { isTrending: boolean }) {
+       return isTrending ? <ArrowUp /> : <ArrowDown />
+     }
+     export function Dashboard() {
+       return <StatIcon isTrending={isTrending} />
+     }
+     ```
+
+2. **`@eslint-react/jsx-no-key-after-spread` — Chave Não Sobrescrita:**
+   * **A regra:** Sempre posicione o atributo `key` **após** o spread `{...props}`:
+     ```tsx
+     // ❌ ERRADO: Props pode sobrescrever key acidentalmente
+     <Card key={item.id} {...item} />
+
+     // ✅ CORRETO
+     <Card {...item} key={item.id} />
+     ```
+
+3. **`@eslint-react/web-api-no-leaked-*` — Limpeza de Recursos Web:**
+   * Listeners de eventos (`addEventListener`), temporizadores (`setTimeout`, `setInterval`) e observadores (`ResizeObserver`, `IntersectionObserver`) devem ter cleanup explícito no retorno de `useEffect`.
+
+---
+
+## 9. Regras do SonarJS (Complexidade, Clones e Segurança)
+
+1. **`sonarjs/cognitive-complexity` (Limiar: 20):**
+   * Impede a criação de God Components e God Hooks acumulando dezenas de `if`, ternários e mutações encadeadas.
+   * Se um componente estourar a complexidade, aplique Decomposição Headless ou divida o JSX em sub-renderizadores especializados.
+2. **`sonarjs/no-identical-functions` — Zero Clones:**
+   * Proíbe duplicações literais de handlers de clique, teclado ou formatação. Utilize helpers compartilhados como `handleKeyboardClick` em `@/lib/utils`.
+3. **`sonarjs/no-hardcoded-secrets`:**
+   * Bloqueia tokens, chaves de API ou segredos inseridos como literais no código-fonte.
+
+---
+
+## 10. Governança de Animações: `motion` vs `framer-motion`
+
+* **Contexto:** Em 2025, o criador da biblioteca tornou o projeto independente da Framer e renomeou oficialmente o pacote para **`motion`**.
+* **Padrão Obrigatório:**
+  ```tsx
+  // ❌ PROIBIDO (Bloqueado por no-restricted-imports):
+  import { motion, AnimatePresence } from 'framer-motion'
+
+  // ✅ CANÔNICO:
+  import { motion, AnimatePresence } from 'motion/react'
+  ```
+
+---
+
+## 11. Auditoria Estática de Código com o `fallow`
+
+O projeto conta com o `fallow` configurado para análise contínua de código morto, duplicação e saúde estrutural:
+
+```bash
+bun run fallow
+```
+
+* **Dead Code:** Detecta automaticamente arquivos órfãos, exports não consumidos e dependências sem importação.
+* **Duplicação:** Analisa clone groups em nível de AST, impedindo cópias de blocos de lógica.
+* **Configuração:** Gerenciado via `frontend/.fallowrc.json`, integrando as exceções de biblioteca de UI (`src/components/ui/**`).
 

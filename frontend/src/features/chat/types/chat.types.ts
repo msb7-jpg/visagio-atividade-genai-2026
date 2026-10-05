@@ -51,16 +51,6 @@ export const CHART_TYPE = {
 export type ChartType = (typeof CHART_TYPE)[keyof typeof CHART_TYPE]
 
 /**
- * Constantes para comandos de barra (slash commands) reconhecidos pelo sistema.
- */
-export const SLASH_COMMANDS = {
-  CHART: '/chart',
-  CLEAR: '/clear'
-} as const
-
-export type SlashCommand = (typeof SLASH_COMMANDS)[keyof typeof SLASH_COMMANDS]
-
-/**
  * Estrutura declarativa de um comando de barra para exibição no menu rápido.
  */
 export interface SlashCommandDefinition {
@@ -80,8 +70,6 @@ export const CHAT_BLOCK_TYPE = {
   CHART: 'chart',
   ERROR: 'error'
 } as const
-
-export type ChatBlockType = (typeof CHAT_BLOCK_TYPE)[keyof typeof CHAT_BLOCK_TYPE]
 
 /**
  * Informação detalhada de cada etapa executada pelo pipeline do agente.
@@ -305,20 +293,10 @@ export interface SseTokenPayload {
   token: string
 }
 
-export interface SseTitlePayload {
-  thread_id: string
-  title: string
-}
-
 export interface SseErrorPayload {
   error: string
   error_code?: string
   message: string
-}
-
-export interface SseDonePayload {
-  status: string
-  thread_id: string
 }
 
 export interface MovieDetailDTO {

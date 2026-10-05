@@ -120,3 +120,6 @@ return views[status] ?? <UnknownState />;
 ### 7.2 Zero Poluição Visual (Design & Motion)
 - **Code-Splitting (`React.lazy`):** Bibliotecas pesadas (destaque de código, visualizadores gráficos densos) devem ser sempre envelopadas em lazy loading para não degradarem a perfomance da primeira pintura da aplicação.
 - Animações complexas, físicas de mola (`spring`) ou orquestrações de `AnimatePresence` devem ser isoladas em primitivas declarativas (`<SlideTransition>`, `<FadeIn>`) que englobam o conteúdo limpo de negócio. A lógica de negócio jamais deve se misturar a constantes físicas de interface dentro do mesmo componente.
+- **Padrão Oficial de Animação: `motion` (`motion/react`):**
+  - O pacote oficial do ecossistema é `motion` (`npm: motion`), importado canonicamente via `import { motion, AnimatePresence } from 'motion/react'`.
+  - **Legado Descontinuado:** Não utilize nem importe o pacote `framer-motion`. Ele foi renomeado e tornado independente em 2025 pelo criador, mantendo exatamente o mesmo código sob a marca `motion`. Imports diretos de `framer-motion` violam as dependências declaradas e devem ser bloqueados por linting (`no-restricted-imports`).

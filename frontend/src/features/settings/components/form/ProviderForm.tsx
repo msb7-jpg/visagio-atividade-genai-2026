@@ -25,6 +25,24 @@ export interface ProviderFormProps {
   isStreaming?: boolean
 }
 
+interface ResolvedProviderDefaults {
+  model: string
+  apiKey: string
+  baseUrl: string
+}
+
+function resolveProviderDefaults(
+  prov: ProviderType,
+  saved?: { model?: string; api_key?: string | null; base_url?: string | null }
+): ResolvedProviderDefaults {
+  const defaultBaseUrl = prov === 'local' ? 'http://localhost:1234/v1' : ''
+  return {
+    model: saved?.model || DEFAULT_PROVIDER_MODELS[prov] || '',
+    apiKey: saved?.api_key || '',
+    baseUrl: saved?.base_url || defaultBaseUrl
+  }
+}
+
 /**
  * Conteúdo interno do formulário após o carregamento da configuração inicial.
  *
@@ -97,16 +115,11 @@ function ProviderFormContent({
 
     form.setFieldValue('provider', prov)
     const saved = savedConfigs[prov]
+    const defaults = resolveProviderDefaults(prov, saved)
 
-    if (saved) {
-      form.setFieldValue('model', saved.model || DEFAULT_PROVIDER_MODELS[prov])
-      form.setFieldValue('api_key', saved.api_key || '')
-      form.setFieldValue('base_url', saved.base_url || (prov === 'local' ? 'http://localhost:1234/v1' : ''))
-    } else {
-      form.setFieldValue('model', DEFAULT_PROVIDER_MODELS[prov] || '')
-      form.setFieldValue('api_key', '')
-      form.setFieldValue('base_url', prov === 'local' ? 'http://localhost:1234/v1' : '')
-    }
+    form.setFieldValue('model', defaults.model)
+    form.setFieldValue('api_key', defaults.apiKey)
+    form.setFieldValue('base_url', defaults.baseUrl)
 
     handleProviderChanged(prov, Boolean(saved))
     resetDiscovery()
@@ -215,4 +228,3 @@ export function ProviderForm({ onSuccess, isStreaming }: ProviderFormProps) {
     />
   )
 }
-export default ProviderForm

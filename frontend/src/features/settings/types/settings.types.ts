@@ -1,5 +1,4 @@
 export type {
-  ProviderType,
   ProviderConfig,
   TestProviderRequest
 } from '@/features/settings/schemas/settings.schema'

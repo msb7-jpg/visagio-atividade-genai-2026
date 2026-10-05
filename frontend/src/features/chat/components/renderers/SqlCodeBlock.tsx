@@ -1,6 +1,6 @@
 import { CollapsibleMotion } from '@/components/animations'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, handleKeyboardClick } from '@/lib/utils'
 import { useCopyToClipboard } from '@reactuses/core'
 import { Check, ChevronRight, Copy, Database } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -72,12 +72,7 @@ export function SqlCodeBlock({ query, className }: SqlCodeBlockProps) {
         aria-label="Alternar exibição da consulta SQL"
         aria-expanded={isExpanded}
         onClick={() => setIsExpanded((prev) => !prev)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            setIsExpanded((prev) => !prev)
-          }
-        }}
+        onKeyDown={(event) => handleKeyboardClick(event, () => setIsExpanded((prev) => !prev))}
         className="flex cursor-pointer select-none items-center justify-between border-b border-border bg-sidebar px-3 py-1 transition-colors hover:bg-card-hover"
       >
         <div className="flex items-center gap-2">

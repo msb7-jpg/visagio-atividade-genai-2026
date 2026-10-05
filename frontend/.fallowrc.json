@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "index.html"
+  ],
+  "ignoreDependencies": [
+    "@fontsource-variable/jetbrains-mono",
+    "class-variance-authority",
+    "shadcn",
+    "tw-animate-css",
+    "@tailwindcss/vite"
+  ],
+  "overrides": [
+    {
+      "files": ["src/components/ui/**"],
+      "rules": {
+        "unused-exports": "off",
+        "unused-types": "off"
+      }
+    }
+  ],
+  "rules": {
+    "unused-exports": "error",
+    "unused-types": "error",
+    "complexity-cognitive": "error",
+    "complexity-cyclomatic": "error",
+    "complexity-crap": "error"
+  }
+}

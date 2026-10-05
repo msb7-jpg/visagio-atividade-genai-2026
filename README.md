@@ -91,6 +91,12 @@
 
 ---
 
+### Comandos Rápidos (Slash Commands)
+![Comandos Rápidos](midia/agent-slash-commands.png)
+<sub>*Menu flutuante de atalhos de barra (`/chart`, `/clear`) com navegação rápida por teclado e acionamento inteligente*</sub>
+
+---
+
 ### Preview Contextual de Filmes (Tooltip no Hover)
 ![Preview de Filme no Hover](midia/agent-tooltip-preview-on-hoover.png)
 <sub>*Detecção inteligente de entidades: ao passar o mouse sobre o título de qualquer filme mencionado na resposta, um card interativo exibe poster, nota, sinopse e metadados contextuais*</sub>
@@ -368,6 +374,7 @@ O agente foi projetado para cobrir todas as demandas da atividade oficial CineDa
 - 📊 **Visualização Multimodal:** Renderização dinâmica de gráficos com **Chart.js** (barras, linha, rosca, pizza) e tabelas interativas com ordenação e exportação de dados.
 - 🔍 **RAG Multilíngue Híbrido:** Embeddings sobre português brasileiro cobrindo tanto tramas ficcionais quanto sentimentos de resenhas de usuários.
 - 🎬 **Preview Contextual no Hover:** Detecção em tempo real de entidades de filmes no texto das respostas; passar o cursor sobre o título aciona um tooltip/popover flutuante com dados essenciais, pôster, nota e sinopse sem tirar o usuário do fluxo.
+- ⌨️ **Comandos Rápidos (Slash Commands):** Menu popover com suporte a navegação por teclado acionado ao digitar `/` (ex.: `/chart` para forçar visualizações gráficas e `/clear` para reset rápido de contexto).
 - 🏷️ **Geração Concorrente de Títulos:** Sub-rotina desacoplada assíncrona que sintetiza o título da conversa em ~200ms sem bloquear o streaming principal.
 - 🌊 **Streaming SSE com Indicador de Raciocínio:** Feedback em tempo real com exibição dos passos de pensamento, nós visitados e query SQL executada.
 

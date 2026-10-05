@@ -36,6 +36,181 @@ export interface AppLayoutProps {
   onOpenSettings?: () => void
 }
 
+interface SidebarBrandProps {
+  sidebarOpen: boolean
+  onToggle: () => void
+}
+
+function SidebarBrand({ sidebarOpen, onToggle }: SidebarBrandProps) {
+  return (
+    <div
+      className={cn(
+        'flex items-center px-4 h-14 border-b border-border w-full shrink-0',
+        sidebarOpen ? 'justify-between' : 'justify-center'
+      )}
+    >
+      <div className="flex items-center gap-2.5 overflow-hidden">
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={onToggle}
+          aria-label={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+          title={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+        >
+          {sidebarOpen ? (
+            <PanelLeftClose className="h-4 w-4 text-primary" />
+          ) : (
+            <Clapperboard className="h-4 w-4 text-primary" />
+          )}
+        </Button>
+        {sidebarOpen ? (
+          <div
+            onClick={onToggle}
+            className="cursor-pointer select-none truncate"
+            title="Recolher menu lateral"
+          >
+            <h1 className="text-sm font-semibold tracking-tight text-foreground">
+              CineData
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Analytics Agent
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+interface SidebarNewChatButtonProps {
+  sidebarOpen: boolean
+  isStreaming: boolean
+  onNewChat?: () => void
+}
+
+function SidebarNewChatButton({
+  sidebarOpen,
+  isStreaming,
+  onNewChat
+}: SidebarNewChatButtonProps) {
+  return (
+    <div className="p-3 w-full flex justify-center [&>button]:w-full">
+      {sidebarOpen ? (
+        <Button
+          variant="outline"
+          size="default"
+          onClick={onNewChat}
+          disabled={isStreaming}
+          aria-label="Novo Chat"
+          title={isStreaming ? 'Aguarde a resposta em andamento' : undefined}
+          className="justify-start"
+        >
+          <SquareArrowOutUpRight className="h-4 w-4 mr-2 text-primary" />
+          <span>Novo Chat</span>
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onNewChat}
+          disabled={isStreaming}
+          aria-label="Novo Chat"
+          title={isStreaming ? 'Aguarde a resposta em andamento' : 'Novo Chat'}
+        >
+          <Plus className="h-4 w-4 text-primary" />
+        </Button>
+      )}
+    </div>
+  )
+}
+
+interface SidebarSettingsButtonProps {
+  sidebarOpen: boolean
+  isStreaming: boolean
+  onOpenSettings?: () => void
+}
+
+function SidebarSettingsButton({
+  sidebarOpen,
+  isStreaming,
+  onOpenSettings
+}: SidebarSettingsButtonProps) {
+  const label = isStreaming ? 'Configurações (bloqueado durante análise)' : 'Configurações'
+  const title = isStreaming ? 'Uma análise analítica está em andamento...' : undefined
+
+  return (
+    <div className="p-3 border-t border-border space-y-2 w-full flex flex-col items-center">
+      {sidebarOpen ? (
+        <Button
+          variant="ghost"
+          onClick={onOpenSettings}
+          disabled={isStreaming}
+          aria-label={label}
+          title={title}
+        >
+          <span className="flex items-center gap-2">
+            <Settings className={cn('h-3.5 w-3.5', isStreaming && 'animate-spin text-primary')} />
+            <span>{isStreaming ? 'Analisando...' : 'Configurações'}</span>
+          </span>
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onOpenSettings}
+          disabled={isStreaming}
+          aria-label={label}
+          title={title}
+        >
+          <Settings className={cn('h-4 w-4', isStreaming && 'animate-spin text-primary')} />
+        </Button>
+      )}
+    </div>
+  )
+}
+
+function EmptyLayoutFallback() {
+  return (
+    <div className="text-center max-w-md space-y-3 m-auto">
+      <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-border text-primary mb-2">
+        <Film className="h-6 w-6" />
+      </div>
+      <h2 className="text-lg font-medium text-foreground">
+        O que você gostaria de analisar hoje?
+      </h2>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Explore faturamento, orçamentos, dados de elenco e sinopses do catálogo CineData com inteligência artificial analítica.
+      </p>
+    </div>
+  )
+}
+
+interface RightSidebarPanelProps {
+  content: ReactNode
+  isOpen: boolean
+  onClose: () => void
+}
+
+function RightSidebarPanel({ content, isOpen, onClose }: RightSidebarPanelProps) {
+  if (!content) return null
+
+  return (
+    <aside
+      data-testid="app-right-sidebar"
+      className={cn(
+        'flex flex-col border-l border-border bg-sidebar transition-all duration-300 ease-in-out shrink-0 z-20 overflow-hidden',
+        isOpen ? 'w-64 min-w-64' : 'w-0 min-w-0 border-l-0 p-0'
+      )}
+    >
+      {isValidElement(content)
+        ? cloneElement(content as React.ReactElement<{ onCollapse?: () => void }>, {
+          onCollapse: onClose
+        })
+        : content}
+    </aside>
+  )
+}
+
 /**
  * Layout principal em tela cheia com barra lateral retrátil e timeline lateral.
  *
@@ -55,118 +230,33 @@ export function AppLayout({
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Sidebar lateral Dark Glassmorphism com modo ícones quando colapsada */}
       <aside
         data-testid="app-sidebar"
-        className={`flex flex-col bg-sidebar transition-all duration-300 ease-in-out border-r border-border z-20 ${
+        className={cn(
+          'flex flex-col bg-sidebar transition-all duration-300 ease-in-out border-r border-border z-20',
           sidebarOpen ? 'w-64 min-w-64' : 'w-16 min-w-16 items-center'
-        }`}
+        )}
       >
-        {/* Logo & Marca com Alternância entre Clapperboard e Ícone de Sidebar */}
-        <div
-          className={`flex items-center px-4 h-14 border-b border-border w-full shrink-0 ${
-            sidebarOpen ? 'justify-between' : 'justify-center'
-          }`}
-        >
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => setSidebarOpen((prev) => !prev)}
-              aria-label={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
-              title={sidebarOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="h-4 w-4 text-primary" />
-              ) : (
-                <Clapperboard className="h-4 w-4 text-primary" />
-              )}
-            </Button>
-            {sidebarOpen ? (
-              <div
-                onClick={() => setSidebarOpen((prev) => !prev)}
-                className="cursor-pointer select-none truncate"
-                title="Recolher menu lateral"
-              >
-                <h1 className="text-sm font-semibold tracking-tight text-foreground">
-                  CineData
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  Analytics Agent
-                </p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Botão Novo Chat Único e Canônico */}
-        <div className="p-3 w-full flex justify-center [&>button]:w-full">
-          {sidebarOpen ? (
-            <Button
-              variant="outline"
-              size="default"
-              onClick={onNewChat}
-              disabled={isStreaming}
-              aria-label="Novo Chat"
-              title={isStreaming ? 'Aguarde a resposta em andamento' : undefined}
-              className="justify-start"
-            >
-              <SquareArrowOutUpRight className="h-4 w-4 mr-2 text-primary" />
-              <span>Novo Chat</span>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onNewChat}
-              disabled={isStreaming}
-              aria-label="Novo Chat"
-              title={isStreaming ? 'Aguarde a resposta em andamento' : 'Novo Chat'}
-            >
-              <Plus className="h-4 w-4 text-primary" />
-            </Button>
-          )}
-        </div>
-
-        {/* Lista de Conversas / Histórico */}
+        <SidebarBrand
+          sidebarOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((prev) => !prev)}
+        />
+        <SidebarNewChatButton
+          sidebarOpen={sidebarOpen}
+          isStreaming={isStreaming}
+          onNewChat={onNewChat}
+        />
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 w-full">
           {sidebarOpen ? sidebarContent : null}
         </div>
-
-        {/* Rodapé da Sidebar */}
-        <div className="p-3 border-t border-border space-y-2 w-full flex flex-col items-center">
-
-          {sidebarOpen ? (
-            <Button
-              variant="ghost"
-              onClick={onOpenSettings}
-              disabled={isStreaming}
-              aria-label={isStreaming ? 'Configurações (bloqueado durante análise)' : 'Configurações'}
-              title={isStreaming ? 'Uma análise analítica está em andamento...' : undefined}
-            >
-              <span className="flex items-center gap-2">
-                <Settings className={cn('h-3.5 w-3.5', isStreaming && 'animate-spin text-primary')} />
-                <span>{isStreaming ? 'Analisando...' : 'Configurações'}</span>
-              </span>
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onOpenSettings}
-              disabled={isStreaming}
-              aria-label={isStreaming ? 'Configurações (bloqueado durante análise)' : 'Configurações'}
-              title={isStreaming ? 'Uma análise analítica está em andamento...' : undefined}
-            >
-              <Settings className={cn('h-4 w-4', isStreaming && 'animate-spin text-primary')} />
-            </Button>
-          )}
-        </div>
+        <SidebarSettingsButton
+          sidebarOpen={sidebarOpen}
+          isStreaming={isStreaming}
+          onOpenSettings={onOpenSettings}
+        />
       </aside>
 
-      {/* Conteúdo Principal */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Botão flutuante para reabrir a Timeline quando colapsada */}
         {rightSidebarContent && !rightSidebarOpen ? (
           <div className="absolute top-3 right-3 z-30">
             <Button
@@ -185,40 +275,14 @@ export function AppLayout({
           data-testid="app-main"
           className="flex-1 overflow-hidden bg-background flex flex-col relative"
         >
-          {children || (
-            <div className="text-center max-w-md space-y-3 m-auto">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-card border border-border text-primary mb-2">
-                <Film className="h-6 w-6" />
-              </div>
-              <h2 className="text-lg font-medium text-foreground">
-                O que você gostaria de analisar hoje?
-              </h2>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Explore faturamento, orçamentos, dados de elenco e sinopses do catálogo CineData com inteligência artificial analítica.
-              </p>
-            </div>
-          )}
+          {children || <EmptyLayoutFallback />}
         </main>
 
-        {/* Sidebar Direita Canônica: Turnos da Conversa / Mini-mapa */}
-        {rightSidebarContent ? (
-          <aside
-            data-testid="app-right-sidebar"
-            className={cn(
-              'flex flex-col border-l border-border bg-sidebar transition-all duration-300 ease-in-out shrink-0 z-20 overflow-hidden',
-              rightSidebarOpen ? 'w-64 min-w-64' : 'w-0 min-w-0 border-l-0 p-0'
-            )}
-          >
-            {isValidElement(rightSidebarContent)
-              ? cloneElement(
-                rightSidebarContent as React.ReactElement<{ onCollapse?: () => void }>,
-                {
-                  onCollapse: () => setRightSidebarOpen(false)
-                }
-              )
-              : rightSidebarContent}
-          </aside>
-        ) : null}
+        <RightSidebarPanel
+          content={rightSidebarContent}
+          isOpen={rightSidebarOpen}
+          onClose={() => setRightSidebarOpen(false)}
+        />
       </div>
     </div>
   )

@@ -17,8 +17,8 @@ import { useState } from 'react'
 /**
  * Propriedades para o seletor de sugestões de perguntas analíticas.
  */
-export interface SuggestionExplorerProps {
-  /** Callback disparado quando o usuário clica em um card de pergunta sugerida. */
+export interface SuggestionsExplorerProps {
+  /** Callback acionado ao selecionar uma das perguntas sugeridas. */
   onSelectPrompt: (prompt: string) => void
 }
 
@@ -28,7 +28,7 @@ export interface SuggestionExplorerProps {
  * @param props - Propriedades contendo o manipulador de seleção de prompt.
  * @returns Elemento JSX com abas de categorias e catálogo modal de perguntas.
  */
-export function SuggestionExplorer({ onSelectPrompt }: SuggestionExplorerProps) {
+export function SuggestionsExplorer({ onSelectPrompt }: SuggestionsExplorerProps) {
   const [activeTab, setActiveTab] = useState(PROMPT_CATEGORIES[0].id)
   const currentCategory = PROMPT_CATEGORIES.find((category) => category.id === activeTab) || PROMPT_CATEGORIES[0]
 

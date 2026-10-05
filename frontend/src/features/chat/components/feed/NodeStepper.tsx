@@ -1,6 +1,6 @@
 import { CollapsibleMotion, StaggerItem } from '@/components/animations'
 import type { AgentStepItem } from '@/features/chat/types/chat.types'
-import { cn } from '@/lib/utils'
+import { cn, handleKeyboardClick } from '@/lib/utils'
 import { ChevronRight, Workflow } from 'lucide-react'
 import { useState, type JSX } from 'react'
 import { StepItem } from './StepItem'
@@ -48,12 +48,7 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
         aria-label="Alternar exibição das etapas de processamento"
         aria-expanded={isExpanded}
         onClick={() => setIsExpanded((prev) => !prev)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            setIsExpanded((prev) => !prev)
-          }
-        }}
+        onKeyDown={(event) => handleKeyboardClick(event, () => setIsExpanded((prev) => !prev))}
         className="flex cursor-pointer select-none items-center justify-between border-b border-border bg-sidebar px-3 py-2 transition-colors hover:bg-card-hover"
       >
         <div className="flex min-w-0 items-center gap-2">

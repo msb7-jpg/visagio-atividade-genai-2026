@@ -11,6 +11,8 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import designSystemPolicy from './design-system.lint.json' with { type: 'json' }
 import jsdoc from 'eslint-plugin-jsdoc'
 import { safeReactHooksConfig } from './eslint-config/safe-react-hooks.js'
+import eslintReact from '@eslint-react/eslint-plugin'
+import sonarjs from 'eslint-plugin-sonarjs'
 
 export default defineConfig([
   globalIgnores(['dist', 'node_modules', '.tmp']),
@@ -21,6 +23,8 @@ export default defineConfig([
       tseslint.configs.recommended,
       safeReactHooksConfig,
       reactRefresh.configs.vite,
+      eslintReact.configs['recommended-typescript'],
+      sonarjs.configs.recommended,
     ],
     languageOptions: {
       ecmaVersion: 2023,
@@ -117,10 +121,17 @@ export default defineConfig([
       'react/no-string-refs': 'error',
       'react/no-find-dom-node': 'error',
 
-      // 4. Imports Absolutos com @/* (Evitar caminhos relativos profundos)
+      // 4. Imports Absolutos com @/* e Bloqueio de Legados
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: 'framer-motion',
+              message:
+                '❌ "framer-motion" é o nome legado (descontinuado em 2025). Importe primitivas de "motion/react" do pacote "motion".',
+            },
+          ],
           patterns: [
             {
               group: ['../*', '../../*'],
@@ -146,7 +157,7 @@ export default defineConfig([
       'no-unreachable-loop': 'error',
       'prefer-const': 'error',
 
-      // 7. Clean Code & Boolean Safety (plan/frontend-guidelines.md)
+      // 7. Clean Code, React 19 & Boolean Safety (@eslint-react)
       'no-nested-ternary': 'error',
       'react/jsx-no-leaked-render': [
         'error',
@@ -154,6 +165,49 @@ export default defineConfig([
       ],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      '@eslint-react/no-context-provider': 'error',
+      '@eslint-react/no-forward-ref': 'error',
+      '@eslint-react/dom-no-use-form-state': 'error',
+      '@eslint-react/no-nested-component-definitions': 'error',
+      '@eslint-react/purity': 'error',
+      '@eslint-react/refs': 'error',
+      '@eslint-react/no-leaked-conditional-rendering': 'error',
+      '@eslint-react/jsx-no-key-after-spread': 'error',
+      '@eslint-react/no-duplicate-key': 'error',
+      '@eslint-react/no-missing-key': 'error',
+      '@eslint-react/dom-no-missing-button-type': 'error',
+      '@eslint-react/dom-no-unsafe-target-blank': 'error',
+      '@eslint-react/web-api-no-leaked-event-listener': 'error',
+      '@eslint-react/web-api-no-leaked-timeout': 'error',
+      '@eslint-react/web-api-no-leaked-interval': 'error',
+      '@eslint-react/web-api-no-leaked-resize-observer': 'error',
+      '@eslint-react/no-array-index-key': 'warn',
+      '@eslint-react/no-clone-element': 'warn',
+      '@eslint-react/no-children-for-each': 'warn',
+      '@eslint-react/dom-no-dangerously-set-innerhtml': 'warn',
+      '@eslint-react/set-state-in-effect': 'warn',
+      '@eslint-react/no-use-context': 'off',
+
+      // 8. SonarJS — Prevenção de Code Smells, Bugs e Complexidade
+      'sonarjs/no-nested-functions': 'off',
+      'sonarjs/prefer-read-only-props': 'off',
+      'sonarjs/redundant-type-aliases': 'off',
+      'sonarjs/function-return-type': 'off',
+      'sonarjs/prefer-regexp-exec': 'off',
+      'sonarjs/super-linear-regex': 'warn',
+      'sonarjs/deprecation': 'warn',
+      'sonarjs/cognitive-complexity': ['warn', 20],
+      'sonarjs/no-identical-functions': 'error',
+      'sonarjs/no-all-duplicated-branches': 'error',
+      'sonarjs/no-element-overwrite': 'error',
+      'sonarjs/no-identical-conditions': 'error',
+      'sonarjs/no-redundant-jump': 'error',
+      'sonarjs/prefer-immediate-return': 'warn',
+      'sonarjs/prefer-single-boolean-return': 'warn',
+      'sonarjs/no-collapsible-if': 'warn',
+      'sonarjs/no-hardcoded-secrets': 'error',
+      'sonarjs/no-duplicate-string': ['warn', { threshold: 4 }],
+      'sonarjs/todo-tag': 'warn',
 
       // 8. Stylistic Geral & Formatação de Código
       quotes: ['error', 'single', { avoidEscape: true }],
@@ -285,6 +339,10 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
       'react-compiler/react-compiler': 'off',
       'react/jsx-no-leaked-render': 'off',
+      'sonarjs/no-duplicate-string': 'off',
+      'sonarjs/cognitive-complexity': 'off',
+      '@eslint-react/dom-no-missing-button-type': 'off',
+      '@eslint-react/no-nested-component-definitions': 'off',
     },
   },
   {
@@ -301,6 +359,11 @@ export default defineConfig([
     ],
     rules: {
       'no-restricted-imports': 'off',
+      'sonarjs/no-duplicate-string': 'off',
+      'sonarjs/no-identical-functions': 'off',
+      'sonarjs/cognitive-complexity': 'off',
+      'sonarjs/no-undefined-argument': 'off',
+      '@eslint-react/no-nested-component-definitions': 'off',
     },
   },
 ])

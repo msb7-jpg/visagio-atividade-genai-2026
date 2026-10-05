@@ -38,13 +38,6 @@ export interface ChatMessageProps {
 
 /**
  * Renderiza a lista de blocos discriminados ou o fallback em Markdown.
- *
- * @param message - Mensagem de chat atual.
- * @param chartConfig - Configuração do gráfico se presente.
- * @param onOpenSettings - Callback para abrir configurações.
- * @param effectiveRetry - Callback para retentar resposta.
- * @param textualContent - Texto consolidado.
- * @returns Elementos JSX de conteúdo ou nulo.
  */
 function renderMessageBlocks(
   message: ChatMessageItem,
@@ -77,13 +70,96 @@ function renderMessageBlocks(
   return null
 }
 
-/**
- * Componente que renderiza um balão de conversa do usuário ou a resposta composta do assistente analítico.
- *
- * @param props - Propriedades de configuração da mensagem e callbacks de ação.
- * @returns Elemento JSX formatado para usuário ou assistente.
- */
-export function ChatMessage({
+interface UserChatMessageProps {
+  message: ChatMessageItem
+  className?: string
+}
+
+function UserChatMessage({ message, className }: UserChatMessageProps): JSX.Element {
+  const rawContent = message.content.trim()
+  const slashMatch = rawContent.match(/^(\/[a-zA-Z_-]+)(?:\s+(.*))?$/s)
+
+  return (
+    <div
+      id={`turn-${message.id}`}
+      data-timeline-turn={`turn-${message.id}`}
+      className={cn('flex flex-col items-end gap-1.5', className)}
+    >
+      <div className="flex justify-end gap-3 w-full">
+        <div className="max-w-xl sm:max-w-2xl rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-foreground shadow-sm">
+          {slashMatch ? (
+            <div className="flex flex-col gap-1.5 items-start">
+              <CommandBadge command={slashMatch[1]} />
+              {slashMatch[2] ? <span>{slashMatch[2]}</span> : null}
+            </div>
+          ) : (
+            message.content
+          )}
+        </div>
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground">
+          <User className="h-4 w-4" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface MessageMetadataFooterProps {
+  provider?: string
+  model?: string
+  showActions: boolean
+  turnId: string
+  content: string
+  effectiveRetry?: () => void
+  onOpenSettings?: () => void
+  onGenerateChart?: () => void
+  hasChart: boolean
+  isStreaming: boolean
+}
+
+function MessageMetadataFooter({
+  provider,
+  model,
+  showActions,
+  turnId,
+  content,
+  effectiveRetry,
+  onOpenSettings,
+  onGenerateChart,
+  hasChart,
+  isStreaming
+}: MessageMetadataFooterProps): JSX.Element | null {
+  if (!showActions && !provider && !model) return null
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+      {showActions ? (
+        <ChatMessageActions
+          turnId={turnId}
+          content={content}
+          onRetry={effectiveRetry}
+          onOpenSettings={onOpenSettings}
+          onGenerateChart={onGenerateChart}
+          hasChart={hasChart}
+          isStreaming={isStreaming}
+        />
+      ) : (
+        <div />
+      )}
+
+      {provider || model ? (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+          <span className="font-semibold uppercase tracking-wider">
+            {provider || 'AI'}
+          </span>
+          {model ? <span>• {model}</span> : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AssistantChatMessage({
   message,
   onOpenSettings,
   onRetry,
@@ -91,42 +167,12 @@ export function ChatMessage({
   actionsDisabled = false,
   className
 }: ChatMessageProps): JSX.Element {
-  const isUser = message.role === MESSAGE_ROLE.USER
   const effectiveRetry = actionsDisabled ? undefined : onRetry
 
   const chartBlock = message.blocks.find(
     (block): block is ChatBlockChart => block.type === CHAT_BLOCK_TYPE.CHART
   )
   const chartConfig = chartBlock?.config
-
-  if (isUser) {
-    const rawContent = message.content.trim()
-    const slashMatch = rawContent.match(/^(\/[a-zA-Z_-]+)(?:\s+(.*))?$/s)
-
-    return (
-      <div
-        id={`turn-${message.id}`}
-        data-timeline-turn={`turn-${message.id}`}
-        className={cn('flex flex-col items-end gap-1.5', className)}
-      >
-        <div className="flex justify-end gap-3 w-full">
-          <div className="max-w-xl sm:max-w-2xl rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-foreground shadow-sm">
-            {slashMatch ? (
-              <div className="flex flex-col gap-1.5 items-start">
-                <CommandBadge command={slashMatch[1]} />
-                {slashMatch[2] ? <span>{slashMatch[2]}</span> : null}
-              </div>
-            ) : (
-              message.content
-            )}
-          </div>
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground">
-            <User className="h-4 w-4" />
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   const textBlock = message.blocks.find((block) => block.type === CHAT_BLOCK_TYPE.TEXT)
   const textualContent = textBlock?.content || message.content || ''
@@ -141,7 +187,6 @@ export function ChatMessage({
       <AgentAvatar isStreaming={message.isStreaming} />
 
       <div className="flex flex-1 flex-col gap-3 min-w-0">
-        {/* Linha do tempo das etapas do agente */}
         {(message.steps && message.steps.length > 0) || message.isStreaming ? (
           <NodeStepper
             steps={message.steps || []}
@@ -149,37 +194,35 @@ export function ChatMessage({
           />
         ) : null}
 
-        {/* Blocos de conteúdo modulares ou Markdown fallback */}
         {renderMessageBlocks(message, chartConfig, onOpenSettings, effectiveRetry, textualContent)}
 
-        {/* Rodapé da mensagem: Ações e Metadados de Provedor e Modelo */}
-        {showActions || message.provider || message.model ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            {showActions ? (
-              <ChatMessageActions
-                turnId={`msg-${message.id}`}
-                content={textualContent}
-                onRetry={effectiveRetry}
-                onOpenSettings={onOpenSettings}
-                onGenerateChart={onGenerateChart}
-                hasChart={Boolean(chartConfig)}
-                isStreaming={actionsDisabled}
-              />
-            ) : (
-              <div />
-            )}
-
-            {message.provider || message.model ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-                <span className="font-semibold uppercase tracking-wider">
-                  {message.provider || 'AI'}
-                </span>
-                {message.model ? <span>• {message.model}</span> : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <MessageMetadataFooter
+          provider={message.provider}
+          model={message.model}
+          showActions={showActions}
+          turnId={`msg-${message.id}`}
+          content={textualContent}
+          effectiveRetry={effectiveRetry}
+          onOpenSettings={onOpenSettings}
+          onGenerateChart={onGenerateChart}
+          hasChart={Boolean(chartConfig)}
+          isStreaming={actionsDisabled}
+        />
       </div>
     </div>
   )
+}
+
+/**
+ * Componente que renderiza um balão de conversa do usuário ou a resposta composta do assistente analítico.
+ *
+ * @param props - Propriedades de configuração da mensagem e callbacks de ação.
+ * @returns Elemento JSX formatado para usuário ou assistente.
+ */
+export function ChatMessage(props: ChatMessageProps): JSX.Element {
+  if (props.message.role === MESSAGE_ROLE.USER) {
+    return <UserChatMessage message={props.message} className={props.className} />
+  }
+
+  return <AssistantChatMessage {...props} />
 }

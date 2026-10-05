@@ -37,11 +37,117 @@ export interface ApiKeyFieldProps {
   onBlur: () => void
 }
 
+interface ApiKeyEditActionProps {
+  isSaved: boolean
+  isEditing: boolean
+  savedKey?: string | null
+  onEditChange: (editing: boolean) => void
+  onChange: (value: string) => void
+}
+
+function ApiKeyEditAction({
+  isSaved,
+  isEditing,
+  savedKey,
+  onEditChange,
+  onChange
+}: ApiKeyEditActionProps): JSX.Element | null {
+  if (!isSaved) return null
+
+  if (!isEditing) {
+    return (
+      <Button
+        type="button"
+        variant="link"
+        size="link"
+        onClick={() => {
+          onEditChange(true)
+          onChange('')
+        }}
+      >
+        <span className="flex items-center gap-1">
+          <Edit2 className="h-3 w-3" />
+          <span>Alterar chave</span>
+        </span>
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="link"
+      onClick={() => {
+        onEditChange(false)
+        onChange(savedKey || '')
+      }}
+    >
+      Cancelar alteração
+    </Button>
+  )
+}
+
+interface LockedKeyProps {
+  savedKey: string
+  isConnected: boolean
+}
+
+function LockedKeyDisplay({ savedKey, isConnected }: LockedKeyProps) {
+  return (
+    <div
+      data-testid="locked-key-display"
+      className="flex h-9 w-full items-center justify-between rounded-lg border border-border bg-card/60 px-3 py-1 text-xs font-mono text-muted-foreground"
+    >
+      <span className="flex items-center gap-2">
+        <Lock className="h-3.5 w-3.5 text-accent-emerald" />
+        <span>Chave configurada ({savedKey})</span>
+      </span>
+      {isConnected ? <CheckCircle2 className="h-4 w-4 text-accent-emerald" /> : null}
+    </div>
+  )
+}
+
+interface ActiveKeyInputProps {
+  inputStatus: 'default' | 'success' | 'error'
+  value: string
+  onBlur: () => void
+  onChange: (value: string) => void
+  isConnected: boolean
+  isFailed: boolean
+}
+
+function ActiveKeyInput({
+  inputStatus,
+  value,
+  onBlur,
+  onChange,
+  isConnected,
+  isFailed
+}: ActiveKeyInputProps) {
+  return (
+    <div className="relative flex items-center">
+      <Input
+        id="api-key-input"
+        type="password"
+        status={inputStatus}
+        value={value}
+        onBlur={onBlur}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Cole sua chave de API..."
+      />
+      {isConnected ? (
+        <CheckCircle2 className="absolute right-2.5 h-4 w-4 text-accent-emerald pointer-events-none" />
+      ) : null}
+      {isFailed ? (
+        <AlertTriangle className="absolute right-2.5 h-4 w-4 text-primary pointer-events-none" />
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * Campo de formulário protegido para credenciais de API com suporte a máscara de asteriscos e health check inline.
- *
- * @param props - Propriedades de controle e estado do campo de chave.
- * @returns Elemento JSX do campo de credencial.
  */
 export function ApiKeyField({
   provider,
@@ -58,41 +164,7 @@ export function ApiKeyField({
   onChange,
   onBlur
 }: ApiKeyFieldProps): JSX.Element {
-  const hasSavedKey = Boolean(savedKey)
-
-  let editButton = null
-  if (isSaved && !isEditing) {
-    editButton = (
-      <Button
-        type="button"
-        variant="link"
-        size="link"
-        onClick={() => {
-          onEditChange(true)
-          onChange('')
-        }}
-      >
-        <span className="flex items-center gap-1">
-          <Edit2 className="h-3 w-3" />
-          <span>Alterar chave</span>
-        </span>
-      </Button>
-    )
-  } else if (isSaved && isEditing) {
-    editButton = (
-      <Button
-        type="button"
-        variant="link"
-        size="link"
-        onClick={() => {
-          onEditChange(false)
-          onChange(savedKey || '')
-        }}
-      >
-        Cancelar alteração
-      </Button>
-    )
-  }
+  const isLocked = isSaved && !isEditing && Boolean(savedKey)
 
   return (
     <div>
@@ -102,37 +174,35 @@ export function ApiKeyField({
         </label>
         <div className="flex items-center gap-2">
           {isConnected ? (
-            <span data-testid="inline-status-connected" className="flex items-center gap-1 text-xs font-mono text-accent-emerald">
+            <span
+              data-testid="inline-status-connected"
+              className="flex items-center gap-1 text-xs font-mono text-accent-emerald"
+            >
               <CheckCircle2 className="h-3 w-3" />
               <span>Conectado ({latencyMs} ms)</span>
             </span>
           ) : null}
-          {editButton}
+          <ApiKeyEditAction
+            isSaved={isSaved}
+            isEditing={isEditing}
+            savedKey={savedKey}
+            onEditChange={onEditChange}
+            onChange={onChange}
+          />
         </div>
       </div>
 
-      {isSaved && !isEditing && hasSavedKey ? (
-        <div data-testid="locked-key-display" className="flex h-9 w-full items-center justify-between rounded-lg border border-border bg-card/60 px-3 py-1 text-xs font-mono text-muted-foreground">
-          <span className="flex items-center gap-2">
-            <Lock className="h-3.5 w-3.5 text-accent-emerald" />
-            <span>Chave configurada ({savedKey})</span>
-          </span>
-          {isConnected ? <CheckCircle2 className="h-4 w-4 text-accent-emerald" /> : null}
-        </div>
+      {isLocked && savedKey ? (
+        <LockedKeyDisplay savedKey={savedKey} isConnected={isConnected} />
       ) : (
-        <div className="relative flex items-center">
-          <Input
-            id="api-key-input"
-            type="password"
-            status={inputStatus}
-            value={value}
-            onBlur={onBlur}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder="Cole sua chave de API..."
-          />
-          {isConnected ? <CheckCircle2 className="absolute right-2.5 h-4 w-4 text-accent-emerald pointer-events-none" /> : null}
-          {isFailed ? <AlertTriangle className="absolute right-2.5 h-4 w-4 text-primary pointer-events-none" /> : null}
-        </div>
+        <ActiveKeyInput
+          inputStatus={inputStatus}
+          value={value}
+          onBlur={onBlur}
+          onChange={onChange}
+          isConnected={isConnected}
+          isFailed={isFailed}
+        />
       )}
 
       {isFailed && probeErrorMessage ? (

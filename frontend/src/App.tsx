@@ -9,6 +9,7 @@ import { useScrollSpy } from '@/features/chat/hooks/useScrollSpy'
 import { useThreadDetailQuery } from '@/features/chat/hooks/useThreadDetailQuery'
 import { useThreadsQuery } from '@/features/chat/hooks/useThreadsQuery'
 import { useThreadUrlSync } from '@/features/chat/hooks/useThreadUrlSync'
+import type { ChatMessageItem } from '@/features/chat/types/chat.types'
 import { SettingsModal } from '@/features/settings/components/modal/SettingsModal'
 import { queryClient } from '@/lib/query-client'
 import { useEventListener } from '@reactuses/core'
@@ -16,20 +17,47 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 
 /**
- * Componente interno de conteúdo que consome o contexto de queries e orquestra o estado global do app.
- *
- * @returns Elemento JSX com a estrutura do layout, container de chat e modal de configurações.
+ * Resolve as mensagens ativas com base na posse do stream ou no histórico do servidor.
  */
-function AppContent() {
+function resolveActiveMessages(
+  streamMessages: ChatMessageItem[],
+  detailMessages: ChatMessageItem[] | undefined,
+  isStreaming: boolean,
+  activeThreadId: string | null,
+  streamingThreadId: string | null
+): ChatMessageItem[] {
+  const isViewingCurrentStream = isStreaming && (!activeThreadId || streamingThreadId === activeThreadId)
+  const isMatchingStreamThread = Boolean(streamingThreadId && streamingThreadId === activeThreadId)
+
+  if (isViewingCurrentStream || isMatchingStreamThread) {
+    return streamMessages
+  }
+  return detailMessages ?? []
+}
+
+/**
+ * Mapeia mensagens do usuário em itens da timeline para o scroll-spy.
+ */
+function resolveTimelineItems(messages: ChatMessageItem[]): { id: string; title: string }[] {
+  return messages
+    .filter((message) => message.role === 'user')
+    .map((message) => ({
+      id: `turn-${message.id}`,
+      title: message.content.slice(0, 35) + (message.content.length > 35 ? '...' : '')
+    }))
+}
+
+/**
+ * Hook headless especialista que gerencia o estado global e os manipuladores de evento da aplicação.
+ */
+function useAppShellState() {
   const { activeThreadId, setThreadId } = useThreadUrlSync()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  // Stream único em nível de aplicação: sobrevive à troca de thread na sidebar
   const stream = useAgentStream()
   const { isStreaming } = stream
   const streamingThreadId = isStreaming ? stream.activeThreadId : null
 
-  // Consultas e mutações estritas do TanStack Query
   const { data: threads = [] } = useThreadsQuery()
   const { mutate: deleteThread, isPending: isDeleting } = useDeleteThreadMutation()
   const { data: threadDetail } = useThreadDetailQuery(activeThreadId)
@@ -39,31 +67,24 @@ function AppContent() {
     [activeThreadId, threads]
   )
 
-  // Título derivado sincronicamente sem efeitos em cascata
   const currentTitle = stream.activeTitle || threadDetail?.title || activeThread?.title || null
 
-  // Mensagens ativas resolvidas para sincronização direta e síncrona da timeline
-  const timelineItems = useMemo(() => {
-    const isViewingStreamThread = isStreaming && (activeThreadId ? stream.activeThreadId === activeThreadId : true)
-    const streamOwnsView = isViewingStreamThread || stream.activeThreadId === (activeThreadId ?? null)
-    const activeMessages = streamOwnsView ? stream.messages : (threadDetail?.messages ?? [])
+  const activeMessages = useMemo(
+    () => resolveActiveMessages(stream.messages, threadDetail?.messages, isStreaming, activeThreadId, streamingThreadId),
+    [stream.messages, threadDetail?.messages, isStreaming, activeThreadId, streamingThreadId]
+  )
 
-    return activeMessages
-      .filter((message) => message.role === 'user')
-      .map((message) => ({
-        id: `turn-${message.id}`,
-        title: message.content.slice(0, 35) + (message.content.length > 35 ? '...' : '')
-      }))
-  }, [isStreaming, activeThreadId, stream.activeThreadId, stream.messages, threadDetail?.messages])
+  const timelineItems = useMemo(
+    () => resolveTimelineItems(activeMessages),
+    [activeMessages]
+  )
 
   const timelineIds = useMemo(() => timelineItems.map((item) => item.id), [timelineItems])
   const { activeId, scrollToItem } = useScrollSpy(timelineIds)
 
-  // Alerta de confirmação caso o usuário tente fechar ou recarregar a página durante uma resposta em andamento
   useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
     if (isStreaming) {
       event.preventDefault()
-      event.returnValue = ''
     }
   })
 
@@ -89,15 +110,61 @@ function AppContent() {
     }
   }
 
-  const handleOpenSettings = () => {
-    setIsSettingsOpen(true)
+  const handleDeleteThread = (threadIdToDelete: string) => {
+    if (threadIdToDelete === streamingThreadId) return
+    deleteThread(threadIdToDelete)
+    if (activeThreadId === threadIdToDelete) {
+      handleNewChat()
+    }
   }
 
-  const handleCloseSettings = () => {
-    setIsSettingsOpen(false)
+  return {
+    activeThreadId,
+    isSettingsOpen,
+    setIsSettingsOpen,
+    stream,
+    isStreaming,
+    streamingThreadId,
+    threads,
+    isDeleting,
+    currentTitle,
+    timelineItems,
+    activeId,
+    scrollToItem,
+    handleNewChat,
+    handleSelectThread,
+    handleActiveThreadChange,
+    handleGoToStreamingThread,
+    handleDeleteThread
   }
+}
 
-  // Apenas renderiza a timeline direita se houver uma thread ativa ou itens de turno
+/**
+ * Componente interno de conteúdo que consome o contexto de queries e orquestra o estado global do app.
+ *
+ * @returns Elemento JSX com a estrutura do layout, container de chat e modal de configurações.
+ */
+function AppContent() {
+  const {
+    activeThreadId,
+    isSettingsOpen,
+    setIsSettingsOpen,
+    stream,
+    isStreaming,
+    streamingThreadId,
+    threads,
+    isDeleting,
+    currentTitle,
+    timelineItems,
+    activeId,
+    scrollToItem,
+    handleNewChat,
+    handleSelectThread,
+    handleActiveThreadChange,
+    handleGoToStreamingThread,
+    handleDeleteThread
+  } = useAppShellState()
+
   const hasActiveChat = Boolean(activeThreadId || timelineItems.length > 0)
 
   return (
@@ -106,7 +173,7 @@ function AppContent() {
         activeThreadId={activeThreadId}
         isStreaming={isStreaming}
         onNewChat={handleNewChat}
-        onOpenSettings={handleOpenSettings}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         headerTitle={<AnimatedTitle title={currentTitle} />}
         sidebarContent={(
           <SidebarThreads
@@ -115,13 +182,7 @@ function AppContent() {
             streamingThreadId={streamingThreadId}
             onSelectThread={handleSelectThread}
             onNewChat={handleNewChat}
-            onDeleteThread={(threadIdToDelete) => {
-              if (threadIdToDelete === streamingThreadId) return
-              deleteThread(threadIdToDelete)
-              if (activeThreadId === threadIdToDelete) {
-                handleNewChat()
-              }
-            }}
+            onDeleteThread={handleDeleteThread}
             isDeleting={isDeleting}
           />
         )}
@@ -138,7 +199,7 @@ function AppContent() {
         <ChatContainer
           stream={stream}
           externalThreadId={activeThreadId}
-          onOpenSettings={handleOpenSettings}
+          onOpenSettings={() => setIsSettingsOpen(true)}
           onGoToStreamingThread={handleGoToStreamingThread}
           onActiveThreadChange={handleActiveThreadChange}
           onNewChat={handleNewChat}
@@ -146,7 +207,7 @@ function AppContent() {
       </AppLayout>
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={handleCloseSettings}
+        onClose={() => setIsSettingsOpen(false)}
         isStreaming={isStreaming}
       />
     </>
@@ -165,5 +226,3 @@ export function App() {
     </QueryClientProvider>
   )
 }
-
-export default App
