@@ -233,16 +233,24 @@ function Restore-DatabaseFromDump {
         if ($parts.Count -gt 0) {
             Write-Host "   [>] Recombinando partes de $ArchiveName..." -ForegroundColor Cyan
             $CombineScript = @"
-import sys, glob
+import sys, glob, time
 parts = sorted(glob.glob(r'$ArchivePath.part-*'))
+total_parts = len(parts)
+print(f'   [+] Recombinando {total_parts} partes do arquivo compactado...')
 with open(r'$ArchivePath', 'wb') as outfile:
-    for p in parts:
+    for idx, p in enumerate(parts, 1):
+        print(f'       -> Processando parte {idx}/{total_parts}: {p}', flush=True)
         with open(p, 'rb') as infile:
-            outfile.write(infile.read())
+            while True:
+                chunk = infile.read(8 * 1024 * 1024)
+                if not chunk:
+                    break
+                outfile.write(chunk)
+print('   [OK] Partes recombinadas com sucesso!', flush=True)
 "@
             if ($BackendRunner -eq "uv") {
                 Push-Location $BackendDir
-                try { uv run python -c $CombineScript } finally { Pop-Location }
+                try { & uv run --no-project python -c $CombineScript } finally { Pop-Location }
             } else {
                 & $EffectivePy -c $CombineScript
             }
@@ -256,17 +264,34 @@ with open(r'$ArchivePath', 'wb') as outfile:
         Remove-Item -Path "$DbPath-shm" -Force -ErrorAction SilentlyContinue
 
         $RestoreScript = @"
-import sqlite3, lzma
+import sqlite3, lzma, time
+
 db_file = r'$DbPath'
 xz_file = r'$ArchivePath'
+
+print('   [1/3] Descomprimindo arquivo XZ na memoria...', flush=True)
+t_start = time.time()
+with lzma.open(xz_file, 'rt', encoding='utf-8', errors='replace') as f:
+    sql_script = f.read()
+t_decomp = time.time() - t_start
+decomp_mb = len(sql_script.encode('utf-8')) / (1024 * 1024)
+print(f'   [2/3] Descompressao concluida em {t_decomp:.1f}s ({decomp_mb:.1f} MB de SQL).', flush=True)
+
+print('   [3/3] Executando script SQL no SQLite (otimizando I/O)...', flush=True)
+t_sql = time.time()
 conn = sqlite3.connect(db_file)
-with lzma.open(xz_file, 'rt', encoding='utf-8') as f:
-    conn.executescript(f.read())
+conn.create_function('unistr', 1, lambda s: s)
+conn.execute('PRAGMA synchronous=OFF')
+conn.execute('PRAGMA journal_mode=MEMORY')
+conn.executescript(sql_script)
+conn.commit()
 conn.close()
+t_exec = time.time() - t_sql
+print(f'   [OK] Execucao concluida com sucesso em {t_exec:.1f}s!', flush=True)
 "@
         if ($BackendRunner -eq "uv") {
             Push-Location $BackendDir
-            try { uv run python -c $RestoreScript } finally { Pop-Location }
+            try { & uv run --no-project python -c $RestoreScript } finally { Pop-Location }
         } else {
             & $EffectivePy -c $RestoreScript
         }
@@ -279,17 +304,26 @@ conn.close()
         Remove-Item -Path "$DbPath-shm" -Force -ErrorAction SilentlyContinue
 
         $RestoreDumpScript = @"
-import sqlite3
+import sqlite3, time
 db_file = r'$DbPath'
 sql_file = r'$SqlDumpPath'
+print('   [1/2] Lendo dump SQL...', flush=True)
+t_start = time.time()
+with open(sql_file, 'r', encoding='utf-8', errors='replace') as f:
+    sql = f.read()
+print(f'   [2/2] Executando SQL no SQLite...', flush=True)
 conn = sqlite3.connect(db_file)
-with open(sql_file, 'r', encoding='utf-8') as f:
-    conn.executescript(f.read())
+conn.create_function('unistr', 1, lambda s: s)
+conn.execute('PRAGMA synchronous=OFF')
+conn.execute('PRAGMA journal_mode=MEMORY')
+conn.executescript(sql)
+conn.commit()
 conn.close()
+print(f'   [OK] Restauracao concluida em {time.time()-t_start:.1f}s!', flush=True)
 "@
         if ($BackendRunner -eq "uv") {
             Push-Location $BackendDir
-            try { uv run python -c $RestoreDumpScript } finally { Pop-Location }
+            try { & uv run --no-project python -c $RestoreDumpScript } finally { Pop-Location }
         } else {
             & $EffectivePy -c $RestoreDumpScript
         }
@@ -346,15 +380,15 @@ $DbStatusRaw = $null
 if ($BackendRunner -eq "uv") {
     Push-Location $BackendDir
     try {
-        $DbStatusRaw = uv run python -c $InspectScript 2>$null
+        $DbStatusRaw = (& uv run --no-project python -c $InspectScript 2>`$null | Select-Object -Last 1)
     } finally {
         Pop-Location
     }
 } else {
-    $DbStatusRaw = & $EffectivePy -c $InspectScript 2>$null
+    $DbStatusRaw = (& $EffectivePy -c $InspectScript 2>`$null | Select-Object -Last 1)
 }
 
-$Parts = ($DbStatusRaw | Select-Object -First 1).Split('|')
+$Parts = if ($DbStatusRaw) { $DbStatusRaw.Trim().Split('|') } else { @() }
 $MoviesCount = 0
 $GenAiCount = 0
 $VecCount = 0
@@ -378,7 +412,7 @@ if ($VecCount -gt 0 -and $GenAiCount -ge $MoviesCount) {
     Push-Location $BackendDir
     try {
         if ($BackendRunner -eq "uv") {
-            & uv run python scripts/generate_genai_context.py
+            & uv run --no-project python scripts/generate_genai_context.py
         } else {
             & $EffectivePy scripts/generate_genai_context.py
         }
