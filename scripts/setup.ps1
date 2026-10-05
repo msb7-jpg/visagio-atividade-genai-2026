@@ -174,7 +174,8 @@ $NodeModulesDir = Join-Path $FrontendDir "node_modules"
 $ViteBinDir     = Join-Path (Join-Path $FrontendDir "node_modules") ".bin"
 $ViteBin        = Join-Path $ViteBinDir "vite"
 $ViteBinCmd     = Join-Path $ViteBinDir "vite.cmd"
-$VitePresent    = (Test-Path $ViteBin) -or (Test-Path $ViteBinCmd)
+$VitePkgDir     = Join-Path (Join-Path $FrontendDir "node_modules") "vite"
+$VitePresent    = (Test-Path $ViteBin) -or (Test-Path $ViteBinCmd) -or (Test-Path $VitePkgDir)
 
 function Install-FrontendDeps {
     param([string]$runner)
@@ -213,9 +214,9 @@ if ($FrontendRunner -eq "bun") {
     }
 }
 
-$VitePresent = (Test-Path $ViteBin) -or (Test-Path $ViteBinCmd)
+$VitePresent = (Test-Path $ViteBin) -or (Test-Path $ViteBinCmd) -or (Test-Path $VitePkgDir)
 if (-not $VitePresent) {
-    Write-Host "[ERRO] Pre-requisito ausente: 'vite' nao encontrado em node_modules/.bin/ apos install." -ForegroundColor Red
+    Write-Host "[ERRO] Pre-requisito ausente: 'vite' nao encontrado em node_modules/ apos install." -ForegroundColor Red
     Write-Host "   Tente manualmente: cd frontend && bun install (ou npm install)" -ForegroundColor Red
     exit 1
 }
@@ -447,7 +448,7 @@ $FrontendJob = Start-Job -ScriptBlock {
     if ($runner -eq "bun") {
         & bun run dev -- --host 0.0.0.0 2>&1
     } else {
-        & npm run dev -- --host 0.0.0.0 2>&1
+        & npx --yes vite --host 0.0.0.0 2>&1
     }
 } -ArgumentList $FrontendDir, $FrontendRunner
 

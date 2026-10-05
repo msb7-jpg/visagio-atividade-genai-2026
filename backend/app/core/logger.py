@@ -16,3 +16,14 @@ def configure_logging() -> None:
         datefmt=date_format,
         force=True,
     )
+
+    # Silenciar logs excessivamente verbosos de bibliotecas HTTP e ML na inicialização
+    for noisy_logger in (
+        "httpx",
+        "httpcore",
+        "huggingface_hub",
+        "sentence_transformers",
+        "transformers",
+        "urllib3",
+    ):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
