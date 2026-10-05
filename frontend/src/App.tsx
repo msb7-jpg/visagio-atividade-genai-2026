@@ -145,6 +145,7 @@ function AppContent() {
           onTitleChange={setActiveTitle}
           onActiveThreadChange={handleActiveThreadChange}
           onTimelineItemsChange={setTimelineItems}
+          onNewChat={handleNewChat}
         />
       </AppLayout>
       <SettingsModal

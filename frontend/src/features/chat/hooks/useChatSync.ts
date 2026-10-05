@@ -13,9 +13,10 @@ import type { AgentStream } from './useAgentStream'
  * Converte o detalhe persistido da thread em itens de mensagem renderizáveis no feed.
  *
  * @param threadDetail - Objeto detalhado da thread com mensagens e status de execução.
+ * @param isAborted - Indica se a thread foi abortada pelo usuário, suprimindo placeholders em andamento.
  * @returns Lista reconstituída de ChatMessageItem contendo blocos e etapas do agente.
  */
-export function rehydrateThreadMessages(threadDetail: ThreadDetail): ChatMessageItem[] {
+export function rehydrateThreadMessages(threadDetail: ThreadDetail, isAborted = false): ChatMessageItem[] {
   const rehydratedMessages: ChatMessageItem[] = threadDetail.messages.map((msg) => {
     const blocks: ChatMessageBlock[] = []
 
@@ -66,7 +67,7 @@ export function rehydrateThreadMessages(threadDetail: ThreadDetail): ChatMessage
 
   // Backend ainda processando (ex.: após reload): exibe placeholder em loading em vez de erro
   const last = rehydratedMessages.at(-1)
-  if (threadDetail.is_running && last?.role === 'user') {
+  if (threadDetail.is_running && !isAborted && last?.role === 'user') {
     rehydratedMessages.push({
       id: `running-${threadDetail.thread_id}`,
       role: 'assistant',
@@ -147,18 +148,30 @@ export function useChatSync({
   const { data: threadDetail } = useThreadDetailQuery(externalThreadId)
   const currentDetail = threadDetail && threadDetail.thread_id === externalThreadId ? threadDetail : undefined
 
+  const isThreadAborted = Boolean(
+    (externalThreadId && stream.isThreadAborted?.(externalThreadId)) ||
+    (activeThreadId && stream.isThreadAborted?.(activeThreadId))
+  )
+  const isManagedLocally = Boolean(
+    activeThreadId && (activeThreadId === externalThreadId || (!externalThreadId && activeThreadId))
+  )
+
   const isViewingStreamThread = isStreaming && (externalThreadId ? activeThreadId === externalThreadId : true)
   // Há geração em andamento em OUTRA thread: a tela atual fica somente-leitura
   const isLockedByOtherThread = isStreaming && !isViewingStreamThread
   // O estado do stream corresponde à thread exibida
   const streamOwnsView = isViewingStreamThread || activeThreadId === (externalThreadId ?? null)
   // Backend ainda processa esta thread sem stream local (ex.: após recarregar a página)
-  const isRunningRemotely = Boolean(currentDetail?.is_running) && !isViewingStreamThread
+  const isRunningRemotely =
+    Boolean(currentDetail?.is_running) &&
+    !isViewingStreamThread &&
+    !isThreadAborted &&
+    !isManagedLocally
   const isModelLocked = isStreaming || isRunningRemotely
 
   const viewMessages = useMemo(
-    () => (currentDetail ? rehydrateThreadMessages(currentDetail) : []),
-    [currentDetail]
+    () => (currentDetail ? rehydrateThreadMessages(currentDetail, isThreadAborted) : []),
+    [currentDetail, isThreadAborted]
   )
 
   useEffect(() => {

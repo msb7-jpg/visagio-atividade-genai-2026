@@ -31,6 +31,7 @@ describe('useChatSync Hook', () => {
       sendMessage: mockSendMessage,
       retryMessage: vi.fn(),
       abortStream: vi.fn(),
+      isThreadAborted: vi.fn().mockReturnValue(false),
       loadThreadMessages: vi.fn(),
       clearMessages: vi.fn()
     }
@@ -160,5 +161,27 @@ describe('useChatSync Hook', () => {
 
     const rehydrated = rehydrateThreadMessages(threadDetail)
     expect(rehydrated[1].steps).toEqual([])
+  })
+
+  it('suprime placeholder em loading e não bloqueia a interface quando a thread está marcada como abortada', () => {
+    const threadDetail: ThreadDetail = {
+      thread_id: 'thread-abortada-123',
+      title: 'Consulta Cancelada',
+      created_at: 1000,
+      updated_at: 2000,
+      is_running: true, // Backend ainda não desalocou
+      messages: [
+        {
+          id: 'u-1',
+          role: 'user',
+          content: 'Pergunta longa'
+        }
+      ]
+    }
+
+    // rehydrateThreadMessages com isAborted=true não deve adicionar placeholder
+    const rehydrated = rehydrateThreadMessages(threadDetail, true)
+    expect(rehydrated).toHaveLength(1)
+    expect(rehydrated[0].role).toBe('user')
   })
 })

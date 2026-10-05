@@ -24,6 +24,8 @@ export interface ChatContainerProps {
   onTimelineItemsChange?: (items: { id: string; title: string }[]) => void
   /** Navega de volta para a thread que está gerando resposta. */
   onGoToStreamingThread?: () => void
+  /** Callback para iniciar uma nova conversa (usado inclusive pelo comando /clear). */
+  onNewChat?: () => void
   /** Identificador de thread externa injetado via rota. */
   externalThreadId?: string | null
   /** Classes CSS adicionais. */
@@ -43,6 +45,7 @@ export function ChatContainer({
   onActiveThreadChange,
   onTimelineItemsChange,
   onGoToStreamingThread,
+  onNewChat,
   externalThreadId,
   className
 }: ChatContainerProps) {
@@ -52,7 +55,7 @@ export function ChatContainer({
     isLockedByOtherThread,
     isRunningRemotely,
     messagesEndRef,
-    handleSend,
+    handleSend: rawHandleSend,
     handleRetry
   } = useChatSync({
     stream,
@@ -61,6 +64,14 @@ export function ChatContainer({
     onActiveThreadChange,
     onTimelineItemsChange
   })
+
+  const handleSend = (text: string) => {
+    if (text.trim() === '/clear') {
+      onNewChat?.()
+      return
+    }
+    rawHandleSend(text)
+  }
 
   return (
     <div className={cn('relative flex h-full flex-col bg-background', className)}>
@@ -98,6 +109,7 @@ export function ChatContainer({
                 message={msg}
                 onOpenSettings={onOpenSettings}
                 onRetry={() => handleRetry(msg.id)}
+                onGenerateChart={() => handleSend('/chart Gere um gráfico para a análise acima')}
                 actionsDisabled={isModelLocked}
               />
             ))
@@ -128,7 +140,8 @@ export function ChatContainer({
           <ChatInput
             onSendMessage={handleSend}
             onAbortStream={stream.abortStream}
-            isStreaming={isModelLocked}
+            isStreaming={stream.isStreaming}
+            disabled={isModelLocked}
           />
         </div>
       </div>

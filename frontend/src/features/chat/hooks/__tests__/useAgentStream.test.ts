@@ -9,7 +9,8 @@ vi.mock('@/features/chat/lib/chatStreamTransport', () => ({
 
 vi.mock('@/lib/query-client', () => ({
   queryClient: {
-    invalidateQueries: vi.fn().mockResolvedValue(undefined)
+    invalidateQueries: vi.fn().mockResolvedValue(undefined),
+    setQueryData: vi.fn()
   }
 }))
 
@@ -115,6 +116,65 @@ describe('useAgentStream Hook', () => {
     expect(assistantMsg?.steps).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ step: 'router', status: 'done' }),
+        expect.objectContaining({
+          step: 'interrupted',
+          label: 'Processamento interrompido',
+          status: 'error'
+        })
+      ])
+    )
+  })
+
+  it('interrompe imediatamente ao invocar abortStream diretamente marcando thread como abortada', async () => {
+    let capturedSignal: AbortSignal | undefined
+
+    vi.mocked(executeChatStream).mockImplementation(async (_payload, callbacks, signal) => {
+      capturedSignal = signal
+      callbacks.onSession('thread-pausada-direta')
+      callbacks.onEvent('step_end', {
+        step: 'router',
+        label: 'Analisando pergunta',
+        status: 'done'
+      })
+
+      // Simula espera assíncrona até que o sinal seja abortado
+      return new Promise<void>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => {
+          const err = new Error('The user aborted a request.')
+          err.name = 'AbortError'
+          reject(err)
+        })
+      })
+    })
+
+    const { result } = renderHook(() => useAgentStream())
+
+    // Inicia envio sem await imediato para poder pausar no meio
+    let sendPromise: Promise<void>
+    act(() => {
+      sendPromise = result.current.sendMessage({ message: 'Pergunta de longa duração' })
+    })
+
+    expect(result.current.isStreaming).toBe(true)
+
+    // Usuário clica no botão de Pause (<Pause>)
+    act(() => {
+      result.current.abortStream()
+    })
+
+    // No mesmo instante síncrono, isStreaming deve ser false e a thread deve ser marcada como abortada
+    expect(result.current.isStreaming).toBe(false)
+    expect(capturedSignal?.aborted).toBe(true)
+    expect(result.current.isThreadAborted('thread-pausada-direta')).toBe(true)
+
+    await act(async () => {
+      await sendPromise.catch(() => {})
+    })
+
+    const assistantMsg = result.current.messages.find((msg) => msg.role === 'assistant')
+    expect(assistantMsg?.isStreaming).toBe(false)
+    expect(assistantMsg?.steps).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           step: 'interrupted',
           label: 'Processamento interrompido',

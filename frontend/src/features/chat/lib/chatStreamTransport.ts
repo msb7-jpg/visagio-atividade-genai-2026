@@ -42,6 +42,10 @@ export async function executeChatStream(
   callbacks: StreamChatCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
+  if (signal?.aborted) {
+    throw new DOMException('The user aborted a request.', 'AbortError')
+  }
+
   const response = await apiFetch('/chat/stream', {
     method: 'POST',
     signal,
@@ -60,7 +64,11 @@ export async function executeChatStream(
     throw new Error('Servidor retornou resposta sem corpo de stream.')
   }
 
-  for await (const { event, data } of parseSseStream(response)) {
+  for await (const { event, data } of parseSseStream(response, signal)) {
+    if (signal?.aborted) {
+      throw new DOMException('The user aborted a request.', 'AbortError')
+    }
+
     try {
       const parsed = JSON.parse(data)
 
@@ -76,5 +84,9 @@ export async function executeChatStream(
     } catch {
       // Ignora payloads não-JSON
     }
+  }
+
+  if (signal?.aborted) {
+    throw new DOMException('The user aborted a request.', 'AbortError')
   }
 }

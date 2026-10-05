@@ -6,7 +6,7 @@ import {
   applySseEventToMessage
 } from '@/features/chat/lib/chatMessageReducer'
 import { executeChatStream } from '@/features/chat/lib/chatStreamTransport'
-import type { ChatMessageItem } from '@/features/chat/types/chat.types'
+import type { ChatMessageItem, ThreadDetail } from '@/features/chat/types/chat.types'
 import { queryClient } from '@/lib/query-client'
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
@@ -46,6 +46,8 @@ export interface UseAgentStreamResult {
   retryMessage: (assistantMessageId: string, options?: { provider?: string; model?: string }) => Promise<void>
   /** Aborta a transmissão SSE ativa no momento liberando o estado. */
   abortStream: () => void
+  /** Verifica se a thread especificada foi explicitamente interrompida pelo usuário nesta sessão. */
+  isThreadAborted: (threadId: string | null | undefined) => boolean
   /** Carrega mensagens de uma thread histórica salva no SQLite. */
   loadThreadMessages: (threadId: string, title: string, loadedMessages: ChatMessageItem[]) => void
   /** Limpa o histórico de mensagens e reseta a sessão. */
@@ -82,14 +84,40 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
   const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId)
   const [activeTitle, setActiveTitle] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const activeAssistantMessageIdRef = useRef<string | null>(null)
+  const abortedThreadIdsRef = useRef<Set<string>>(new Set())
+
+  const isThreadAborted = useCallback((threadId: string | null | undefined) => {
+    return Boolean(threadId && abortedThreadIdsRef.current.has(threadId))
+  }, [])
 
   const abortStream = useCallback(() => {
+    setIsStreaming(false)
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    setIsStreaming(false)
-  }, [])
+
+    if (activeThreadId) {
+      abortedThreadIdsRef.current.add(activeThreadId)
+      queryClient.setQueryData<ThreadDetail | undefined>(
+        chatQueryKeys.threadDetail(activeThreadId),
+        (old) => (old ? { ...old, is_running: false } : old)
+      )
+    }
+
+    // Aplicação síncrona imediata da interrupção na mensagem atual (zero delay visual)
+    if (activeAssistantMessageIdRef.current) {
+      const targetId = activeAssistantMessageIdRef.current
+      setMessages((prev) =>
+        updateMessageById(prev, targetId, (msg) => ({
+          ...applyAbortToMessage(msg),
+          isStreaming: false
+        }))
+      )
+    }
+  }, [activeThreadId])
 
   const sendMessage = async ({
     message,
@@ -105,8 +133,13 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
     abortControllerRef.current = controller
 
     let effectiveThreadId = threadId ?? activeThreadId
+    if (effectiveThreadId) {
+      abortedThreadIdsRef.current.delete(effectiveThreadId)
+    }
+
     const assistantMessageId = `agent-${Date.now()}`
     const userMessageId = `user-${Date.now()}`
+    activeAssistantMessageIdRef.current = assistantMessageId
 
     const userMsg: ChatMessageItem = {
       id: userMessageId,
@@ -142,16 +175,19 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
         },
         {
           onSession: (newThreadId) => {
+            if (controller.signal.aborted) return
             effectiveThreadId = newThreadId
             setActiveThreadId(newThreadId)
             onThreadCreated?.(newThreadId)
             void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
           },
           onTitle: (newTitle) => {
+            if (controller.signal.aborted) return
             setActiveTitle(newTitle)
             void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
           },
           onEvent: (event, parsed) => {
+            if (controller.signal.aborted) return
             setMessages((prev) =>
               updateMessageById(prev, assistantMessageId, (msg) =>
                 applySseEventToMessage(msg, event, parsed)
@@ -163,14 +199,16 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
       )
     } catch (err: unknown) {
       const isAbort =
+        controller.signal.aborted ||
         (err instanceof DOMException && err.name === 'AbortError') ||
         (err instanceof Error && err.name === 'AbortError')
 
       if (isAbort) {
         setMessages((prev) =>
-          updateMessageById(prev, assistantMessageId, (msg) =>
-            applyAbortToMessage(msg)
-          )
+          updateMessageById(prev, assistantMessageId, (msg) => ({
+            ...applyAbortToMessage(msg),
+            isStreaming: false
+          }))
         )
       } else {
         const errorMsg = err instanceof Error ? err.message : 'Falha na comunicação com o assistente.'
@@ -181,6 +219,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
         )
       }
     } finally {
+      activeAssistantMessageIdRef.current = null
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null
       }
@@ -191,9 +230,19 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
           isStreaming: false
         }))
       )
-      if (effectiveThreadId) {
+
+      if (controller.signal.aborted) {
+        if (effectiveThreadId) {
+          abortedThreadIdsRef.current.add(effectiveThreadId)
+          queryClient.setQueryData<ThreadDetail | undefined>(
+            chatQueryKeys.threadDetail(effectiveThreadId),
+            (old) => (old ? { ...old, is_running: false } : old)
+          )
+        }
+      } else if (effectiveThreadId) {
         void queryClient.invalidateQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
       }
+
       void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
     }
   }
@@ -222,6 +271,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
   }, [setActiveThreadId, setActiveTitle, setMessages])
 
   const clearMessages = () => {
+    abortedThreadIdsRef.current.clear()
     setMessages([])
     setActiveThreadId(null)
     setActiveTitle(null)
@@ -236,6 +286,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
     sendMessage,
     retryMessage,
     abortStream,
+    isThreadAborted,
     loadThreadMessages,
     clearMessages
   }
