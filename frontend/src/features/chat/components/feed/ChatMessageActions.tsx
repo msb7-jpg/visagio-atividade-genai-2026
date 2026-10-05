@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { copyMessageWithChart } from '@/features/chat/lib/clipboardRichUtils'
-import { Check, Copy, RotateCcw, Settings2 } from 'lucide-react'
+import { BarChart3, Check, Copy, RotateCcw, Settings2 } from 'lucide-react'
 import { useState, type JSX } from 'react'
 
 /**
@@ -17,6 +17,10 @@ export interface ChatMessageActionsProps {
   onRetry?: () => void
   /** Callback para abrir o modal de configurações de IA. */
   onOpenSettings?: () => void
+  /** Callback para acionar a geração de gráfico a partir dos dados da mensagem. */
+  onGenerateChart?: () => void
+  /** Indica se a mensagem já contém um gráfico renderizado. */
+  hasChart?: boolean
   /**
    * Indica se o streaming da mensagem ainda está em execução.
    * @defaultValue `false`
@@ -25,7 +29,7 @@ export interface ChatMessageActionsProps {
 }
 
 /**
- * Barra de botões secundários para copiar texto, regenerar resposta ou alternar configurações de modelo.
+ * Barra de botões secundários para copiar texto, regenerar resposta, gerar gráfico ou alternar configurações de modelo.
  *
  * @param props - Propriedades de conteúdo textual e ações disponíveis.
  * @returns Elemento JSX com a barra de botões de ação rápida.
@@ -36,6 +40,8 @@ export function ChatMessageActions({
   turnId,
   onRetry,
   onOpenSettings,
+  onGenerateChart,
+  hasChart = false,
   isStreaming = false
 }: ChatMessageActionsProps): JSX.Element {
   const [copied, setCopied] = useState(false)
@@ -83,6 +89,21 @@ export function ChatMessageActions({
         >
           <Settings2 className="h-3.5 w-3.5 mr-1" />
           <span>Trocar Modelo</span>
+        </Button>
+      ) : null}
+
+      {onGenerateChart && !hasChart ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isStreaming}
+          onClick={onGenerateChart}
+          title="Gerar visualização gráfica para esta análise"
+          className="text-muted-foreground hover:text-primary transition-colors"
+        >
+          <BarChart3 className="h-3.5 w-3.5 mr-1" />
+          <span>Gerar Gráfico</span>
         </Button>
       ) : null}
 

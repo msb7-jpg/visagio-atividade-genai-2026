@@ -51,6 +51,25 @@ export const CHART_TYPE = {
 export type ChartType = (typeof CHART_TYPE)[keyof typeof CHART_TYPE]
 
 /**
+ * Constantes para comandos de barra (slash commands) reconhecidos pelo sistema.
+ */
+export const SLASH_COMMANDS = {
+  CHART: '/chart',
+  CLEAR: '/clear'
+} as const
+
+export type SlashCommand = (typeof SLASH_COMMANDS)[keyof typeof SLASH_COMMANDS]
+
+/**
+ * Estrutura declarativa de um comando de barra para exibição no menu rápido.
+ */
+export interface SlashCommandDefinition {
+  name: string
+  label: string
+  description: string
+}
+
+/**
  * Constantes para identificação de blocos de conteúdo da mensagem.
  */
 export const CHAT_BLOCK_TYPE = {

@@ -12,6 +12,7 @@ import { User } from 'lucide-react'
 import type { JSX } from 'react'
 import { AgentAvatar } from './AgentAvatar'
 import { ChatMessageActions } from './ChatMessageActions'
+import { CommandBadge } from './CommandBadge'
 import { NodeStepper } from './NodeStepper'
 
 /**
@@ -24,6 +25,8 @@ export interface ChatMessageProps {
   onOpenSettings?: () => void
   /** Callback para nova tentativa de envio. */
   onRetry?: () => void
+  /** Callback para acionar a geração de gráfico a partir dos dados da mensagem. */
+  onGenerateChart?: () => void
   /**
    * Bloqueia ações que acionam o modelo (regenerar/trocar modelo) enquanto há geração em andamento.
    * @defaultValue `false`
@@ -84,6 +87,7 @@ export function ChatMessage({
   message,
   onOpenSettings,
   onRetry,
+  onGenerateChart,
   actionsDisabled = false,
   className
 }: ChatMessageProps): JSX.Element {
@@ -96,6 +100,9 @@ export function ChatMessage({
   const chartConfig = chartBlock?.config
 
   if (isUser) {
+    const rawContent = message.content.trim()
+    const slashMatch = rawContent.match(/^(\/[a-zA-Z_-]+)(?:\s+(.*))?$/s)
+
     return (
       <div
         id={`turn-${message.id}`}
@@ -104,7 +111,14 @@ export function ChatMessage({
       >
         <div className="flex justify-end gap-3 w-full">
           <div className="max-w-xl sm:max-w-2xl rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-foreground shadow-sm">
-            {message.content}
+            {slashMatch ? (
+              <div className="flex flex-col gap-1.5 items-start">
+                <CommandBadge command={slashMatch[1]} />
+                {slashMatch[2] ? <span>{slashMatch[2]}</span> : null}
+              </div>
+            ) : (
+              message.content
+            )}
           </div>
           <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground">
             <User className="h-4 w-4" />
@@ -147,6 +161,8 @@ export function ChatMessage({
                 content={textualContent}
                 onRetry={effectiveRetry}
                 onOpenSettings={onOpenSettings}
+                onGenerateChart={onGenerateChart}
+                hasChart={Boolean(chartConfig)}
                 isStreaming={actionsDisabled}
               />
             ) : (

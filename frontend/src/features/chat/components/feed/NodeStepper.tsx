@@ -56,19 +56,19 @@ export function NodeStepper({ steps, isStreaming = false, className }: NodeStepp
         }}
         className="flex cursor-pointer select-none items-center justify-between border-b border-border bg-sidebar px-3 py-2 transition-colors hover:bg-card-hover"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <ChevronRight
             className={cn(
-              'h-4 w-4 text-muted-foreground transition-transform duration-200',
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
               isExpanded && 'rotate-90'
             )}
           />
-          <Workflow className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-semibold text-foreground">
+          <Workflow className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="truncate text-xs font-semibold text-foreground">
             Etapas de Processamento
           </span>
 
-          <span className="text-xs text-subtle-foreground">
+          <span className="shrink-0 text-xs text-subtle-foreground">
             {isExpanded ? '(clique para recolher)' : '(clique para expandir)'}
           </span>
         </div>

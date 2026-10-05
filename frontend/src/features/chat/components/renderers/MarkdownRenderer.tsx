@@ -7,6 +7,7 @@ import { lazy, Suspense, useMemo } from 'react'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TableRenderer } from './TableRenderer'
+import { CommandBadge } from '@/features/chat/components/feed/CommandBadge'
 
 const ChartRenderer = lazy(() =>
   import('./charts/ChartRenderer').then((module) => ({ default: module.ChartRenderer }))
@@ -120,6 +121,14 @@ export function MarkdownRenderer({ content, chartConfig, className }: MarkdownRe
               // Suprime blocos ```chart vazios/alucinados quando não há gráfico gerado
               return null
             }
+            if (typeof children === 'string' && children.trim().startsWith('/')) {
+              const trimmed = children.trim()
+              const slashMatch = trimmed.match(/^(\/[a-zA-Z_-]+)(?:\s+(.*))?$/s)
+              if (slashMatch) {
+                return <CommandBadge command={slashMatch[1]} args={slashMatch[2]} />
+              }
+            }
+
             return (
               <code className={codeClassName} {...props}>
                 {children}
