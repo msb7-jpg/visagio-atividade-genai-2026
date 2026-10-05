@@ -1,3 +1,4 @@
+import { useChatAutoScroll } from '@/features/chat/hooks/useChatAutoScroll'
 import { useThreadDetailQuery } from '@/features/chat/hooks/useThreadDetailQuery'
 import {
   CHAT_BLOCK_TYPE,
@@ -127,15 +128,14 @@ export interface UseChatSyncResult {
 export function useChatSync({
   stream,
   externalThreadId,
-  onTitleChange,
+  onTitleChange: _onTitleChange,
   onActiveThreadChange,
-  onTimelineItemsChange
+  onTimelineItemsChange: _onTimelineItemsChange
 }: UseChatSyncOptions): UseChatSyncResult {
   const {
     messages: streamMessages,
     isStreaming,
     activeThreadId,
-    activeTitle,
     sendMessage,
     retryMessage,
     loadThreadMessages
@@ -188,32 +188,8 @@ export function useChatSync({
 
   const messages = streamOwnsView ? streamMessages : viewMessages
 
-  const timelineItems = useMemo(() => {
-    return messages
-      .filter((message) => message.role === 'user')
-      .map((message) => ({
-        id: `turn-${message.id}`,
-        title: message.content.slice(0, 35) + (message.content.length > 35 ? '...' : '')
-      }))
-  }, [messages])
-
-  useEffect(() => {
-    onTimelineItemsChange?.(timelineItems)
-  }, [timelineItems, onTimelineItemsChange])
-
-  // Notifica título da thread (prioriza título gerado durante streaming)
-  useEffect(() => {
-    if (activeTitle) {
-      onTitleChange?.(activeTitle)
-    } else if (currentDetail?.title) {
-      onTitleChange?.(currentDetail.title)
-    }
-  }, [activeTitle, currentDetail?.title, onTitleChange])
-
   // Auto-scroll suave para o final conforme novas mensagens chegam
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useChatAutoScroll(messagesEndRef, messages)
 
   const handleSend = (text: string) => {
     if (isModelLocked) return

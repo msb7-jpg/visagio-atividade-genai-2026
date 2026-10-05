@@ -77,6 +77,17 @@ return views[status] ?? <UnknownState />;
 - Use-o APENAS se a função for repassada a um componente memorizado explicitamente (`React.memo`) ou se a função for consumida pelo array de dependências (`exhaustive-deps`) de outro hook que precisa de estabilidade referencial.
 - Evite criar "wrappers" de callbacks defensivos para elementos nativos (`<button onClick={...}>`).
 
+### 4.3 Reutilização de Código e Utilitários com `@reactuse/core`
+- **Buscar sempre oportunidades de reutilização:** Antes de criar hooks manuais ou escrever soluções ad-hoc para comportamentos comuns de ciclo de vida, eventos de browser ou sincronização de estado, verifique utilitários consolidados.
+- **Uso de `@reactuse/core` (moderno):** Dê preferência a [`@reactuse/core`](https://reactuse.org/) para lidar com padrões recorrentes.
+  - ⚠️ **Atenção:** NÃO confunda com o pacote legado e descontinuado `react-use`. O padrão oficial a ser adotado é `@reactuse/core`.
+- **Casos comuns para substituir `useEffect` e boilerplate manual:**
+  - **Ciclo de vida e montagem:** `useMounted`, `useIsMounted`, `useUnmount`, `useMount`.
+  - **Timers e assincronia:** `useTimeout`, `useTimeoutFn`, `useInterval`, `useDebounceFn`, `useThrottleFn` (evitando boilerplate de `clearTimeout`/`clearInterval` e refs manuais dentro de `useEffect`).
+  - **Sensores e Browser APIs:** `useWindowSize`, `useEventListener`, `useIntersectionObserver`, `useResizeObserver`, `useOnClickOutside`.
+  - **Estado e Refs:** `usePrevious`, `useToggle`, `useLatest`.
+- **Regra de ouro:** Se uma necessidade de ciclo de vida, timer ou evento puder ser expressa com um hook pronto e testado de `@reactuse/core`, evite reinventar a roda criando `useEffect` com cleanup manual boilerplate.
+
 ---
 
 ## 5. Fencing de Ações Assíncronas e Prevenção de Desmontagem Prematura

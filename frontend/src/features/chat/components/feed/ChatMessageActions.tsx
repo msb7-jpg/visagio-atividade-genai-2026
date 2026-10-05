@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { copyMessageWithChart } from '@/features/chat/lib/clipboardRichUtils'
+import { useTimeoutFn } from '@reactuses/core'
 import { BarChart3, Check, Copy, RotateCcw, Settings2 } from 'lucide-react'
 import { useState, type JSX } from 'react'
 
@@ -45,6 +46,13 @@ export function ChatMessageActions({
   isStreaming = false
 }: ChatMessageActionsProps): JSX.Element {
   const [copied, setCopied] = useState(false)
+  const [, , resetCopiedTimeout] = useTimeoutFn(
+    () => {
+      setCopied(false)
+    },
+    2000,
+    { immediate: false }
+  )
   const effectiveText = messageContent || content || ''
 
   const handleCopy = async () => {
@@ -56,7 +64,7 @@ export function ChatMessageActions({
     const success = await copyMessageWithChart(effectiveText, canvas, chartTitle)
     if (success) {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      resetCopiedTimeout()
     }
   }
 

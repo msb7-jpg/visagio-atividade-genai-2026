@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEventListener } from '@reactuses/core'
+import { useCallback, useState } from 'react'
 
 const THREAD_PARAM = 'thread'
 
@@ -49,18 +50,11 @@ export function useThreadUrlSync(initialThreadId: string | null = null): UseThre
     }
   }, [])
 
-  // Suporte aos botões voltar/avançar do navegador (popstate)
-  useEffect(() => {
-    const handlePopState = () => {
-      const fromUrl = getThreadFromUrl()
-      setActiveThreadIdState(fromUrl)
-    }
-
-    window.addEventListener('popstate', handlePopState)
-    return () => {
-      window.removeEventListener('popstate', handlePopState)
-    }
-  }, [])
+  // Suporte aos botões voltar/avançar do navegador (popstate) via @reactuses/core
+  useEventListener('popstate', () => {
+    const fromUrl = getThreadFromUrl()
+    setActiveThreadIdState(fromUrl)
+  })
 
   return {
     activeThreadId,
