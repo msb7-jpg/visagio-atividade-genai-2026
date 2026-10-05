@@ -1,6 +1,5 @@
 import { AmbientGlow } from '@/components/animations'
 import { Button } from '@/components/ui/button'
-import { EncryptedText } from '@/components/ui/encrypted-text'
 import { SuggestionExplorer } from '@/features/chat/components/empty-state/SuggestionsExplorer'
 import { ChatMessage } from '@/features/chat/components/feed/ChatMessage'
 import { ChatInput } from '@/features/chat/components/input/ChatInput'
@@ -74,7 +73,9 @@ export function ChatContainer({
             <div className="relative flex flex-col items-center justify-center py-12 text-center sm:py-20 animate-fade-in">
               <AmbientGlow size="lg" />
 
-              <EncryptedText text="Bem-vindo ao CineData Analytics!" className="relative z-10 mt-5 text-xl font-bold text-foreground" />
+              <h2 className="relative z-10 mt-5 text-xl font-bold text-foreground">
+                Bem-vindo ao CineData Analytics!
+              </h2>
               <p className="relative z-10 mt-2 max-w-md text-sm text-muted-foreground">
                 Consulte bilheterias, diretores, atores, lucros médios e estatísticas do
                 catálogo de cinema em linguagem natural com validação SQL em tempo real.

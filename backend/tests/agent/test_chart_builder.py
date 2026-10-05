@@ -45,3 +45,34 @@ def test_generate_chartjs_spec_tool():
     assert result["labels"] == ["Action", "Comedy", "Drama"]
     assert len(result["datasets"]) == 1
     assert result["datasets"][0]["data"] == [45.0, 30.0, 25.0]
+
+
+def test_extract_columns_prioritizes_semantic_title_over_technical_id():
+    from app.agent.nodes.chart_generator import _extract_columns
+
+    row = {
+        "sk_movie_id": "bb227566b3010c6af047a841f656ef46167596e6234afaa7c71e8fd88c5526ee",
+        "titulo": "Avatar: The Way of Water",
+        "ano_lancamento": 2022,
+        "receita_brl": 12390136500.54,
+    }
+    keys = list(row.keys())
+    label_col, metric_col = _extract_columns(row, keys)
+
+    assert label_col == "titulo"
+    assert metric_col == "receita_brl"
+
+
+def test_extract_columns_discards_technical_id_when_no_semantic_labels():
+    from app.agent.nodes.chart_generator import _extract_columns
+
+    row = {
+        "sk_movie_id": "bb227566b3010c6af047a841f656ef46167596e6234afaa7c71e8fd88c5526ee",
+        "orcamento_brl": 1000000.0,
+        "receita_brl": 5000000.0,
+    }
+    keys = list(row.keys())
+    label_col, metric_col = _extract_columns(row, keys)
+
+    assert label_col is None
+    assert metric_col in ("orcamento_brl", "receita_brl")

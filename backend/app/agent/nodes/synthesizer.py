@@ -1,34 +1,37 @@
-import json
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.agent.prompts.synthesizer_prompt import (
+from app.agent.prompts import (
     CHART_PRESENT_PROMPT,
     SYNTHESIZER_PROMPT,
     TABLE_PRESENT_PROMPT,
+    serialize_to_toon_tabular,
 )
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
 
 
-def _extract_movie_mappings(rows: list[Any]) -> str:
-    """Extrai tabela auxiliar de mapeamento de IDs de filmes para o contexto."""
-    mappings: list[str] = []
-    for row in rows:
-        if isinstance(row, dict):
-            title = row.get("titulo") or row.get("title") or row.get("nome_filme")
-            sk_id = row.get("sk_movie_id") or row.get("id_filme")
-            if title and sk_id:
-                mappings.append(f"- '{title}': '{sk_id}'")
-    if not mappings:
-        return ""
-    return (
-        "\nTABELA DE SK_MOVIE_ID IDENTIFICADOS NOS DADOS (USE PARA ANOTAR [Título](movie:sk_movie_id)):\n"
-        + "\n".join(mappings)
-        + "\n"
-    )
+def _check_movie_ids_integrity(sample_results: Sequence[Mapping[str, object]]) -> str:
+    """Retorna aviso de integridade caso os dados tenham IDs mas não tenham títulos de filmes."""
+    has_sk_id = False
+    has_title = False
+
+    for row_record in sample_results:
+        if row_record.get("sk_movie_id") or row_record.get("id_filme"):
+            has_sk_id = True
+        if row_record.get("titulo") or row_record.get("title") or row_record.get("nome_filme"):
+            has_title = True
+
+    if has_sk_id and not has_title:
+        return (
+            "\nAVISO DE INTEGRIDADE: Os dados retornados contêm IDs mas não contêm a coluna de títulos (titulo). "
+            "NUNCA invente títulos fictícios para os registros. Apresente os dados com os campos existentes.\n"
+        )
+
+    return ""
 
 
 def _build_context_info(state: AgentState) -> str:
@@ -43,17 +46,17 @@ def _build_context_info(state: AgentState) -> str:
 
     context_info = f"Rota: {route}\n"
     if semantic_results:
-        dumped_semantic = json.dumps(semantic_results, ensure_ascii=False, indent=2)
-        context_info += f"Evidências Semânticas Encontradas (RAG):\n{dumped_semantic}\n"
+        toon_semantic = serialize_to_toon_tabular("evidencias_semanticas", semantic_results)
+        context_info += f"Evidências Semânticas Encontradas (RAG):\n{toon_semantic}\n"
 
     if generated_sql:
         context_info += f"SQL Executado:\n```sql\n{generated_sql}\n```\n"
 
     if query_result is not None:
         sample_results = query_result[:30]
-        dumped_sample = json.dumps(sample_results, ensure_ascii=False, indent=2)
-        context_info += f"Dados Retornados ({len(query_result)} linhas):\n{dumped_sample}\n"
-        context_info += _extract_movie_mappings(sample_results)
+        toon_data = serialize_to_toon_tabular("dados_analiticos", sample_results)
+        context_info += f"Dados Retornados ({len(query_result)} linhas):\n{toon_data}\n"
+        context_info += _check_movie_ids_integrity(sample_results)
 
     if data_analysis_result:
         context_info += f"Resultado do Cálculo Estatístico/Matemático (Sandbox):\n{data_analysis_result}\n"

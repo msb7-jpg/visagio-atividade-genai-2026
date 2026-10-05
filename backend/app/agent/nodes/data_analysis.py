@@ -5,25 +5,12 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.agent.prompts import STATISTICAL_ANALYSIS_PROMPT
 from app.agent.state import AgentState, AgentStateUpdate
 from app.agent.tools.sandbox_env import execute_sandboxed_code
 from app.core.llm_factory import get_chat_model
 
 logger = logging.getLogger(__name__)
-
-STATISTICAL_ANALYSIS_PROMPT = """Você é o Especialista em Estatística e Matemática do CineData Analytics.
-Você recebeu os seguintes dados analíticos extraídos do banco de dados relacional:
-DADOS: {query_result}
-
-PERGUNTA DO USUÁRIO: {user_prompt}
-
-Escreva um script Python EXTREMAMENTE ENXUTO para responder à pergunta com precisão matemática.
-REGRAS:
-1. NÃO use instruções 'import' (os módulos 'math' e 'statistics' já estão embutidos e prontos para uso).
-2. O conjunto de dados já está disponível na variável global 'rows' como uma lista de dicionários.
-3. Atribua o resultado numérico ou textual final obrigatoriamente a uma variável chamada 'result'.
-4. Retorne APENAS o bloco de código puro em Python, sem explicações em markdown.
-"""
 
 
 def should_run_data_analysis(state: AgentState) -> bool:

@@ -5,23 +5,11 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.agent.prompts import ROUTER_PROMPT
 from app.agent.state import AgentState, AgentStateUpdate, RouteType
 from app.core.llm_factory import get_chat_model
 
 logger = logging.getLogger(__name__)
-
-ROUTER_PROMPT = """Você é o Classificador de Intenção do CineData Analytics.
-Analise a mensagem mais recente do usuário e classifique-a estritamente em UMA das 4 categorias:
-
-1. "direct": Saudações, despedidas, agradecimentos ou perguntas sobre como o sistema funciona.
-2. "rag": Busca puramente conceitual, temática ou qualitativa em sinopses ou resenhas/opiniões
-   (ex: "filmes sobre viagem no tempo", "resenhas que elogiam a reviravolta no final").
-3. "hybrid": Perguntas conceituais combinadas com filtros analíticos de dados estruturados
-   (ex: "filmes sobre inteligência artificial com faturamento acima de 100 milhões", "filmes com nota IMDb > 7.5").
-4. "sql": Perguntas analíticas estruturadas diretas (rankings, bilheteria, receitas, notas, atores, diretores).
-
-Responda unicamente com a palavra da categoria ("direct", "rag", "hybrid" ou "sql"), sem pontuação nem explicações.
-"""
 
 
 async def router_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:

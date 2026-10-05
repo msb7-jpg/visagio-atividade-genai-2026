@@ -71,3 +71,28 @@ def test_canonical_q4_ator_mais_filmes():
     rows = execute_sql_query.invoke({"query": query})
     assert len(rows) == 1
     assert rows[0]["total_filmes"] > 0
+
+
+def test_canonical_q5_filmes_maior_margem_lucro():
+    """Q5: Filmes com maior margem de lucro (receita e orçamento informados) com projeção mandatória de título."""
+    query = """
+    SELECT 
+        m.titulo,
+        m.ano_lancamento,
+        m.sk_movie_id,
+        f.orcamento_brl,
+        f.receita_brl,
+        ROUND(((CAST(f.receita_brl AS FLOAT) - f.orcamento_brl) / f.receita_brl) * 100, 2) AS margem_lucro_pct
+    FROM fact_movies_performance f
+    JOIN dim_movies m ON f.sk_movie_id = m.sk_movie_id
+    WHERE f.receita_brl > 0 AND f.orcamento_brl > 0
+    ORDER BY margem_lucro_pct DESC
+    LIMIT 10;
+    """
+    rows = execute_sql_query.invoke({"query": query})
+    assert len(rows) == 10
+    assert "titulo" in rows[0]
+    assert "sk_movie_id" in rows[0]
+    assert "margem_lucro_pct" in rows[0]
+    assert len(rows[0]["titulo"]) > 0
+    assert rows[0]["margem_lucro_pct"] >= rows[1]["margem_lucro_pct"]

@@ -1,19 +1,10 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from app.agent.nodes.sql_generator import CINEDATA_CATALOG_PROMPT, extract_thought_and_sql
+from app.agent.nodes.sql_generator import extract_thought_and_sql
+from app.agent.prompts import CINEDATA_CATALOG_PROMPT, CORRECTOR_PROMPT
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
-
-CORRECTOR_PROMPT = """A consulta SQL falhou na execução ou na validação do SQLite.
-Seu objetivo é analisar a consulta com erro, a mensagem de falha e gerar uma NOVA
-consulta corrigida que resolva o problema.
-
-REGRAS:
-1. Respeite estritamente o schema do cinerocket.db.
-2. Certifique-se de que os nomes de colunas, tabelas e filtros atendam às regras de ouro.
-3. Responda com <thought>explicando o ajuste</thought> seguido pelo bloco ```sql corrigido ```.
-"""
 
 
 async def sql_corrector_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:

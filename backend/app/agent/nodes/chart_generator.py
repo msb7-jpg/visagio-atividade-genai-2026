@@ -5,6 +5,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.agent.prompts import CHART_DECISION_SYSTEM_PROMPT
 from app.agent.schemas.chart_schema import ChartDataset, ChartJsConfigDTO
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.constants import ChartType, QueryResultRow
@@ -12,32 +13,26 @@ from app.core.llm_factory import get_chat_model
 
 logger = logging.getLogger(__name__)
 
-CHART_DECISION_SYSTEM_PROMPT = """
-Você é um especialista em visualização de dados corporativos e Business Intelligence.
-Sua missão é avaliar se a resposta para a consulta analítica do usuário se beneficia de um gráfico visual.
+# Colunas preferenciais para rótulos em gráficos (eixo X / categorias)
+PREFERRED_LABEL_COLUMNS = (
+    "titulo",
+    "title",
+    "nome_filme",
+    "nome_pessoa",
+    "nome_genero",
+    "nome_produtora",
+    "ano_lancamento",
+    "ano",
+)
 
-DIRETRIZES DE DECISÃO:
-1. Retorne SEMPRE um JSON válido estrito no seguinte formato:
-   {
-     "should_visualize": true | false,
-     "chart": {
-       "type": "bar" | "line" | "pie" | "doughnut",
-       "title": "Título Claro e Conciso do Gráfico",
-       "labels": ["Item 1", "Item 2"],
-       "datasets": [
-         {
-           "label": "Métrica em R$ ou Qtd",
-           "data": [10.5, 20.0]
-         }
-       ]
-     }
-   }
-2. Se "should_visualize" for false, o campo "chart" pode ser null.
-3. Se os dados forem séries temporais (anos/meses), use preferencialmente "line".
-4. Se for proporção ou composição de poucas categorias (<= 7), use "pie" ou "doughnut".
-5. Se for ranking ou comparação categórica, use "bar".
-6. Nunca inclua cores, estilos ou Markdown no JSON. Apenas JSON puro.
-"""
+# Colunas técnicas de identificadores que NUNCA devem ser usadas como rótulos
+TECHNICAL_ID_COLUMNS = {
+    "sk_movie_id",
+    "id_filme",
+    "sk_person_id",
+    "sk_genre_id",
+    "sk_company_id",
+}
 
 
 def _detect_chart_type(query_lower: str) -> ChartType:
@@ -51,27 +46,52 @@ def _detect_chart_type(query_lower: str) -> ChartType:
     return ChartType.BAR
 
 
-def _extract_columns(first_row: QueryResultRow, keys: list[str]) -> tuple[str | None, str | None]:
-    """Identifica heuristicamente colunas de rótulo e de métrica numérica."""
-    label_col = None
-    metric_col = None
+def _is_technical_id(col_name: str) -> bool:
+    """Verifica se a coluna é um ID técnico/hash que não deve ser exibido ao usuário."""
+    col_lower = col_name.lower()
+    return (
+        col_lower in TECHNICAL_ID_COLUMNS
+        or col_lower.startswith("sk_")
+        or col_lower.endswith("_id")
+    )
+
+
+def _find_label_column(first_row: QueryResultRow, keys: list[str]) -> str | None:
+    """Busca coluna de rótulo para gráfico priorizando entidades semânticas e rejeitando IDs."""
+    for preferred in PREFERRED_LABEL_COLUMNS:
+        for k in keys:
+            if k.lower() == preferred and first_row[k] is not None:
+                return k
 
     for k in keys:
+        if not _is_technical_id(k) and isinstance(first_row[k], str):
+            return k
+
+    return None
+
+
+def _find_metric_column(first_row: QueryResultRow, keys: list[str], label_col: str | None) -> str | None:
+    """Busca coluna numérica para gráfico priorizando métricas e evitando anos se houver valores."""
+    metric_candidate = None
+    for k in keys:
+        if k == label_col or _is_technical_id(k):
+            continue
         sample_val = first_row[k]
-        if isinstance(sample_val, str) and label_col is None:
-            label_col = k
-        elif isinstance(sample_val, (int, float)) and metric_col is None:
-            metric_col = k
+        if isinstance(sample_val, (int, float)):
+            if "ano" not in k.lower():
+                return k
+            if metric_candidate is None:
+                metric_candidate = k
+    return metric_candidate
 
-    if not label_col and keys:
-        label_col = keys[0]
 
-    if not metric_col:
-        for k in keys:
-            if k != label_col and isinstance(first_row[k], (int, float)):
-                metric_col = k
-                break
-
+def _extract_columns(first_row: QueryResultRow, keys: list[str]) -> tuple[str | None, str | None]:
+    """
+    Identifica de forma inteligente colunas de rótulo e de métrica numérica,
+    priorizando nomes de entidades reais e descartando hashes/IDs técnicos.
+    """
+    label_col = _find_label_column(first_row, keys)
+    metric_col = _find_metric_column(first_row, keys, label_col)
     return label_col, metric_col
 
 
