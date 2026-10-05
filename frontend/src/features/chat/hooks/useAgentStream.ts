@@ -101,6 +101,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
 
     if (activeThreadId) {
       abortedThreadIdsRef.current.add(activeThreadId)
+      void queryClient.cancelQueries({ queryKey: chatQueryKeys.threadDetail(activeThreadId) })
       queryClient.setQueryData<ThreadDetail | undefined>(
         chatQueryKeys.threadDetail(activeThreadId),
         (old) => (old ? { ...old, is_running: false } : old)
@@ -234,6 +235,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
       if (controller.signal.aborted) {
         if (effectiveThreadId) {
           abortedThreadIdsRef.current.add(effectiveThreadId)
+          void queryClient.cancelQueries({ queryKey: chatQueryKeys.threadDetail(effectiveThreadId) })
           queryClient.setQueryData<ThreadDetail | undefined>(
             chatQueryKeys.threadDetail(effectiveThreadId),
             (old) => (old ? { ...old, is_running: false } : old)

@@ -1,6 +1,8 @@
-import { chatQueryKeys, deleteThreadApi, fetchThreads } from '@/features/chat/api/threadsApi'
+import { chatQueryKeys } from '@/features/chat/api/threadsApi'
+import { useDeleteThreadMutation } from '@/features/chat/hooks/useDeleteThreadMutation'
+import { useThreadsQuery } from '@/features/chat/hooks/useThreadsQuery'
 import type { ThreadSummary } from '@/features/chat/types/chat.types'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 /**
  * Objeto de retorno do hook de histórico de conversas com listagem e mutação otimista de exclusão.
@@ -21,42 +23,15 @@ export interface UseThreadHistoryResult {
 }
 
 /**
- * Hook para gerenciamento do catálogo de conversas com cache TanStack Query e exclusão otimista.
+ * Hook composto para gerenciamento do catálogo de conversas.
+ * Orquestra internamente useThreadsQuery e useDeleteThreadMutation mantendo compatibilidade de interface.
  *
  * @returns Objeto com lista de threads, flags de carregamento e métodos de manipulação de cache.
  */
 export function useThreadHistory(): UseThreadHistoryResult {
   const queryClient = useQueryClient()
-
-  const threadsQuery = useQuery({
-    queryKey: chatQueryKeys.allThreads(),
-    queryFn: () => fetchThreads()
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (threadId: string) => deleteThreadApi(threadId),
-    onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: chatQueryKeys.allThreads() })
-      const previousThreads = queryClient.getQueryData<ThreadSummary[]>(chatQueryKeys.allThreads())
-
-      if (previousThreads) {
-        queryClient.setQueryData<ThreadSummary[]>(
-          chatQueryKeys.allThreads(),
-          previousThreads.filter((thread) => thread.thread_id !== deletedId)
-        )
-      }
-
-      return { previousThreads }
-    },
-    onError: (_err, _id, context) => {
-      if (context?.previousThreads) {
-        queryClient.setQueryData(chatQueryKeys.allThreads(), context.previousThreads)
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: chatQueryKeys.allThreads() })
-    }
-  })
+  const threadsQuery = useThreadsQuery()
+  const deleteMutation = useDeleteThreadMutation()
 
   const updateThreadTitleInCache = (threadId: string, newTitle: string) => {
     queryClient.setQueryData<ThreadSummary[]>(chatQueryKeys.allThreads(), (old) => {

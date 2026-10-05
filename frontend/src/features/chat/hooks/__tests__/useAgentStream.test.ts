@@ -9,6 +9,7 @@ vi.mock('@/features/chat/lib/chatStreamTransport', () => ({
 
 vi.mock('@/lib/query-client', () => ({
   queryClient: {
+    cancelQueries: vi.fn().mockResolvedValue(undefined),
     invalidateQueries: vi.fn().mockResolvedValue(undefined),
     setQueryData: vi.fn()
   }
