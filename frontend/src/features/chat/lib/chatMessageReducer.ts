@@ -223,6 +223,14 @@ export function applyNetworkErrorToMessage(
  * @returns Mensagem atualizada com a interrupção refletida nos steps de execução.
  */
 export function applyAbortToMessage(msg: ChatMessageItem): ChatMessageItem {
+  // Se a mensagem já contém etapa de interrupção, não altera nem duplica
+  const alreadyInterrupted = msg.steps.some(
+    (step) => step.step === 'interrupted' || step.label.toLowerCase().includes('interrompid')
+  )
+
+  if (alreadyInterrupted)
+    return msg
+
   const hasActiveOrPending = msg.steps.some(
     (step) => step.status === STEP_STATUS.ACTIVE || step.status === STEP_STATUS.PENDING
   )

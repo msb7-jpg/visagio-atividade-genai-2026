@@ -114,6 +114,7 @@ describe('useAgentStream Hook', () => {
 
     const assistantMsg = result.current.messages.find((msg) => msg.role === 'assistant')
     expect(assistantMsg).toBeDefined()
+    expect(assistantMsg?.steps.filter((stepItem) => stepItem.step === 'interrupted')).toHaveLength(1)
     expect(assistantMsg?.steps).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ step: 'router', status: 'done' }),
@@ -174,6 +175,7 @@ describe('useAgentStream Hook', () => {
 
     const assistantMsg = result.current.messages.find((msg) => msg.role === 'assistant')
     expect(assistantMsg?.isStreaming).toBe(false)
+    expect(assistantMsg?.steps.filter((stepItem) => stepItem.step === 'interrupted')).toHaveLength(1)
     expect(assistantMsg?.steps).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

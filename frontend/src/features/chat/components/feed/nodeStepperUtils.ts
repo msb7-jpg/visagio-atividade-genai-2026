@@ -50,5 +50,21 @@ export function resolveDisplaySteps(
     }
   }
 
+  // Fencing defensivo (UI-level): deduplica etapas de interrupção para evitar repetição visual
+  let hasInterrupted = false
+  displaySteps = displaySteps.filter((stepItem) => {
+    const isInterruptedStep =
+      stepItem.step === 'interrupted' ||
+      stepItem.label.toLowerCase().includes('interrompid')
+
+    if (isInterruptedStep) {
+      if (hasInterrupted) {
+        return false
+      }
+      hasInterrupted = true
+    }
+    return true
+  })
+
   return displaySteps
 }

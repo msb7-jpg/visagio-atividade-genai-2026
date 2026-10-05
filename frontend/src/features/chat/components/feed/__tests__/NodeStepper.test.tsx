@@ -87,4 +87,17 @@ describe('NodeStepper', () => {
     expect(screen.getByText('Classificando intenção')).toBeInTheDocument()
     expect(screen.getByText(/Escrevendo consulta SQL \(interrompido\)/i)).toBeInTheDocument()
   })
+
+  it('aplica fencing defensivo e deduplica etapas de interrupção duplicadas', () => {
+    const steps: AgentStepItem[] = [
+      { step: 'router', label: 'Classificando intenção', status: 'done', duration_ms: 10 },
+      { step: 'interrupted', label: 'Processamento interrompido', status: 'error' },
+      { step: 'interrupted', label: 'Processamento interrompido', status: 'error' }
+    ]
+
+    render(<NodeStepper steps={steps} isStreaming={false} />)
+
+    const interruptedElements = screen.getAllByText('Processamento interrompido')
+    expect(interruptedElements).toHaveLength(1)
+  })
 })
