@@ -82,6 +82,13 @@ def append_thought(existing: str | None, new: str | None) -> str | None:
 RouteType = Literal["sql", "rag", "hybrid", "direct"]
 
 
+class SlashCommandInfo(TypedDict, total=False):
+    """Metadados de comando de barra capturado na mensagem do usuário."""
+
+    name: str
+    args: str | None
+
+
 class AgentState(TypedDict):
     """
     Estado do LangGraph para o CineData Analytics Agent.
@@ -102,6 +109,7 @@ class AgentState(TypedDict):
     data_analysis_result: str | None
     title: str | None
     steps: Annotated[list[AgentStepInfo], append_steps]
+    command: SlashCommandInfo | None
 
 
 class AgentStateUpdate(TypedDict, total=False):
@@ -121,3 +129,4 @@ class AgentStateUpdate(TypedDict, total=False):
     data_analysis_result: str | None
     title: str | None
     steps: list[AgentStepInfo]
+    command: SlashCommandInfo | None

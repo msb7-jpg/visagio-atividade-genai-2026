@@ -6,10 +6,35 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.prompts import ROUTER_PROMPT
-from app.agent.state import AgentState, AgentStateUpdate, RouteType
+from app.agent.state import AgentState, AgentStateUpdate, RouteType, SlashCommandInfo
+from app.agent.utils.command_parser import parse_slash_command
 from app.core.llm_factory import get_chat_model
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_command_route(command_info: SlashCommandInfo) -> AgentStateUpdate | None:
+    """Resolve a rota imediata a partir de comando explícito ou None."""
+    cmd_name = command_info["name"]
+    logger.info("Slash command detectado no router: %s", cmd_name)
+    if cmd_name == "chart":
+        return {"route": "sql", "requires_chart": True, "command": command_info}
+    if cmd_name in ("sql", "rag", "hybrid"):
+        return {"route": cmd_name, "command": command_info}
+    if cmd_name in ("direct", "explain"):
+        return {"route": "direct", "command": command_info}
+    return None
+
+
+def _resolve_decision_route(decision: str) -> RouteType:
+    """Mapeia a resposta textual do LLM para a rota correspondente."""
+    if "direct" in decision:
+        return "direct"
+    if "hybrid" in decision:
+        return "hybrid"
+    if "rag" in decision:
+        return "rag"
+    return "sql"
 
 
 async def router_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
@@ -25,7 +50,7 @@ async def router_node(state: AgentState, config: RunnableConfig | None = None) -
     """
     messages = state.get("messages", [])
     if not messages:
-        return {"route": "direct"}
+        return {"route": "direct", "command": None}
 
     last_user_message = ""
     for msg in reversed(messages):
@@ -34,7 +59,14 @@ async def router_node(state: AgentState, config: RunnableConfig | None = None) -
             break
 
     if not last_user_message:
-        return {"route": "direct"}
+        return {"route": "direct", "command": None}
+
+    # Avalia se há comando de barra no início da mensagem
+    command_info, _ = parse_slash_command(last_user_message)
+    if command_info:
+        route_update = _resolve_command_route(command_info)
+        if route_update:
+            return route_update
 
     configurable = (config or {}).get("configurable", {})
     llm = get_chat_model(
@@ -56,16 +88,6 @@ async def router_node(state: AgentState, config: RunnableConfig | None = None) -
         logger.warning("Erro na classificação via LLM (%s). Fallback para heurística.", exc)
         decision = "sql"
 
-    route: RouteType = "sql"
-
-    if "direct" in decision:
-        route = "direct"
-    elif "hybrid" in decision:
-        route = "hybrid"
-    elif "rag" in decision:
-        route = "rag"
-    else:
-        route = "sql"
-
+    route = _resolve_decision_route(decision)
     logger.info("Intenção classificada: %s (mensagem: '%s')", route, last_user_message[:60])
-    return {"route": route}
+    return {"route": route, "command": None}

@@ -35,8 +35,19 @@ TECHNICAL_ID_COLUMNS = {
 }
 
 
-def _detect_chart_type(query_lower: str) -> ChartType:
-    """Determina o tipo de gráfico baseado em palavras-chave na consulta."""
+def _detect_chart_type(query_lower: str, forced_type: str | None = None) -> ChartType:
+    """Determina o tipo de gráfico baseado em argumento forçado ou palavras-chave."""
+    if forced_type:
+        ft = forced_type.lower().strip()
+        if ft in ("line", "linha", "temporal"):
+            return ChartType.LINE
+        if ft in ("pie", "pizza"):
+            return ChartType.PIE
+        if ft in ("doughnut", "rosca"):
+            return ChartType.DOUGHNUT
+        if ft in ("bar", "barra", "barras"):
+            return ChartType.BAR
+
     if "linha" in query_lower or "temporal" in query_lower or "evolução" in query_lower:
         return ChartType.LINE
     if "rosca" in query_lower:
@@ -95,13 +106,18 @@ def _extract_columns(first_row: QueryResultRow, keys: list[str]) -> tuple[str | 
     return label_col, metric_col
 
 
-def _heuristic_chart_builder(user_query: str, query_result: list[QueryResultRow]) -> dict[str, Any] | None:
+def _heuristic_chart_builder(
+    user_query: str,
+    query_result: list[QueryResultRow],
+    forced_type: str | None = None,
+) -> dict[str, Any] | None:
     """
     Constrói a especificação do gráfico de forma determinística caso os dados sejam adequados.
 
     Args:
         user_query: Consulta original do usuário.
         query_result: Linhas retornadas pela execução da consulta SQL.
+        forced_type: Tipo de gráfico opcionalmente forçado (ex: via /chart bar).
 
     Returns:
         Dicionário serializado da especificação do gráfico ou None caso os dados sejam insuficientes.
@@ -121,7 +137,7 @@ def _heuristic_chart_builder(user_query: str, query_result: list[QueryResultRow]
     labels = [str(row.get(label_col, "")) for row in query_result[:15]]
     data = [float(row.get(metric_col, 0) or 0) for row in query_result[:15]]
 
-    chart_type = _detect_chart_type(user_query.lower())
+    chart_type = _detect_chart_type(user_query.lower(), forced_type=forced_type)
     metric_name = metric_col.replace("_", " ").title()
     title = f"{metric_name} por {label_col.replace('_', ' ').title()}"
 
@@ -183,6 +199,7 @@ def _resolve_chart_spec(
     explicit_intent: bool,
     last_user_query: str,
     query_result: list[QueryResultRow],
+    forced_type: str | None = None,
 ) -> dict[str, Any] | None:
     """Valida o payload parseado do LLM e aplica fallback heurístico se necessário."""
     if not parsed.get("should_visualize") and not explicit_intent:
@@ -191,8 +208,11 @@ def _resolve_chart_spec(
     chart_data = parsed.get("chart")
     if not chart_data:
         if explicit_intent:
-            return _heuristic_chart_builder(last_user_query, query_result)
+            return _heuristic_chart_builder(last_user_query, query_result, forced_type=forced_type)
         return None
+
+    if forced_type:
+        chart_data["type"] = _detect_chart_type("", forced_type=forced_type).value
 
     dto = ChartJsConfigDTO(**chart_data)
     return dto.model_dump()
@@ -222,6 +242,11 @@ async def chart_generator_node(state: AgentState, config: RunnableConfig | None 
             last_user_query = str(msg.content)
             break
 
+    command = state.get("command")
+    forced_type: str | None = None
+    if command and command.get("name") == "chart":
+        forced_type = command.get("args")
+
     explicit_intent = check_explicit_chart_intent(last_user_query) or bool(state.get("requires_chart"))
 
     configurable = (config or {}).get("configurable", {})
@@ -239,6 +264,7 @@ async def chart_generator_node(state: AgentState, config: RunnableConfig | None 
         user_prompt = (
             f"Pergunta do usuário: {last_user_query}\n"
             f"Intenção explícita detectada: {'SIM' if explicit_intent else 'NÃO'}\n"
+            f"Tipo preferencial forçado: {forced_type or 'Nenhum'}\n"
             f"Dados analíticos obtidos:\n{json.dumps(sample_data, ensure_ascii=False)}"
         )
 
@@ -249,7 +275,13 @@ async def chart_generator_node(state: AgentState, config: RunnableConfig | None 
 
         raw_content = _clean_markdown_code_block(str(response.content))
         parsed = json.loads(raw_content)
-        spec = _resolve_chart_spec(parsed, explicit_intent, last_user_query, query_result)
+        spec = _resolve_chart_spec(
+            parsed,
+            explicit_intent,
+            last_user_query,
+            query_result,
+            forced_type=forced_type,
+        )
         return {"chart_spec": spec}
 
     except Exception as exc:
@@ -259,5 +291,11 @@ async def chart_generator_node(state: AgentState, config: RunnableConfig | None 
             explicit_intent,
         )
         if explicit_intent:
-            return {"chart_spec": _heuristic_chart_builder(last_user_query, query_result)}
+            return {
+                "chart_spec": _heuristic_chart_builder(
+                    last_user_query,
+                    query_result,
+                    forced_type=forced_type,
+                )
+            }
         return {"chart_spec": None}
