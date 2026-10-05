@@ -183,7 +183,7 @@ function Install-FrontendDeps {
         if ($runner -eq "bun") {
             & bun install
         } else {
-            & npm install
+            & npm install --legacy-peer-deps
         }
         if ($LASTEXITCODE -ne 0) { throw "Falha ao instalar dependencias do frontend com $runner" }
     } finally {

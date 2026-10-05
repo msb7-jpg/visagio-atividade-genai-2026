@@ -45,6 +45,7 @@
     "@rolldown/plugin-babel": "^0.2.3",
     "@shadcn/lint": "^0.2.0",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/babel__core": "^7.20.5",
