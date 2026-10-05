@@ -48,6 +48,14 @@ class AgentChatService:
         thread_id = request.thread_id or str(uuid.uuid4())
         session_manager = get_session_manager()
 
+        logger.info(
+            "Iniciando stream_chat: thread_id=%s, model=%s, provider=%s, msg_preview='%s'",
+            thread_id,
+            request.model,
+            request.provider,
+            request.message[:60].replace("\n", " "),
+        )
+
         async with session_manager.session_scope(thread_id):
             # 1. Resolve provedor e credenciais (SRP)
             provider_cfg = await ChatProviderResolver.resolve(request)
@@ -55,6 +63,7 @@ class AgentChatService:
             # 2. Verifica se a thread já possui título cadastrado (para decidir titulação concorrente)
             existing_thread = await ThreadRepository.get_thread_summary(thread_id)
             is_first_turn = existing_thread is None or existing_thread.title == "Nova Conversa"
+            logger.info("Thread status: thread_id=%s, is_first_turn=%s", thread_id, is_first_turn)
 
             # Garante registro na tabela de metadados
             await ThreadRepository.get_or_create_thread(thread_id)

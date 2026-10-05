@@ -106,3 +106,17 @@ def test_enrich_movie_annotations_noop_when_empty_or_no_records():
     assert _enrich_movie_annotations("", []) == ""
     assert _enrich_movie_annotations("Texto puro sem filmes", []) == "Texto puro sem filmes"
     assert _enrich_movie_annotations("Texto", None) == "Texto"
+
+
+def test_prompts_contain_strict_scope_guardrails_and_rejection_rules():
+    """Valida que os prompts possuem as regras de recusa de código e temas fora de escopo."""
+    assert "ESTRITA DELIMITAÇÃO DE ESCOPO E GUARDRAILS" in SYNTHESIZER_PROMPT
+    assert "PROIBIÇÃO ABSOLUTA DE DESVIOS" in SYNTHESIZER_PROMPT
+    assert "escrever, debugar ou gerar códigos de programação" in SYNTHESIZER_PROMPT
+    assert "RECUSE FIRMEMENTE E COM CORTESIA PROFISSIONAL" in SYNTHESIZER_PROMPT
+
+    assert "FORA DO ESCOPO cinematográfico" in ROUTER_PROMPT
+    assert "pedidos para gerar códigos de programação" in ROUTER_PROMPT
+
+    assert "SEGURANÇA, ESCOPO E READ-ONLY" in CINEDATA_CATALOG_PROMPT
+    assert "completamente alheia a cinema" in CINEDATA_CATALOG_PROMPT

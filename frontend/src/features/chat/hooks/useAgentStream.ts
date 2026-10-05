@@ -259,7 +259,7 @@ export function useAgentStream(initialThreadId: string | null = null): UseAgentS
         }))
       )
 
-      finalizeStreamCache(effectiveThreadId, controller.signal.aborted, abortedThreadIdsRef.current)
+      finalizeStreamCache(effectiveThreadId || undefined, controller.signal.aborted, abortedThreadIdsRef.current)
     }
   }
 

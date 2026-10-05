@@ -1,8 +1,12 @@
+import logging
+
 from app.agent.nodes.sql_validator import validate_sql_query
 from app.agent.state import AgentState, AgentStateUpdate
 from app.agent.tools.query_runner import execute_sql_query
 from app.core.constants import SqlErrorCategory
 from app.shared.exceptions import DatabaseReadError
+
+logger = logging.getLogger(__name__)
 
 
 def sql_executor_node(state: AgentState) -> AgentStateUpdate:
@@ -22,6 +26,7 @@ def sql_executor_node(state: AgentState) -> AgentStateUpdate:
     if not sql:
         existing_error = state.get("last_error")
         existing_cat = state.get("error_category") or SqlErrorCategory.UNSUPPORTED_REQUEST
+        logger.info("Execução de SQL ignorada: nenhum código SQL foi gerado (motivo: '%s')", existing_error)
         return {
             "query_result": None,
             "last_error": existing_error or "Nenhum código SQL foi gerado para execução.",
@@ -31,6 +36,7 @@ def sql_executor_node(state: AgentState) -> AgentStateUpdate:
 
     is_valid, validation_error, error_cat = validate_sql_query(sql)
     if not is_valid:
+        logger.warning("Falha na validação AST da query SQL: %s | SQL: %s", validation_error, sql)
         return {
             "query_result": None,
             "last_error": f"Falha na validação AST: {validation_error}",
@@ -40,12 +46,14 @@ def sql_executor_node(state: AgentState) -> AgentStateUpdate:
 
     try:
         results = execute_sql_query.invoke({"query": sql})
+        logger.info("Query SQL executada com sucesso (%d linhas retornadas).", len(results))
         return {
             "query_result": results,
             "last_error": None,
             "error_category": None,
         }
     except (DatabaseReadError, ValueError, Exception) as exc:
+        logger.error("Erro na execução SQLite: %s | SQL: %s", exc, sql)
         return {
             "query_result": None,
             "last_error": f"Erro de execução SQL: {exc}",

@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -13,6 +14,8 @@ from app.agent.prompts import (
 )
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
+
+logger = logging.getLogger(__name__)
 
 
 def _enrich_movie_annotations(
@@ -174,6 +177,16 @@ async def synthesizer_node(state: AgentState, config: RunnableConfig | None = No
     context_info = _build_context_info(state)
     visualization_guideline = _build_visualization_guideline(chart_spec)
 
+    analytics_data = state.get("query_result") or state.get("semantic_results")
+    total_records = len(analytics_data) if analytics_data else 0
+    has_chart = bool(chart_spec)
+    logger.info(
+        "Iniciando síntese executiva: rota='%s', registros_analiticos=%d, grafico_ativo=%s",
+        state.get("route"),
+        total_records,
+        has_chart,
+    )
+
     full_prompt = f"{SYNTHESIZER_PROMPT}\n\n{visualization_guideline}\n\n[CONTEXTO DOS DADOS]\n{context_info}"
     system_msg = SystemMessage(content=full_prompt)
     llm_input = [system_msg, *messages]
@@ -181,8 +194,8 @@ async def synthesizer_node(state: AgentState, config: RunnableConfig | None = No
     response = await llm.ainvoke(llm_input)
     ai_content = response.content if isinstance(response.content, str) else str(response.content)
 
-    analytics_data = state.get("query_result") or state.get("semantic_results")
     ai_content = _enrich_movie_annotations(ai_content, analytics_data)
+    logger.info("Síntese executiva concluída (%d caracteres gerados).", len(ai_content))
 
     additional_kwargs = _build_additional_kwargs(state, configurable)
 

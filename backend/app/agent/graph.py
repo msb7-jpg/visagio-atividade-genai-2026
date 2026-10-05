@@ -35,6 +35,7 @@ def route_decision(state: AgentState) -> str:
         Identificador do próximo nó: 'semantic_search', 'sql_generator' ou 'synthesizer'.
     """
     route = state.get("route", "sql")
+    logger.info("Transição [route_decision]: rota='%s'", route)
     if route == "direct":
         return AgentNode.SYNTHESIZER.value
     if route in ("rag", "hybrid"):
@@ -53,6 +54,8 @@ def semantic_decision(state: AgentState) -> str:
         'sql_generator' se for híbrido, ou 'synthesizer' se for RAG puramente qualitativo.
     """
     route = state.get("route")
+    results_count = len(state.get("semantic_results") or [])
+    logger.info("Transição [semantic_decision]: rota='%s', candidatos_encontrados=%d", route, results_count)
     if route == "hybrid":
         return AgentNode.SQL_GENERATOR.value
     return AgentNode.SYNTHESIZER.value
@@ -71,13 +74,23 @@ def check_sql_execution(state: AgentState) -> str:
     last_error = state.get("last_error")
     error_count = state.get("error_count", 0)
     error_cat = state.get("error_category")
+    rows_count = len(state.get("query_result") or [])
 
     if not last_error:
         # Sucesso na execução SQL
         if should_run_data_analysis(state):
+            logger.info(
+                "Transição [check_sql_execution]: Sucesso SQL (%d linhas). Desviando para data_analysis.",
+                rows_count,
+            )
             return AgentNode.DATA_ANALYSIS.value
         if state.get("query_result"):
+            logger.info(
+                "Transição [check_sql_execution]: Sucesso SQL (%d linhas). Desviando para chart_generator.",
+                rows_count,
+            )
             return AgentNode.CHART_GENERATOR.value
+        logger.info("Transição [check_sql_execution]: Sucesso SQL sem resultados. Desviando para synthesizer.")
         return AgentNode.SYNTHESIZER.value
 
     # Recusas de segurança ou solicitações não suportadas vão direto para o sintetizador
@@ -85,6 +98,10 @@ def check_sql_execution(state: AgentState) -> str:
         SqlErrorCategory.SECURITY_VIOLATION.value,
         SqlErrorCategory.UNSUPPORTED_REQUEST.value,
     ):
+        logger.warning(
+            "Transição [check_sql_execution]: Erro sem recuperação (categoria='%s'). Desviando para synthesizer.",
+            error_cat,
+        )
         return AgentNode.SYNTHESIZER.value
 
     error_lower = last_error.lower()
@@ -97,10 +114,22 @@ def check_sql_execution(state: AgentState) -> str:
         or "não foi possível gerar consulta sql para este pedido" in error_lower
     )
     if is_security_or_forbidden:
+        logger.warning(
+            "Transição [check_sql_execution]: Restrição de segurança/escopo detectada. Desviando para synthesizer."
+        )
         return AgentNode.SYNTHESIZER.value
 
     if error_count < 3:
+        logger.warning(
+            "Transição [check_sql_execution]: Falha sintática (tentativa %d/3). Desviando para sql_corrector: %s",
+            error_count,
+            last_error,
+        )
         return AgentNode.SQL_CORRECTOR.value
+
+    logger.error(
+        "Transição [check_sql_execution]: Limite de 3 tentativas de autocorreção excedido. Desviando para synthesizer."
+    )
     return AgentNode.SYNTHESIZER.value
 
 
@@ -114,6 +143,92 @@ def _format_thought_text(thought: Any, label: str, is_router: bool) -> str | Non
         t_str = f"[{label}]\n{t_str}"
 
     return f"__RESET__{t_str}" if is_router else t_str
+
+
+def _build_wrapped_update(
+    update_data: dict[str, Any] | None,
+    node_name: str,
+    label: str,
+    duration_ms: int,
+    is_router: bool,
+    state: AgentState,
+) -> AgentStateUpdate:
+    """Aplica enriquecimento de telemetria, steps e thought ao payload retornado pelo nó."""
+    update: dict[str, Any] = dict(update_data or {})
+    step_info: AgentStepInfo = {
+        "node": node_name,
+        "label": label,
+        "status": "done",
+        "duration_ms": duration_ms,
+    }
+    update["steps"] = [step_info]
+
+    formatted_thought = _format_thought_text(update.get("thought"), label, is_router)
+    if formatted_thought is not None:
+        update["thought"] = formatted_thought
+
+    if update.get("messages"):
+        all_steps = append_steps(state.get("steps"), [step_info])
+        all_thought = append_thought(state.get("thought"), update.get("thought"))
+        for msg in update["messages"]:
+            if isinstance(msg, AIMessage):
+                msg.additional_kwargs["steps"] = all_steps
+                if all_thought:
+                    msg.additional_kwargs["thought"] = all_thought
+
+    return update  # type: ignore[return-value]
+
+
+def _create_async_wrapper(
+    node_name: str,
+    label: str,
+    is_router: bool,
+    fn: Callable[..., Any],
+) -> Callable[..., Any]:
+    """Cria função envelopadora para nós assíncronos do LangGraph."""
+
+    async def async_wrapped(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
+        thread_id = (config or {}).get("configurable", {}).get("thread_id", "local")
+        logger.info("▶ [GRAFO:INÍCIO] nó='%s' (%s) thread_id=%s", node_name, label, thread_id)
+        t0 = time.perf_counter()
+        try:
+            res = await fn(state, config)
+        except Exception as exc:
+            duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
+            logger.error("✖ [GRAFO:FALHA] nó='%s' duration=%dms erro: %s", node_name, duration_ms, exc, exc_info=True)
+            raise
+
+        duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
+        logger.info("✔ [GRAFO:CONCLUÍDO] nó='%s' duration=%dms", node_name, duration_ms)
+        return _build_wrapped_update(res, node_name, label, duration_ms, is_router, state)
+
+    return async_wrapped
+
+
+def _create_sync_wrapper(
+    node_name: str,
+    label: str,
+    is_router: bool,
+    fn: Callable[..., Any],
+) -> Callable[..., Any]:
+    """Cria função envelopadora para nós síncronos do LangGraph."""
+
+    def sync_wrapped(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
+        thread_id = (config or {}).get("configurable", {}).get("thread_id", "local")
+        logger.info("▶ [GRAFO:INÍCIO] nó='%s' (%s) thread_id=%s", node_name, label, thread_id)
+        t0 = time.perf_counter()
+        try:
+            res = fn(state) if getattr(fn, "__code__", None) and fn.__code__.co_argcount == 1 else fn(state, config)
+        except Exception as exc:
+            duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
+            logger.error("✖ [GRAFO:FALHA] nó='%s' duration=%dms erro: %s", node_name, duration_ms, exc, exc_info=True)
+            raise
+
+        duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
+        logger.info("✔ [GRAFO:CONCLUÍDO] nó='%s' duration=%dms", node_name, duration_ms)
+        return _build_wrapped_update(res, node_name, label, duration_ms, is_router, state)
+
+    return sync_wrapped
 
 
 def _wrap_node(node_name: str, fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -131,59 +246,9 @@ def _wrap_node(node_name: str, fn: Callable[..., Any]) -> Callable[..., Any]:
     is_router = node_name == AgentNode.ROUTER.value
 
     if inspect.iscoroutinefunction(fn):
+        return _create_async_wrapper(node_name, label, is_router, fn)
 
-        async def async_wrapped(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
-            t0 = time.perf_counter()
-            res = await fn(state, config)
-            duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
-
-            update: dict[str, Any] = dict(res or {})
-            step_info: AgentStepInfo = {
-                "node": node_name,
-                "label": label,
-                "status": "done",
-                "duration_ms": duration_ms,
-            }
-            update["steps"] = [step_info]
-
-            formatted_thought = _format_thought_text(update.get("thought"), label, is_router)
-            if formatted_thought is not None:
-                update["thought"] = formatted_thought
-
-            if update.get("messages"):
-                all_steps = append_steps(state.get("steps"), [step_info])
-                all_thought = append_thought(state.get("thought"), update.get("thought"))
-                for msg in update["messages"]:
-                    if isinstance(msg, AIMessage):
-                        msg.additional_kwargs["steps"] = all_steps
-                        if all_thought:
-                            msg.additional_kwargs["thought"] = all_thought
-
-            return update  # type: ignore[return-value]
-
-        return async_wrapped
-
-    def sync_wrapped(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
-        t0 = time.perf_counter()
-        res = fn(state) if getattr(fn, "__code__", None) and fn.__code__.co_argcount == 1 else fn(state, config)
-        duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
-
-        update: dict[str, Any] = dict(res or {})
-        step_info: AgentStepInfo = {
-            "node": node_name,
-            "label": label,
-            "status": "done",
-            "duration_ms": duration_ms,
-        }
-        update["steps"] = [step_info]
-
-        formatted_thought = _format_thought_text(update.get("thought"), label, is_router)
-        if formatted_thought is not None:
-            update["thought"] = formatted_thought
-
-        return update  # type: ignore[return-value]
-
-    return sync_wrapped
+    return _create_sync_wrapper(node_name, label, is_router, fn)
 
 
 def create_agent_graph(checkpointer: Any = None):

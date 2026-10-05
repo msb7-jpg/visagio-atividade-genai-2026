@@ -1,4 +1,6 @@
+import logging
 import re
+from typing import Any
 
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
@@ -7,6 +9,8 @@ from app.agent.prompts import CINEDATA_CATALOG_PROMPT
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.constants import SqlErrorCategory
 from app.core.llm_factory import get_chat_model
+
+logger = logging.getLogger(__name__)
 
 
 def extract_thought_and_sql(text: str) -> tuple[str | None, str | None]:
@@ -33,6 +37,107 @@ def extract_thought_and_sql(text: str) -> tuple[str | None, str | None]:
     return thought, None
 
 
+def _is_destructive_request(messages: list[Any]) -> bool:
+    """Verifica se a última mensagem do usuário contém termos destrutivos ou de mutação."""
+    last_user_msg = ""
+    for m in reversed(messages):
+        if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
+            last_user_msg = str(m.content).lower()
+            break
+
+    destructive_terms = (
+        "limpar",
+        "apagar",
+        "deletar",
+        "drop",
+        "delete",
+        "truncate",
+        "remover tabelas",
+        "excluir",
+        "zerar",
+        "destruir",
+        "modificar",
+    )
+    return any(term in last_user_msg for term in destructive_terms)
+
+
+def _resolve_sql_error_payload(
+    messages: list[Any],
+    raw_content: str,
+    thought: str | None,
+) -> tuple[str, SqlErrorCategory]:
+    """Determina a categoria e a mensagem de erro quando nenhum SQL foi sintetizado."""
+    if _is_destructive_request(messages):
+        return (
+            (
+                "Operação não permitida por política de segurança: O banco CineData opera "
+                "estritamente em modo de leitura (Read-Only). Consultas destrutivas, de exclusão "
+                "ou de modificação (como DROP, DELETE, TRUNCATE) são bloqueadas."
+            ),
+            SqlErrorCategory.SECURITY_VIOLATION,
+        )
+
+    clean_raw = raw_content.strip()
+    explanation = clean_raw
+    if thought and len(clean_raw) > len(thought):
+        explanation = re.sub(r"<thought>.*?</thought>", "", clean_raw, flags=re.DOTALL | re.IGNORECASE).strip()
+
+    if explanation and len(explanation) > 10:
+        return (
+            f"Não foi possível gerar consulta SQL para este pedido: {explanation}",
+            SqlErrorCategory.UNSUPPORTED_REQUEST,
+        )
+
+    return (
+        "Nenhum código SQL foi gerado para atender à solicitação.",
+        SqlErrorCategory.UNSUPPORTED_REQUEST,
+    )
+
+
+def _log_generation_status(
+    sql: str | None,
+    error_category: SqlErrorCategory | None,
+    last_error: str | None,
+) -> None:
+    """Registra em log estruturado o desfecho da sintetização SQL."""
+    if sql:
+        logger.info("Consulta SQL gerada com sucesso: %s", sql.replace("\n", " ")[:120])
+        return
+
+    if error_category == SqlErrorCategory.SECURITY_VIOLATION:
+        logger.warning("Bloqueio de segurança no gerador de SQL: %s", last_error)
+        return
+
+    logger.info("Nenhum SQL gerado para a solicitação (não suportada ou fora de escopo): %s", last_error)
+
+
+def _build_catalog_prompt_with_candidates(
+    base_prompt: str,
+    semantic_results: list[dict[str, Any]] | None,
+) -> str:
+    """Combina o catálogo semântico básico com os candidatos obtidos no fluxo híbrido RAG."""
+    if not semantic_results:
+        return base_prompt
+
+    candidates = [
+        f"- ID: '{record['sk_movie_id']}', Título: '{record['titulo']}'"
+        for record in semantic_results
+        if record.get("sk_movie_id")
+    ]
+    if not candidates:
+        return base_prompt
+
+    candidate_block = "\n".join(candidates[:10])
+    return (
+        f"{base_prompt}\n\nCONTEXTO SEMÂNTICO ENCONTRADO (FLUXO HÍBRIDO RAG):\n"
+        f"A busca semântica prévia em sinopses/resenhas identificou os seguintes filmes candidatos:\n"
+        f"{candidate_block}\n"
+        f"IMPORTANTE: Restrinja sua consulta aos filmes identificados acima "
+        f"(ex: WHERE m.sk_movie_id IN (...)) e combine com os filtros analíticos adicionais "
+        f"solicitados pelo usuário (ex: bilheteria, faturamento, notas, ano)."
+    )
+
+
 async def sql_generator_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
     """
     Nó gerador de SQL que injeta o catálogo semântico compacto e sintetiza a consulta analítica.
@@ -55,22 +160,10 @@ async def sql_generator_node(state: AgentState, config: RunnableConfig | None = 
         temperature=0.0,
     )
 
-    semantic_results = state.get("semantic_results")
-    prompt_text = CINEDATA_CATALOG_PROMPT
-    if semantic_results:
-        candidates = [
-            f"- ID: '{r['sk_movie_id']}', Título: '{r['titulo']}'" for r in semantic_results if r.get("sk_movie_id")
-        ]
-        if candidates:
-            cand_str = "\n".join(candidates[:10])
-            prompt_text += (
-                f"\n\nCONTEXTO SEMÂNTICO ENCONTRADO (FLUXO HÍBRIDO RAG):\n"
-                f"A busca semântica prévia em sinopses/resenhas identificou os seguintes filmes candidatos:\n"
-                f"{cand_str}\n"
-                f"IMPORTANTE: Restrinja sua consulta aos filmes identificados acima "
-                f"(ex: WHERE m.sk_movie_id IN (...)) e combine com os filtros analíticos adicionais "
-                f"solicitados pelo usuário (ex: bilheteria, faturamento, notas, ano)."
-            )
+    prompt_text = _build_catalog_prompt_with_candidates(
+        CINEDATA_CATALOG_PROMPT,
+        state.get("semantic_results"),
+    )
 
     system_msg = SystemMessage(content=prompt_text)
     llm_input = [system_msg, *messages]
@@ -84,44 +177,9 @@ async def sql_generator_node(state: AgentState, config: RunnableConfig | None = 
     error_category: SqlErrorCategory | None = None
 
     if not sql:
-        last_user_msg = ""
-        for m in reversed(messages):
-            if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
-                last_user_msg = str(m.content).lower()
-                break
+        last_error, error_category = _resolve_sql_error_payload(messages, raw_content, thought)
 
-        destructive_terms = (
-            "limpar",
-            "apagar",
-            "deletar",
-            "drop",
-            "delete",
-            "truncate",
-            "remover tabelas",
-            "excluir",
-            "zerar",
-            "destruir",
-            "modificar",
-        )
-        if any(term in last_user_msg for term in destructive_terms):
-            error_category = SqlErrorCategory.SECURITY_VIOLATION
-            last_error = (
-                "Operação não permitida por política de segurança: O banco CineData opera "
-                "estritamente em modo de leitura (Read-Only). Consultas destrutivas, de exclusão "
-                "ou de modificação (como DROP, DELETE, TRUNCATE) são bloqueadas."
-            )
-        else:
-            error_category = SqlErrorCategory.UNSUPPORTED_REQUEST
-            clean_raw = raw_content.strip()
-            if thought and len(clean_raw) > len(thought):
-                explanation = re.sub(r"<thought>.*?</thought>", "", clean_raw, flags=re.DOTALL | re.IGNORECASE).strip()
-            else:
-                explanation = clean_raw
-
-            if explanation and len(explanation) > 10:
-                last_error = f"Não foi possível gerar consulta SQL para este pedido: {explanation}"
-            else:
-                last_error = "Nenhum código SQL foi gerado para atender à solicitação."
+    _log_generation_status(sql, error_category, last_error)
 
     return {
         "thought": thought,

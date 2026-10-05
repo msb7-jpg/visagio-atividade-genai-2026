@@ -9,6 +9,7 @@ import { useScrollSpy } from '@/features/chat/hooks/useScrollSpy'
 import { useThreadDetailQuery } from '@/features/chat/hooks/useThreadDetailQuery'
 import { useThreadsQuery } from '@/features/chat/hooks/useThreadsQuery'
 import { useThreadUrlSync } from '@/features/chat/hooks/useThreadUrlSync'
+import { rehydrateThreadMessages } from '@/features/chat/hooks/useChatSync'
 import type { ChatMessageItem } from '@/features/chat/types/chat.types'
 import { SettingsModal } from '@/features/settings/components/modal/SettingsModal'
 import { queryClient } from '@/lib/query-client'
@@ -69,9 +70,14 @@ function useAppShellState() {
 
   const currentTitle = stream.activeTitle || threadDetail?.title || activeThread?.title || null
 
+  const serverMessages = useMemo(
+    () => (threadDetail ? rehydrateThreadMessages(threadDetail) : undefined),
+    [threadDetail]
+  )
+
   const activeMessages = useMemo(
-    () => resolveActiveMessages(stream.messages, threadDetail?.messages, isStreaming, activeThreadId, streamingThreadId),
-    [stream.messages, threadDetail?.messages, isStreaming, activeThreadId, streamingThreadId]
+    () => resolveActiveMessages(stream.messages, serverMessages, isStreaming, activeThreadId, streamingThreadId),
+    [stream.messages, serverMessages, isStreaming, activeThreadId, streamingThreadId]
   )
 
   const timelineItems = useMemo(

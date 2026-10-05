@@ -1,3 +1,5 @@
+import logging
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -5,6 +7,8 @@ from app.agent.nodes.sql_generator import extract_thought_and_sql
 from app.agent.prompts import CINEDATA_CATALOG_PROMPT, CORRECTOR_PROMPT
 from app.agent.state import AgentState, AgentStateUpdate
 from app.core.llm_factory import get_chat_model
+
+logger = logging.getLogger(__name__)
 
 
 async def sql_corrector_node(state: AgentState, config: RunnableConfig | None = None) -> AgentStateUpdate:
@@ -21,6 +25,8 @@ async def sql_corrector_node(state: AgentState, config: RunnableConfig | None = 
     current_sql = state.get("generated_sql", "")
     error_msg = state.get("last_error", "Erro desconhecido")
     error_count = state.get("error_count", 0)
+
+    logger.info("Iniciando autocorreção de SQL (tentativa %d): erro='%s'", error_count, error_msg)
 
     configurable = (config or {}).get("configurable", {})
     llm = get_chat_model(
@@ -47,6 +53,10 @@ async def sql_corrector_node(state: AgentState, config: RunnableConfig | None = 
     raw_content = response.content if isinstance(response.content, str) else str(response.content)
 
     thought, sql = extract_thought_and_sql(raw_content)
+    if sql:
+        logger.info("Nova query SQL sintetizada pela autocorreção: %s", sql.replace("\n", " ")[:120])
+    else:
+        logger.warning("Autocorreção não conseguiu extrair um bloco SQL válido.")
 
     return {
         "thought": thought,

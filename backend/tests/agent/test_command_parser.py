@@ -1,6 +1,5 @@
 """Testes para o utilitário de parsing de comandos de barra (command_parser)."""
 
-import pytest
 
 from app.agent.utils.command_parser import parse_slash_command
 

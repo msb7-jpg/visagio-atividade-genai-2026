@@ -282,6 +282,15 @@ async def chart_generator_node(state: AgentState, config: RunnableConfig | None 
             query_result,
             forced_type=forced_type,
         )
+        if spec:
+            logger.info(
+                "Gráfico gerado: tipo='%s', título='%s', labels=%d",
+                spec.get("type"),
+                spec.get("title"),
+                len(spec.get("labels", [])),
+            )
+        else:
+            logger.info("Nenhum gráfico gerado para a resposta analítica (should_visualize=False).")
         return {"chart_spec": spec}
 
     except Exception as exc:
@@ -291,11 +300,11 @@ async def chart_generator_node(state: AgentState, config: RunnableConfig | None 
             explicit_intent,
         )
         if explicit_intent:
-            return {
-                "chart_spec": _heuristic_chart_builder(
-                    last_user_query,
-                    query_result,
-                    forced_type=forced_type,
-                )
-            }
+            spec = _heuristic_chart_builder(
+                last_user_query,
+                query_result,
+                forced_type=forced_type,
+            )
+            logger.info("Gráfico gerado via fallback heurístico: %s", bool(spec))
+            return {"chart_spec": spec}
         return {"chart_spec": None}
