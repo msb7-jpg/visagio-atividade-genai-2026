@@ -1,139 +1,62 @@
 ---
 name: backend-coding-standards
-description: Diretrizes e padrões arquiteturais para backend moderno em Python 3.12+ e FastAPI: Clean Architecture, Vertical Slices, anti-god files, separação de responsabilidades, early returns, walrus operator, contextlib.suppress, tratamento de concorrência e resiliência. Use ao arquitetar, refatorar ou implementar APIs, serviços, routers, repositórios e fluxos assíncronos no backend.
+description: Diretrizes e padrões arquiteturais para backend moderno em Python 3.12+ e FastAPI: Clean Architecture, Vertical Slices, Injeção de Dependências (DI), anti-god files, separação de responsabilidades (Routers/Services/Repositories), linters/formatadores (Ruff, Pyright, import-linter), testes e resiliência. Use ao arquitetar, refatorar, implementar APIs, serviços, routers, repositórios, linters ou testes no backend.
 ---
 
 # Padrões Arquiteturais e Boas Práticas de Backend (Python 3.12+ & FastAPI)
 
-Este documento estabelece as diretrizes canônicas, agnósticas a domínio, para desenvolvimento, arquitetura e manutenibilidade de projetos backend modernos.
-
-## 1. Filosofia Arquitetural & Vertical Slices
-
-### 1.1 Vertical Slice Architecture & Ports and Adapters
-- Estruture a base de código orientada a funcionalidades (*Vertical Slices*), agrupando código por contexto semântico.
-- **Desacoplamento Estrito:** A camada de transporte/HTTP (routers, FastAPI, schemas Pydantic de entrada/saída) **nunca** deve conter lógica de negócios, conhecimento de nós internos de pipelines de dados ou realizar orquestração complexa.
-- Os endpoints devem apenas: validar entrada (Pydantic), invocar o serviço/fachada injetado e mapear o resultado para a resposta HTTP.
-
-### 1.2 Statelessness no Transporte HTTP
-- O servidor HTTP não deve manter estado conversacional, de sessão pesada ou cursores em memória RAM.
-- Toda a persistência, histórico ou cursores de continuidade devem ser delegados ao banco de dados ou a um mecanismo de checkpoint persistido por um identificador (`session_id`, `thread_id`).
-
-### 1.3 Segurança, Permissões e Resiliência (Fail-Fast)
-- **Princípio do Menor Privilégio:** Conexões com bancos de dados de leitura ou integrações externas devem operar em modos restritos (ex: `mode=ro`). Operações destrutivas requerem transações atômicas estritas.
-- **Fail-Fast:** Jamais silencie falhas de infraestrutura, indisponibilidades de rede (ex: HTTP 429, Timeout) ou credenciais inválidas. Transforme exceções em diagnósticos estruturados de infraestrutura e notifique imediatamente. Falhas de terceiros não devem ser disfarçadas de fluxos de sucesso.
+Este documento atua como o **HUB Central de Diretrizes de Backend**, estabelecendo as regras inegociáveis e roteando para guias especializados sob demanda (*Progressive Disclosure*).
 
 ---
 
-## 2. Diretriz Anti-God Files e Decomposição de Responsabilidades (SRP)
+## 🧭 Mapa de Navegação e Sub-Referências
 
-É expressamente proibida a criação ou manutenção de *God Files*, *God Classes* e *God Services*.
+Consulte a referência temática correspondente para implementações detalhadas:
 
-### 2.1 Separação Estrita (Single Responsibility Principle)
-- Módulos com centenas de linhas desempenhando múltiplas funções (roteamento, acesso a dados, regras de negócio e formatação de strings) devem ser imediatamente refatorados e decompostos.
-- Categorize estritamente por domínio:
-  - `router.py`: Transporte puro e delegação.
-  - `schemas.py`: DTOs de entrada e saída (Pydantic V2).
-  - `service.py`: Fachada leve de orquestração (coordena, não implementa fluxos pesados internamente).
-  - `repository.py` / `subroutines/`: Operações de acesso a dados ou subprocessos concorrentes.
-  - `constants.py`: Valores fixos imutáveis.
-
-### 2.2 Controle de Complexidade (McCabe $\le 10$)
-- Funções, métodos ou corrotinas com alta complexidade ciclomática (muitos `if/elif/for/try`) devem ser decompostas em subfunções puras, atômicas e descritivas.
-
-### 2.3 Pureza dos Módulos `__init__.py`
-- Reservado exclusivamente para documentação do pacote, importações relativas e definição de `__all__`.
-- **Proibido:** Instanciar fábricas, singletons ou injetar lógica de negócios em arquivos `__init__.py`.
+| O que você está desenvolvendo ou ajustando? | Referência Especializada |
+|---|---|
+| **Estrutura de pastas, camadas, Routers finos, Services puros, Repositories e Schemas** | 👉 [`references/architecture-and-layers.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/architecture-and-layers.md) |
+| **Injeção de Dependências (4 níveis), `Annotated[T, Depends()]`, lifespan e `app.state`** | 👉 [`references/dependency-injection.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/dependency-injection.md) |
+| **Refatoração de arquivos grandes (>300 linhas), divisão de domínios e Strategy pattern** | 👉 [`references/domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
+| **Sintaxe moderna do Python 3.12+, imutabilidade de variáveis, early returns e walrus (`:=`)** | 👉 [`references/python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |
+| **Regras do Ruff (pyproject.toml), Pyright, contratos arquiteturais (`import-linter`) e Docstrings** | 👉 [`references/linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
+| **Testes assíncronos (`pytest`), fixtures, mocks de serviço e `app.dependency_overrides`** | 👉 [`references/testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
 
 ---
 
-## 3. Idiomas e Práticas de Python 3.12+
+## ⚡ Princípios Inegociáveis (Core Rules)
 
-### 3.1 Early Returns (Guard Clauses) vs. Aninhamento Profundo
-- Elimine "pirâmides do destino". Trate falhas, ausências de dados e validações prévias no topo da função, retornando ou levantando exceções imediatamente.
-
-```python
-# ❌ RUIM: Aninhamento excessivo
-def process_data(data: dict | None) -> Result | None:
-    if data is not None:
-        if "id" in data:
-            if validate_id(data["id"]):
-                return do_process(data)
-    return None
-
-# ✅ BOM: Early returns diretos e legíveis
-def process_data(data: dict | None) -> Result | None:
-    if not data or "id" not in data:
-        return None
-    if not validate_id(data["id"]):
-        return None
-    return do_process(data)
-```
-
-### 3.2 O Operador Walrus (`:=`)
-- Evite chamadas duplicadas de métodos custosos ou vazamento de variáveis para fora do escopo necessário usando o operador de atribuição de expressão (walrus).
-
-```python
-# ✅ BOM: Atribuição limpa e uso eficiente
-if (match := re.search(r"pattern", content)) is not None:
-    process(match.group(1))
-
-while (chunk := await stream.read(1024)):
-    process_chunk(chunk)
-```
-
-### 3.3 Supressão Elegante (`contextlib.suppress`)
-- Elimine blocos ruidosos e inexpressivos de `try/except: pass`.
-- NUNCA suprima `Exception` de forma genérica. Seja declarativo sobre qual falha específica é aceitável.
-
-```python
-# ❌ RUIM
-try:
-    os.remove(temp_path)
-except FileNotFoundError:
-    pass
-
-# ✅ BOM
-from contextlib import suppress
-
-with suppress(FileNotFoundError):
-    os.remove(temp_path)
-```
-
-### 3.4 Pattern Matching (`match/case`) Estruturado
-- Utilize `match/case` do Python 3.10+ para destrinchar eventos, respostas HTTP padronizadas ou classes abstratas (AST), ao invés de longas cadeias de `if isinstance(...)`.
-
-```python
-match response:
-    case {"status": 200, "data": payload}:
-        return process(payload)
-    case {"status": 404, "error": msg}:
-        raise NotFoundError(msg)
-    case _:
-        raise UnknownResponseError("Formato não reconhecido")
-```
-
-### 3.5 Context Managers Modernos
-- Para controle determinístico de desalocação de recursos, cursores de banco, timers de execução ou locks (travas de concorrência), use `@contextmanager` ou `@asynccontextmanager`. Garantem cleanup e desacoplamento via `try/finally` explícito sob o capô.
+1. **Separação Estrita de Responsabilidades (SRP):**
+   - **Routers:** Validação com Pydantic, chamada do serviço e retorno. Zero regras de negócio.
+   - **Services:** Pure Python. Proibido importar `fastapi` ou `starlette`.
+   - **Repositories:** Donos das queries e isolamento de ORM. O serviço manipula entidades conceituais.
+2. **Injeção de Dependências Limpa:**
+   - Use aliases `Annotated[T, Depends(factory)]`.
+   - Injeção em serviços via `__init__`, nunca variáveis globais.
+   - Profundidade máxima de injeção $\le 3$ (`route → service → repo`).
+3. **Exceções de Domínio:**
+   - Proibido lançar `HTTPException` dentro de serviços. Lance exceções de domínio (`*Error`) e mapeie-as centralizadamente em `@app.exception_handler`.
+4. **Respeito aos Limites de Tamanho e Complexidade:**
+   - Métodos e funções com **máximo de 30 linhas**.
+   - Arquivos de serviço com **máximo de 300 linhas** (acima disso, extraia colaboradores especialistas ou subdomínios).
+   - Complexidade ciclomática McCabe $\le 10$.
+5. **Imutabilidade e Single Assignment:**
+   - Proibido reatribuir a mesma variável com propósitos ou transformações diferentes (ex: mutação contínua de `queryset`). Adote nomes intencionais e imutáveis.
+6. **Controle Estrito de Tipagem e Qualidade:**
+   - Proibido `dict[str, Any]` em contratos públicos (use Pydantic `BaseModel` ou `TypedDict`).
+   - Nomes de variáveis com uma única letra (`k`, `v`, `i`) são proibidos em pipelines.
+   - Docstrings no padrão Google-Style em todas as funções e métodos públicos.
 
 ---
 
-## 4. Tipagem Estrita, Contratos e Imutabilidade
+## 📊 Matriz Resumo / Cheat Sheet
 
-- **Proibição de `dict[str, Any]`:** Estruturas fracamente tipadas vazam detalhes de implementação. Use `TypedDict` para dicionários nativos que garantam chaves ou Pydantic `BaseModel` com descrições (`Field`) para fronteiras e validação estrita.
-- **Dataclasses Imutáveis:** Para objetos de registro, configuração estática ou DTOs internos sem complexidade de validação em tempo de execução: `@dataclass(frozen=True, slots=True)`.
-- **Novas Features (PEP 695):** Utilize `type NewAlias = ...` para definição moderna de type aliases genéricos; use `typing.Self` em builders e `typing.override` em implementações concretas de classes abstratas.
-
----
-
-## 5. Tratamento de Exceções e Resiliência
-
-- **Hierarquia Clara (PEP 8 / N818):** Sempre crie exceções base do domínio que herdem de `Exception` e terminem com o sufixo `Error` (ex: `BaseDomainError` -> `IntegrationTimeoutError`).
-- NUNCA engula `Exception` genericamente (`except Exception:` sem raise). Erros inesperados de memória, teclado ou interrupção de sistema operacional não devem ser mascarados.
-- Em caso de exceções esperadas, intercepte, enriqueça com contexto no log estruturado e decida se a ação permite nova tentativa ou se deve gerar um erro amigável na API.
-
----
-
-## 6. Agnosticismo de Utilitários e Qualidade de Código
-
-- **Agnosticismo em Infraestrutura (SRP):** Funções utilitárias e serializadores (JSON, CSV, conversores) não devem possuir conhecimento de regras de domínio ou condicionais de negócio. Eles processam sequências e formatos anonimamente.
-- **Eliminação de Nomes Crípticos:** Em pipelines de dados, iterações e algoritmos, é estritamente proibido usar identificadores de uma única letra (`k`, `v`, `r`, `i`, `e`). Adote nomenclatura autodescritiva (`key_name`, `record_value`, `row_data`, `index`, `error_cause`).
+| Sintoma / Cenário | Ação Corretiva | Onde Ver Mais |
+|---|---|---|
+| Serviço ultrapassou 300 linhas | Extrair colaboradores especialistas por responsabilidade | [`domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
+| Método ultrapassou 30 linhas | Decompor em funções atômicas puras | [`domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
+| Serviço importando `fastapi` | Mover transporte para o router; manter serviço como Pure Python | [`architecture-and-layers.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/architecture-and-layers.md) |
+| Rota com assinatura longa cheia de `Depends` | Criar alias com `Annotated[T, Depends(fn)]` | [`dependency-injection.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/dependency-injection.md) |
+| Mockar banco ou serviço em testes | Usar `app.dependency_overrides` no conftest | [`testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
+| Acoplamento indevido entre features | Enforçar contrato forbidden/layers no `import-linter` | [`linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
+| Reatribuição contínua da mesma variável | Dividir em variáveis intencionais e imutáveis | [`python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |
