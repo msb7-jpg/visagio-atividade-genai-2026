@@ -1,17 +1,17 @@
-# Referência: Governança de Estado Assíncrono com TanStack Query v5
+# Reference: Asynchronous State Governance with TanStack Query v5
 
-Este guia define as práticas canônicas para data fetching, sincronização de estado remoto, mutações e prevenção de condições de corrida com `@tanstack/react-query` v5.
+This guide defines canonical patterns for data fetching, remote state synchronization, mutations, and race condition prevention with `@tanstack/react-query` v5.
 
 ---
 
-## 1. Princípios Fundamentais
+## 1. Core Principles
 
-1. **Separação Estrita de Papéis:**
-   - Hooks de leitura são sufixados com `*Query` (ex: `useSuggestionsCatalogQuery`).
-   - Hooks de escrita/mutação são sufixados com `*Mutation` (ex: `useUpdateProviderMutation`).
-   - Nunca misture queries e mutations dentro do mesmo hook customizado.
-2. **Query Key Factories (Hierárquicas e Seguras):**
-   - Query keys devem ser arrays serializáveis imutáveis definidos em factories centralizadas com `as const`:
+1. **Strict Separation of Concerns:**
+   - Read hooks are suffixed with `*Query` (e.g., `useSuggestionsCatalogQuery`).
+   - Write/mutation hooks are suffixed with `*Mutation` (e.g., `useUpdateProviderMutation`).
+   - Never mix queries and mutations within the same custom hook.
+2. **Query Key Factories (Hierarchical and Type-Safe):**
+   - Query keys must be immutable serializable arrays defined in centralized factories using `as const`:
 
 ```typescript
 // features/chat/queries/chatQueryKeys.ts
@@ -25,9 +25,9 @@ export const chatKeys = {
 
 ---
 
-## 2. Padrão `queryOptions` (Type-Safe & Reutilizável)
+## 2. `queryOptions` Pattern (Type-Safe & Reusable)
 
-Em vez de repetir `queryKey` e `queryFn` em múltiplos locais, use a função utilitária `queryOptions` do TanStack Query:
+Instead of repeating `queryKey` and `queryFn` across multiple places, use TanStack Query's `queryOptions` utility function:
 
 ```typescript
 // features/settings/queries/settingsQueries.ts
@@ -38,14 +38,14 @@ export const providerConfigQueryOptions = () =>
   queryOptions({
     queryKey: ['settings', 'provider'] as const,
     queryFn: async ({ signal }) => {
-      // Repasse o AbortSignal para cancelar a requisição se o componente for desmontado
+      // Forward AbortSignal to cancel the request if the component unmounts
       return fetchProviderConfig({ signal })
     },
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache fresco
+    staleTime: 1000 * 60 * 5, // 5 minutes fresh cache
   })
 ```
 
-Consumo no componente ou hook:
+Consuming in a component or hook:
 
 ```tsx
 import { useQuery } from '@tanstack/react-query'
@@ -58,36 +58,36 @@ export function useProviderConfigQuery() {
 
 ---
 
-## 3. Cancelamento Automático com `signal`
+## 3. Automatic Cancellation with `signal`
 
-Sempre consuma o `signal` fornecido no `QueryFunctionContext` e repasse para o `fetch` ou `ky`/`axios`:
+Always consume the `signal` provided in `QueryFunctionContext` and pass it down to `fetch`, `ky`, or `axios`:
 
 ```typescript
 queryFn: async ({ signal }) => {
   const response = await fetch('/api/analytics/schema', { signal })
   if (!response.ok) {
-    throw new Error('Falha ao carregar metadados do Lakehouse')
+    throw new Error('Failed to load Lakehouse metadata')
   }
   return response.json()
 }
 ```
 
-Isso garante que se o usuário mudar de aba, navegar para outra tela ou digitar rapidamente em um campo de busca, requisições obsoletas sejam canceladas pelo navegador no nível de TCP/HTTP.
+This guarantees that if the user switches tabs, navigates to another page, or types rapidly in a search field, obsolete requests are cancelled by the browser at the TCP/HTTP layer.
 
 ---
 
-## 4. Mutações e Fencing de Ações Assíncronas
+## 4. Mutations and Asynchronous Action Fencing
 
-### 4.1 Fencing contra Condições de Corrida
-- Toda ação de mutação (submeter formulário, disparar stream, deletar conversa) deve conter barreira visual imediata:
-  - Botões desabilitados durante execução: `disabled={mutation.isPending}`.
-  - Indicador de carregamento no botão (`<Spinner />`).
+### 4.1 Fencing Against Race Conditions
+- Every mutation action (submitting forms, starting streams, deleting threads) must implement immediate visual fencing:
+  - Buttons disabled during execution: `disabled={mutation.isPending}`.
+  - Loading indicators within buttons (`<Spinner />`).
 
-### 4.2 A Armadilha de Desmontagem Prematura (`key={...}`)
-- **Nunca use `key={dynamicRemoteState}`** em nós pais que são desmontados antes do callback de feedback (`onSuccess`) ou antes do toast concluir.
-- Mantenha chaves de componente estáveis para preservar a árvore de transição visual do React.
+### 4.2 The Premature Unmount Pitfall (`key={...}`)
+- **Never use `key={dynamicRemoteState}`** on parent nodes that unmount before the feedback callback (`onSuccess`) or before toast completion.
+- Keep component keys stable to preserve React's visual transition tree.
 
-### 4.3 Invalidação Inteligente de Cache
+### 4.3 Intelligent Cache Invalidation
 ```typescript
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { chatKeys } from './chatQueryKeys'
@@ -98,7 +98,7 @@ export function useDeleteThreadMutation() {
   return useMutation({
     mutationFn: (threadId: string) => deleteThreadApi(threadId),
     onSuccess: (_, deletedId) => {
-      // Remove do cache e revalida a lista de threads
+      // Evict from cache and invalidate the thread list
       queryClient.invalidateQueries({ queryKey: chatKeys.threads() })
     },
   })
@@ -107,10 +107,10 @@ export function useDeleteThreadMutation() {
 
 ---
 
-## 5. Referências e Leituras Oficiais
+## 5. Official References and Further Reading
 
 - [TanStack Query v5 React Overview](https://tanstack.com/query/latest/docs/framework/react/overview)
 - [TanStack Query Options Guide](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
-- [TkDodo's Practical React Query Blog (Referência canônica de Query Keys e Mutations)](https://tkdodo.eu/blog/practical-react-query)
+- [TkDodo's Practical React Query Blog (Canonical Reference for Query Keys and Mutations)](https://tkdodo.eu/blog/practical-react-query)
 - [TkDodo: Effective React Query Keys](https://tkdodo.eu/blog/effective-react-query-keys)
 - [TanStack Query Network Mode and AbortSignal](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation)

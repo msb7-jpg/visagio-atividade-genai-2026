@@ -1,15 +1,15 @@
-# Referência: Controle de Fluxo JSX, Early Returns e Animações com Motion
+# Reference: JSX Flow Control, Early Returns, and Animations with Motion
 
-Este guia orienta a escrita de árvores JSX limpas, planas e a criação de transições declarativas com física de mola usando `motion/react`.
+This guide covers writing clean, flat JSX trees and creating declarative transitions with spring physics using `motion/react`.
 
 ---
 
-## 1. Early Returns (Guard Clauses) vs. Aninhamento JSX
+## 1. Early Returns (Guard Clauses) vs. JSX Nesting
 
-Evite envolver todo o JSX em condicionais gigantes. Trate estados de carregamento, ausência de dados e erros antes do retorno principal:
+Avoid wrapping entire JSX trees in massive conditionals. Handle loading states, missing data, and errors prior to the primary return:
 
 ```tsx
-// ❌ RUIM: Pirâmide de chaves e ternários no JSX
+// ❌ BAD: Pyramid of braces and ternaries in JSX
 function UserProfile({ user, isLoading, isError }: Props) {
   return (
     <div>
@@ -24,7 +24,7 @@ function UserProfile({ user, isLoading, isError }: Props) {
   )
 }
 
-// ✅ BOM: Fluxo plano, testável e sem indentação excessiva
+// ✅ GOOD: Flat flow, testable, without excessive indentation
 function UserProfile({ user, isLoading, isError }: Props) {
   if (isLoading) return <Spinner />
   if (isError) return <ErrorAlert />
@@ -36,10 +36,10 @@ function UserProfile({ user, isLoading, isError }: Props) {
 
 ---
 
-## 2. Eliminação de Ternários Aninhados e a Armadilha do `0` Falsy
+## 2. Eliminating Nested Ternaries and the Falsy `0` Pitfall
 
 ### 2.1 Lookup Mappings
-Para alternar entre 3 ou mais estados visuais mutuamente exclusivos, utilize um dicionário simples de componentes:
+To switch between 3 or more mutually exclusive visual states, use a simple component dictionary:
 
 ```tsx
 const viewStates: Record<State, React.ReactNode> = {
@@ -52,34 +52,34 @@ const viewStates: Record<State, React.ReactNode> = {
 return viewStates[currentState] ?? null
 ```
 
-### 2.2 A Armadilha do `0` Falsy no React
-- Usar `&&` com números (ex: `items.length && <Badge />`) renderiza o número `0` como texto na tela quando o array estiver vazio.
-- **Regra:** Utilize sempre comparações booleanas estritas:
+### 2.2 The Falsy `0` Pitfall in React
+- Using `&&` with numbers (e.g., `items.length && <Badge />`) renders the number `0` as text on screen when the array is empty.
+- **Rule:** Always use strict boolean comparisons:
   - `items.length > 0 && <Badge />`
   - `Boolean(items.length) && <Badge />`
 
 ---
 
-## 3. Padrão Oficial de Animação: `motion` (`motion/react`)
+## 3. Official Animation Standard: `motion` (`motion/react`)
 
-1. **Pacote Oficial:**
-   - O projeto utiliza a biblioteca unificada `motion` (`npm: motion`).
-   - O import obrigatório é:
+1. **Official Package:**
+   - The project uses the unified `motion` library (`npm: motion`).
+   - The required import is:
      ```tsx
      import { motion, AnimatePresence } from 'motion/react'
      ```
-   - ❌ **Proibido:** `from 'framer-motion'` (pacote legado e descontinuado).
-2. **Encapsulamento Declarativo de Transições:**
-   - Isole constantes físicas e propriedades de animação em primitivas reutilizáveis (`src/components/animations/`):
+   - ❌ **Prohibited:** `from 'framer-motion'` (legacy and deprecated package).
+2. **Declarative Transition Encapsulation:**
+   - Isolate physics constants and animation properties inside reusable primitives (`src/components/animations/`):
      - `<DirectionalSlide />`
      - `<FloatingItem />`
      - `<SlidingIndicator />`
      - `<StaggerList />`
-   - O código de negócio não deve poluir componentes de apresentação com centenas de linhas de propriedades `initial`, `animate` e `transition` manuais.
+   - Business logic code should not clutter presentational components with hundreds of lines of manual `initial`, `animate`, and `transition` props.
 
 ---
 
-## 4. Referências e Leituras Oficiais
+## 4. Official References and Further Reading
 
 - [Motion (formerly Framer Motion) Official Quick Start](https://motion.dev/docs/react-quick-start)
 - [Motion AnimatePresence Guide](https://motion.dev/docs/react-animate-presence)

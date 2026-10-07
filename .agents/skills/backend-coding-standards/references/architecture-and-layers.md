@@ -1,21 +1,21 @@
-# Referência: Arquitetura em Camadas, Vertical Slices e Separação de Responsabilidades
+# Reference: Layered Architecture, Vertical Slices, and Separation of Concerns
 
-Este documento orienta a estruturação de pastas, limites arquiteturais e segregação estrita entre camadas HTTP, regras de negócio e acesso a dados no backend FastAPI (Python 3.12+).
+This document guides folder structuring, architectural boundaries, and strict segregation between HTTP layers, business rules, and data access in FastAPI backends (Python 3.12+).
 
 ---
 
-## 1. Filosofia de Vertical Slices
+## 1. Vertical Slices Philosophy
 
-Agrupe o código por funcionalidade semântica (Vertical Slices / Features) e não apenas por tipo de arquivo técnico. Cada funcionalidade contém o que precisa para operar:
+Group code by semantic domain functionality (Vertical Slices / Features) rather than solely by technical file type. Each feature contains everything it needs to operate:
 
 ```text
 backend/app/features/
 ├── orders/
-│   ├── router.py       # Camada de transporte HTTP
-│   ├── service.py      # Lógica de negócio pura
-│   ├── repository.py   # Consultas e persistência no banco
-│   ├── schemas.py      # DTOs de entrada e saída (Pydantic V2)
-│   └── exceptions.py   # Exceções tipadas do domínio
+│   ├── router.py       # HTTP transport layer
+│   ├── service.py      # Pure business logic
+│   ├── repository.py   # Database queries and persistence
+│   ├── schemas.py      # Inbound and outbound DTOs (Pydantic V2)
+│   └── exceptions.py   # Typed domain exceptions
 └── customers/
     ├── router.py
     ├── ...
@@ -23,12 +23,12 @@ backend/app/features/
 
 ---
 
-## 2. Responsabilidades Estritas por Camada
+## 2. Strict Responsibilities by Layer
 
-### 2.1 Routers Finos (Camada de Transporte)
-- **Função:** Receber a requisição HTTP, extrair parâmetros, validar payload de entrada via Pydantic, invocar a fachada de serviço injetada e mapear a resposta.
-- **Proibição Estrita:** Routers **nunca** contêm lógica de negócio, condicionais complexas de domínio ou queries de banco.
-- **Metadados OpenAPI Declarativos (`EndpointDoc` + `**kwargs`):** Em vez de poluir o decorator do router com múltiplos argumentos literais (`summary="...", description="...", response_description="..."`), centralize a documentação em um objeto `EndpointDoc` e desempacote via `**doc.to_dict()`:
+### 2.1 Thin Routers (Transport Layer)
+- **Role:** Receive HTTP requests, extract parameters, validate inbound payloads via Pydantic, invoke the injected service facade, and map the response.
+- **Strict Prohibition:** Routers **never** contain business logic, complex domain branching, or database queries.
+- **Declarative OpenAPI Metadata (`EndpointDoc` + `**kwargs`):** Instead of polluting the router decorator with multiple literal keyword arguments (`summary="...", description="...", response_description="..."`), centralize endpoint documentation in an `EndpointDoc` object and unpack it with `**doc.to_dict()`:
 
 ```python
 # app/shared/docs.py
@@ -37,29 +37,29 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class EndpointDoc:
-    """Metadados imutáveis para documentação padronizada do OpenAPI/Swagger."""
+    """Immutable metadata for standardized OpenAPI/Swagger documentation."""
 
     summary: str
     description: str
-    response_description: str = "Operação realizada com sucesso"
+    response_description: str = "Operation completed successfully"
     responses: dict[int | str, dict[str, Any]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Converte metadados em dicionário compatível com kwargs de decorators do FastAPI, omitindo valores None."""
+        """Convert metadata to a dictionary compatible with FastAPI decorator kwargs, omitting None values."""
         raw = asdict(self)
         return {key: value for key, value in raw.items() if value is not None}
 ```
 
-Exemplo de uso limpo no router:
+Example of clean usage in the router:
 
 ```python
 # app/features/orders/router_metadata.py
 from app.shared.docs import EndpointDoc
 
 create_order_doc = EndpointDoc(
-    summary="Criar novo pedido",
-    description="Registra pedido e inicia processo de reserva de estoque.",
-    response_description="Pedido criado com sucesso.",
+    summary="Create new order",
+    description="Registers an order and initiates the inventory reservation process.",
+    response_description="Order created successfully.",
 )
 
 # app/features/orders/router.py
@@ -74,7 +74,7 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
     "/",
     response_model=OrderResponse,
     status_code=status.HTTP_201_CREATED,
-    **create_order_doc.to_dict(), # ✅ Desempacota summary, description, responses de forma limpa
+    **create_order_doc.to_dict(), # ✅ Cleanly unpacks summary, description, and responses
 )
 async def create_order(
     payload: OrderCreateRequest,
@@ -84,10 +84,10 @@ async def create_order(
     return OrderResponse.model_validate(order)
 ```
 
-### 2.2 Services Puros (Camada de Domínio / Orquestração)
-- **Função:** Conter as regras de negócio, cálculos, transições de estado e orquestração de dependências especializadas.
-- **Pure Python:** Classes de serviço **não devem importar** nada de `fastapi` ou `starlette` (ex: `Request`, `Response`, `HTTPException`).
-- **Injeção via Construtor:** Recebem repositórios e clientes via `__init__`, nunca por variáveis globais.
+### 2.2 Pure Services (Domain Layer / Orchestration)
+- **Role:** Encapsulate business logic, calculations, state transitions, and coordination of specialized dependencies.
+- **Pure Python:** Service classes **must not import** anything from `fastapi` or `starlette` (e.g., `Request`, `Response`, `HTTPException`).
+- **Constructor Injection:** Receive repositories and external clients via `__init__`, never through global variables.
 
 ```python
 # app/features/orders/service.py
@@ -101,33 +101,33 @@ class OrderService:
 
     async def create_order(self, data: OrderCreateRequest) -> dict:
         if not data.items:
-            raise OrderValidationError("Pedido não pode ser criado sem itens")
+            raise OrderValidationError("Order cannot be created without items")
         return await self.repository.create(data)
 ```
 
-### 2.3 Repositories (Camada de Acesso a Dados / Persistência)
-- **Função:** Encapsular a execução de queries, filtros, joins e operações no banco de dados (SQLAlchemy, SQLModel, SQLite, etc.).
-- **Isolamento de ORM:** Apenas os repositórios conhecem detalhes do ORM e conexões de sessão. O serviço consome métodos de alto nível (`get_by_id`, `create`, `list_active`).
+### 2.3 Repositories (Data Access Layer / Persistence)
+- **Role:** Encapsulate query execution, filters, joins, and database operations (SQLAlchemy, SQLModel, SQLite, etc.).
+- **ORM Isolation:** Only repositories know ORM details and session handling. Services consume high-level methods (`get_by_id`, `create`, `list_active`).
 
-### 2.4 Schemas Pydantic na Fronteira
-- Toda comunicação com o exterior (JSON de entrada e saída) utiliza esquemas Pydantic V2 (`BaseModel`).
-- **Isolamento de Modelos ORM:** Modelos de banco de dados (`Base` do SQLAlchemy) nunca são retornados diretamente pelos routers da API. Converta explicitamente para DTOs com `model_validate(from_attributes=True)`.
+### 2.4 Pydantic Schemas at the Boundary
+- All external communication (inbound and outbound JSON) uses Pydantic V2 schemas (`BaseModel`).
+- **ORM Model Isolation:** Database models (e.g., SQLAlchemy `Base`) are never returned directly by API routers. Explicitly convert them to DTOs with `model_validate(from_attributes=True)`.
 
 ---
 
-## 3. Exceções de Domínio e Tratamento Centralizado
+## 3. Domain Exceptions and Centralized Handling
 
-- **Proibido `HTTPException` no Service:** Lance exceções de domínio tipadas que herdam de uma classe base com sufixo `Error` (PEP 8 / N818).
-- **Tradução no Handler:** Centralize a conversão de exceções em códigos HTTP (400, 404, 409, 422) no `main.py` via `@app.exception_handler`:
+- **Prohibition of `HTTPException` in Services:** Raise typed domain exceptions that inherit from a base class with an `Error` suffix (PEP 8 / N818).
+- **Translation in Exception Handlers:** Centralize conversion from domain exceptions to HTTP status codes (400, 404, 409, 422) in `main.py` via `@app.exception_handler`:
 
 ```python
 # app/features/orders/exceptions.py
 class OrderDomainError(Exception):
-    """Exceção raiz do domínio de pedidos."""
+    """Root exception for the orders domain."""
 
 class OrderNotFoundError(OrderDomainError):
     def __init__(self, order_id: int) -> None:
-        super().__init__(f"Pedido {order_id} não encontrado")
+        super().__init__(f"Order {order_id} not found")
         self.order_id = order_id
 
 # main.py
@@ -141,9 +141,9 @@ async def handle_order_not_found(request: Request, exc: OrderNotFoundError) -> J
 
 ---
 
-## 4. Ciclo de Vida da Aplicação com `lifespan`
+## 4. Application Lifecycle with `lifespan`
 
-Utilize context managers assíncronos modernos para inicialização e cleanup determinístico de pools e conexões, abandonando eventos `@app.on_event` depreciados:
+Use modern asynchronous context managers for deterministic initialization and teardown of connection pools and external clients, replacing deprecated `@app.on_event` handlers:
 
 ```python
 # main.py
@@ -153,10 +153,10 @@ from app.core.database import create_db_engine, dispose_db_engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Cria engines e pools no state
+    # Startup: Initialize engines and pools in app.state
     app.state.engine = create_db_engine()
     yield
-    # Shutdown: Encerra conexões abertas
+    # Shutdown: Close open connections and resources
     await dispose_db_engine(app.state.engine)
 
 app = FastAPI(lifespan=lifespan)
@@ -164,7 +164,7 @@ app = FastAPI(lifespan=lifespan)
 
 ---
 
-## 5. Referências e Leituras Oficiais
+## 5. References and Official Reading
 
 - [FastAPI Tutorial - Bigger Applications / Multiple Files](https://fastapi.tiangolo.com/tutorial/bigger-applications/)
 - [FastAPI Lifespan Events Documentation](https://fastapi.tiangolo.com/advanced/events/)

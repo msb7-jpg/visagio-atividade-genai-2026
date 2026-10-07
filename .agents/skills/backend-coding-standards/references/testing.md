@@ -1,20 +1,20 @@
-# Referência: Testes de Backend, Mocks e Fixtures (Python 3.12+ & FastAPI)
+# Reference: Backend Testing, Mocks, and Fixtures (Python 3.12+ & FastAPI)
 
-Este guia orienta a criação de suítes de teste de alta confiabilidade, rápidas e determinísticas utilizando `pytest`, `pytest-asyncio` e `httpx.AsyncClient`.
-
----
-
-## 1. Princípios de Testes
-
-1. **Testes Unitários:** Testam serviços, regras de negócio e funções de utilidade de forma isolada, mockando repositórios e clientes externos via DI (`__init__`).
-2. **Testes de Integração:** Testam endpoints completos via `httpx.AsyncClient` substituindo dependências reais (como banco de dados e provedores de LLM) via `app.dependency_overrides`.
-3. **Determinismo e Isolamento:** Cada teste deve rodar independentemente, sem compartilhar estado mutável ou dados em banco de produção.
+This guide directs the creation of high-reliability, fast, and deterministic test suites using `pytest`, `pytest-asyncio`, and `httpx.AsyncClient`.
 
 ---
 
-## 2. Injeção de Dependência em Testes (`app.dependency_overrides`)
+## 1. Testing Principles
 
-O FastAPI oferece uma maneira nativa e canônica de interceptar qualquer dependência injetada via `Depends`:
+1. **Unit Tests:** Test services, business logic, and utility functions in isolation, mocking repositories and external clients via DI (`__init__`).
+2. **Integration Tests:** Test full endpoints via `httpx.AsyncClient`, replacing real dependencies (such as database and LLM providers) using `app.dependency_overrides`.
+3. **Determinism and Isolation:** Each test must run independently without sharing mutable state or production database records.
+
+---
+
+## 2. Dependency Injection in Tests (`app.dependency_overrides`)
+
+FastAPI provides a native and canonical way to intercept any dependency injected via `Depends`:
 
 ```python
 # tests/conftest.py
@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.dependencies import get_db
 from main import app
 
-# Engine SQLite assíncrono em memória para testes
+# In-memory asynchronous SQLite engine for tests
 test_engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
 
@@ -39,7 +39,7 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture(autouse=True)
 def setup_dependency_overrides():
-    """Registra overrides de dependências antes dos testes e limpa ao finalizar."""
+    """Register dependency overrides before tests and clean up afterward."""
     app.dependency_overrides[get_db] = override_get_db
     yield
     app.dependency_overrides.clear()
@@ -47,7 +47,7 @@ def setup_dependency_overrides():
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[AsyncClient, None]:
-    """Cliente HTTP assíncrono para testar endpoints sem subir servidor real."""
+    """Asynchronous HTTP client for testing endpoints without spinning up a live server."""
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -56,9 +56,9 @@ async def async_client() -> AsyncGenerator[AsyncClient, None]:
 
 ---
 
-## 3. Testes Unitários de Serviços (Pure Python)
+## 3. Pure Python Service Unit Tests
 
-Como os serviços recebem dependências via construtor `__init__`, testes unitários não precisam de FastAPI nem de banco de dados:
+Because services receive dependencies via their `__init__` constructor, unit tests do not require FastAPI or a database:
 
 ```python
 from unittest.mock import AsyncMock
@@ -99,9 +99,9 @@ async def test_order_creation_calculates_total_and_saves():
 
 ---
 
-## 4. Regras do Ruff para Testes (`PT`)
+## 4. Ruff Rules for Tests (`PT`)
 
-Com `PT` (flake8-pytest-style) ativo no `pyproject.toml`:
-- Utilize `@pytest.fixture()` explicitamente com parênteses.
-- Evite asserções compostas que escondam a falha; utilize mensagens de erro descritivas em `assert condition, "motivo"`.
-- Prefira `@pytest.mark.parametrize` para testar variações de entrada e edge cases em vez de duplicar funções de teste.
+With `PT` (flake8-pytest-style) enabled in `pyproject.toml`:
+- Use `@pytest.fixture()` explicitly with parentheses.
+- Avoid compound assertions that obscure failures; use descriptive error messages with `assert condition, "reason"`.
+- Prefer `@pytest.mark.parametrize` for testing input variants and edge cases rather than duplicating test functions.

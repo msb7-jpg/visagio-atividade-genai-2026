@@ -1,14 +1,14 @@
-# Referência: Linters, Formatadores e Análise Estática de Backend
+# Reference: Linters, Formatters, and Static Analysis for Backend
 
-Este guia detalha o ecossistema de linters, analisadores estáticos, ferramentas de tipagem e verificação de contratos arquiteturais para o backend moderno com Python 3.12+ e FastAPI gerenciado via `uv`.
+This guide details the ecosystem of linters, static analyzers, type-checking tools, and architectural contract verification for modern Python 3.12+ and FastAPI backends managed via `uv`.
 
 ---
 
-## 1. Ruff: Motor Unificado de Linting e Formatação
+## 1. Ruff: Unified Linting and Formatting Engine
 
-O backend utiliza o [Ruff](https://docs.astral.sh/ruff/) como linter e formatador de altíssima performance escrito em Rust. Toda a configuração vive em `pyproject.toml`.
+The backend uses [Ruff](https://docs.astral.sh/ruff/) as an ultra-high performance linter and formatter written in Rust. All configuration resides in `pyproject.toml`.
 
-### 1.1 Configuração Ativa no Repositório
+### 1.1 Active Configuration in the Repository
 
 ```toml
 [tool.ruff]
@@ -19,34 +19,34 @@ extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
 select = [
-    "E",    # pycodestyle Error (estilo padrão)
-    "F",    # Pyflakes (erros lógicos, variáveis não usadas)
-    "I",    # isort (organização limpa de imports)
-    "UP",   # pyupgrade (força sintaxe moderna do Python 3.12+)
-    "B",    # flake8-bugbear (previne bugs de lógica e anti-padrões)
-    "SIM",  # flake8-simplify (sugere simplificações de código)
-    "complex-structure", # mccabe (Complexidade ciclomática <= 10)
-    "N",    # pep8-naming (garante padrões estritos de nomenclatura)
-    "C4",   # flake8-comprehensions (otimiza list/dict comprehensions)
-    "FA",   # flake8-future-annotations (melhora performance de type hinting)
-    "ISC",  # flake8-implicit-str-concat (evita concatenações implícitas perigosas)
-    "PIE",  # flake8-pie (qualidade e refinamento de código)
-    "PT",   # flake8-pytest-style (padroniza testes robustos no pytest)
-    "RSE",  # flake8-raise (elimina parênteses redundantes em exceções)
-    "RET",  # flake8-return (retornos lógicos limpos e guard clauses)
-    "SLF",  # flake8-self (bloqueia acessos indevidos a membros privados)
-    "T20",  # flake8-print (proíbe print solto - exige logging estruturado)
-    "PERF", # Perflint (regras de performance em loops/estruturas)
-    "FURB", # refurb (modernização de código idiomático)
-    "RUF",  # Regras nativas do próprio Ruff
-    "ASYNC",# flake8-async (previne bugs em corrotinas e geradores assíncronos)
-    "S",    # flake8-bandit (análise de vulnerabilidades de segurança - SQLi, secrets)
-    "ambiguous-variable-name", # Proíbe variáveis com nomes de uma letra ambíguos
+    "E",    # pycodestyle Error (standard style)
+    "F",    # Pyflakes (logical errors, unused variables)
+    "I",    # isort (clean import organization)
+    "UP",   # pyupgrade (enforces modern Python 3.12+ syntax)
+    "B",    # flake8-bugbear (prevents logical bugs and anti-patterns)
+    "SIM",  # flake8-simplify (suggests code simplifications)
+    "complex-structure", # mccabe (Cyclomatic complexity <= 10)
+    "N",    # pep8-naming (ensures strict naming conventions)
+    "C4",   # flake8-comprehensions (optimizes list/dict comprehensions)
+    "FA",   # flake8-future-annotations (improves type hinting performance)
+    "ISC",  # flake8-implicit-str-concat (avoids hazardous implicit string concats)
+    "PIE",  # flake8-pie (code quality and refinement)
+    "PT",   # flake8-pytest-style (standardizes robust pytest testing)
+    "RSE",  # flake8-raise (eliminates redundant parentheses in raises)
+    "RET",  # flake8-return (clean logical returns and guard clauses)
+    "SLF",  # flake8-self (blocks private member accesses)
+    "T20",  # flake8-print (prohibits stray prints - requires structured logging)
+    "PERF", # Perflint (performance rules for loops and structures)
+    "FURB", # refurb (idiomatic code modernization)
+    "RUF",  # Ruff-native rules
+    "ASYNC",# flake8-async (prevents coroutine and async generator bugs)
+    "S",    # flake8-bandit (security vulnerability analysis - SQLi, secrets)
+    "ambiguous-variable-name", # Prohibits ambiguous single-letter variable names
 ]
 
 ignore = [
-    "assert", # Permite usar assert (essencial para testes com pytest)
-    "yield-in-context-manager-in-async-generator", # Permite yield em async generators (necessário para streaming SSE)
+    "assert", # Allows assert statements (essential for pytest)
+    "yield-in-context-manager-in-async-generator", # Allows yield in async generators (required for SSE streaming)
 ]
 
 [tool.ruff.lint.mccabe]
@@ -56,39 +56,39 @@ max-complexity = 10
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
 ```
 
-### 1.2 Regras Explicadas & Boas Práticas
+### 1.2 Explained Rules & Best Practices
 
-| Grupo / Regra | O que valida | Como o agente deve aplicar |
+| Group / Rule | What It Validates | How the Agent Must Apply It |
 |---|---|---|
-| **`complex-structure` (McCabe $\le 10$)** | Quantidade de ramificações (`if`, `for`, `try`, etc.). | Decompor funções em subfunções puras (ex: `_extract_filters`, `_validate_token`). |
-| **`N` (pep8-naming)** | Nomes de classes, funções e exceções. | Exceções **devem** terminar com `*Error` (PEP 8 / N818). Classes em `PascalCase`, variáveis/funções em `snake_case`. |
-| **`T20` (flake8-print)** | Presença de `print()` no código. | Usar sempre o logger configurado (`logging.getLogger(__name__)`). Nunca `print()`. |
-| **`ASYNC` (flake8-async)** | Bloqueios síncronos em corrotinas, cancelamento incorreto. | Nunca use chamadas I/O blocantes (`requests`, `time.sleep`) dentro de `async def`. Use `asyncio.sleep` e `httpx.AsyncClient`. |
-| **`S` (flake8-bandit)** | Vulnerabilidades de segurança (injeção de SQL, credenciais expostas). | Proibido interpolar queries com `f"SELECT ... WHERE id = {user_input}"`. Usar queries parametrizadas. |
-| **`UP` (pyupgrade)** | Sintaxe antiga do Python. | Usar `X | Y` em vez de `Union[X, Y]`, `list[str]` em vez de `typing.List[str]`. |
-| **`B` (flake8-bugbear)** | Anti-padrões como argumentos default mutáveis (`def fn(x=[])`). | Argumentos imutáveis (`fastapi.Depends` foi configurado como imutável seguro). |
-| **`RET` (flake8-return)** | Retornos desnecessários e else redundante após return. | Estimula *Early Returns* e eliminação de blocos `else` dispensáveis. |
+| **`complex-structure` (McCabe $\le 10$)** | Branching count (`if`, `for`, `try`, etc.). | Decompose functions into pure sub-functions (e.g., `_extract_filters`, `_validate_token`). |
+| **`N` (pep8-naming)** | Class, function, and exception naming. | Exceptions **must** end with `*Error` (PEP 8 / N818). Classes use `PascalCase`, variables/functions use `snake_case`. |
+| **`T20` (flake8-print)** | Presence of `print()` in code. | Always use the configured logger (`logging.getLogger(__name__)`). Never use `print()`. |
+| **`ASYNC` (flake8-async)** | Synchronous blocking in coroutines, improper cancellation. | Never use blocking I/O calls (`requests`, `time.sleep`) inside `async def`. Use `asyncio.sleep` and `httpx.AsyncClient`. |
+| **`S` (flake8-bandit)** | Security vulnerabilities (SQL injection, leaked credentials). | Never interpolate queries using `f"SELECT ... WHERE id = {user_input}"`. Use parameterized queries. |
+| **`UP` (pyupgrade)** | Deprecated Python syntax. | Use `X | Y` instead of `Union[X, Y]`, `list[str]` instead of `typing.List[str]`. |
+| **`B` (flake8-bugbear)** | Anti-patterns like mutable default arguments (`def fn(x=[])`). | Immutable arguments (`fastapi.Depends` is configured as safely immutable). |
+| **`RET` (flake8-return)** | Unnecessary returns and redundant else after return. | Encourages *Early Returns* and eliminating superfluous `else` blocks. |
 
-### 1.3 Comandos do Dia a Dia com `uv`
+### 1.3 Day-to-Day Commands with `uv`
 
 ```bash
-# Executar verificação de linting
+# Run linting checks
 uv run ruff check .
 
-# Aplicar correções automáticas seguras
+# Apply safe automatic fixes
 uv run ruff check . --fix
 
-# Formatar o código de acordo com o padrão do projeto
+# Format code according to project standards
 uv run ruff format .
 ```
 
 ---
 
-## 2. Pyright: Análise Estática e Tipagem Estrita
+## 2. Pyright: Static Analysis and Strict Typing
 
-O [Pyright](https://github.com/microsoft/pyright) é o verificador estático de tipos adotado para garantir segurança em tempo de desenvolvimento.
+[Pyright](https://github.com/microsoft/pyright) is the static type checker adopted to guarantee type safety during development.
 
-### 2.1 Configuração Ativa no Repositório
+### 2.1 Active Configuration in the Repository
 
 ```toml
 [tool.pyright]
@@ -98,63 +98,63 @@ useLibraryCodeForTypes = true
 reportMissingTypeStubs = false
 ```
 
-### 2.2 Diretrizes de Tipagem para o Agente
-1. **Sem `dict[str, Any]` Livre:** Contratos de entrada e saída sempre utilizam Pydantic `BaseModel`. Dicionários estruturados internos usam `TypedDict`.
-2. **Type Aliases Modernos (PEP 695):**
+### 2.2 Typing Guidelines for the Agent
+1. **No Bare `dict[str, Any]`:** Inbound and outbound contracts must always use Pydantic `BaseModel`. Internal structured dictionaries use `TypedDict`.
+2. **Modern Type Aliases (PEP 695):**
    ```python
    type SqlScalar = str | int | float | bool | None
    type QueryResultRow = dict[str, SqlScalar]
    ```
-3. **Genéricos e Protocolos:**
-   Utilize `typing.Protocol` para desacoplamento de dependências e inversão de controle (substitui herança direta em padrões *Strategy*).
-4. **Resolução de Erros de Tipo:**
-   Se uma biblioteca externa não fornecer stubs de tipo, crie um cast seguro com `typing.cast` ou defina um protocolo intermediário antes de recorrer a qualquer escape.
+3. **Generics and Protocols:**
+   Use `typing.Protocol` for dependency decoupling and inversion of control (replaces direct inheritance in *Strategy* patterns).
+4. **Resolving Type Errors:**
+   If a third-party library lacks type stubs, create a safe cast with `typing.cast` or define an intermediary protocol before resorting to any type ignore escape hatch.
 
-### 2.3 Comandos do Dia a Dia com `uv`
+### 2.3 Day-to-Day Commands with `uv`
 
 ```bash
-# Executar checagem de tipos estrita
+# Run strict type checks
 uv run pyright
 ```
 
 ---
 
-## 3. Import-Linter: Governança e Isolamento Arquitetural
+## 3. Import-Linter: Architecture Governance and Boundary Isolation
 
-O [`import-linter`](https://import-linter.readthedocs.io/en/stable/) permite definir e fiscalizar contratos estruturais de importação no monólito modular, garantindo que as fronteiras arquiteturais não sejam violadas ao longo do tempo.
+[`import-linter`](https://import-linter.readthedocs.io/en/stable/) enforces and checks structural import contracts across the modular monolith, ensuring architectural boundaries are not violated over time.
 
-### 3.1 Use Cases e Contratos Possíveis
+### 3.1 Use Cases and Supported Contracts
 
-O `import-linter` suporta múltiplos tipos de contratos:
+`import-linter` supports multiple contract types:
 
-1. **`forbidden` (Isolamento de Domínio):**
-   - *Caso de Uso:* Um domínio não pode depender diretamente de outro (ex: `orders` não deve importar `billing` ou `payments`).
-   - Garante que a comunicação entre fatias verticais seja desacoplada ou mediada por um barramento/serviço compartilhado.
-2. **`layers` (Hierarquia Estrita em Camadas):**
-   - *Caso de Uso:* Camadas inferiores não podem importar camadas superiores (ex: `db` ou `repositories` não podem importar `routers` ou `services`).
+1. **`forbidden` (Domain Isolation):**
+   - *Use Case:* One domain cannot directly depend on another (e.g., `orders` must not import `billing` or `payments`).
+   - Ensures communication between vertical slices is decoupled or mediated by an event bus / shared service.
+2. **`layers` (Strict Layer Hierarchy):**
+   - *Use Case:* Lower layers cannot import upper layers (e.g., `db` or `repositories` cannot import `routers` or `services`).
    ```
    router  -->  service  -->  repository  -->  models / db
    ```
-3. **`independence` (Módulos Independentes):**
-   - *Caso de Uso:* Múltiplos submódulos em um pacote não podem importar nada entre si (ex: cada plugin ou feature isolada).
+3. **`independence` (Independent Modules):**
+   - *Use Case:* Multiple submodules in a package cannot import anything from each other (e.g., isolated plugins or features).
 
-### 3.2 Como Configurar no Projeto com `uv`
+### 3.2 Setting Up the Project with `uv`
 
-#### Passo 1: Instalação no grupo dev
+#### Step 1: Install in the dev dependency group
 ```bash
 uv add --dev import-linter
 ```
 
-#### Passo 2: Configuração do Arquivo `.importlinter` (na raiz do projeto)
+#### Step 2: Configure the `.importlinter` file (in the project root)
 
 ```ini
 [importlinter]
 root_packages =
     app
 
-# Contrato 1: Routers e Services não conhecem detalhes de infraestrutura direta
+# Contract 1: Routers and Services do not know direct infrastructure details
 [importlinter:contract:layering-contracts]
-name = Camadas arquiteturais estritas
+name = Strict architectural layers
 type = layers
 layers =
     app.features.*.router
@@ -162,9 +162,9 @@ layers =
     app.features.*.repository
     app.db
 
-# Contrato 2: Serviços nunca importam o framework FastAPI
+# Contract 2: Services never import the FastAPI framework
 [importlinter:contract:services-pure-python]
-name = Serviços são código puro em Python
+name = Services are pure Python code
 type = forbidden
 source_modules =
     app.features.*.service
@@ -172,9 +172,9 @@ forbidden_modules =
     fastapi
     starlette
 
-# Contrato 3: Isolamento entre Fatias Verticais (Vertical Slices)
+# Contract 3: Isolation between Vertical Slices
 [importlinter:contract:feature-isolation]
-name = Features não importam repositórios de outras features
+name = Features do not import repositories from other features
 type = forbidden
 source_modules =
     app.features.chat
@@ -183,28 +183,28 @@ forbidden_modules =
     app.features.settings.service
 ```
 
-### 3.3 Execução no CI / Pré-Commit
+### 3.3 CI / Pre-Commit Execution
 
 ```bash
-# Verificar contratos de importação
+# Check import contracts
 uv run lint-imports
 ```
 
 ---
 
-## 4. Documentação Técnica: Padrão Google Docstring
+## 4. Technical Documentation: Google Docstring Standard
 
-Todas as classes, métodos e funções públicas no backend **devem** seguir a especificação Google-Style Docstring.
+All public classes, methods, and functions in the backend **must** follow the Google-Style Docstring specification.
 
-### 4.1 Estrutura Canônica
-1. **Resumo:** Uma linha concisa terminada em ponto final.
-2. **Linha em branco.**
-3. **Descrição detalhada:** Explicação do comportamento, restrições e regras de negócio caso necessário.
-4. **`Args:`** Nome do parâmetro seguido de dois pontos e a descrição detalhada.
-5. **`Returns:`** Descrição clara do dado retornado e sua semântica.
-6. **`Raises:`** Lista de exceções de domínio ou sistema lançadas conscientemente.
+### 4.1 Canonical Structure
+1. **Summary:** A concise single line ending with a period.
+2. **Blank line.**
+3. **Detailed description:** Explanation of behavior, constraints, and business rules when needed.
+4. **`Args:`** Parameter name followed by a colon and detailed description.
+5. **`Returns:`** Clear description of the returned data and its semantics.
+6. **`Raises:`** List of domain or system exceptions consciously raised.
 
-### 4.2 Exemplo Completo
+### 4.2 Complete Example
 
 ```python
 from app.db.types import QueryResultRow
@@ -216,52 +216,52 @@ async def execute_safe_query(
     parameters: dict[str, SqlScalar] | None = None,
     timeout_seconds: float = 30.0,
 ) -> list[QueryResultRow]:
-    """Executa consulta SQL parametrizada em modo somente-leitura.
+    """Execute a parameterized SQL query in read-only mode.
 
-    Valida a árvore sintática (AST) para bloquear comandos destrutivos
-    (INSERT, UPDATE, DELETE, DROP) e limita a volumetria de retorno.
+    Validates the abstract syntax tree (AST) to block destructive statements
+    (INSERT, UPDATE, DELETE, DROP) and restricts result volume.
 
     Args:
-        query: Expressão SQL parametrizada a ser executada.
-        parameters: Mapeamento de identificadores para escalares seguros.
-        timeout_seconds: Tempo limite de execução da consulta em segundos.
+        query: Parameterized SQL expression to be executed.
+        parameters: Mapping of identifiers to safe scalars.
+        timeout_seconds: Maximum query execution time in seconds.
 
     Returns:
-        Lista de registros representando as linhas retornadas do banco,
-        onde as chaves são os nomes das colunas.
+        List of records representing rows returned from the database,
+        where keys are column names.
 
     Raises:
-        SecurityViolationError: Se a consulta contiver comandos de mutação.
-        DatabaseQueryError: Se a execução falhar no banco de dados.
+        SecurityViolationError: If the query contains mutation statements.
+        DatabaseQueryError: If query execution fails in the database.
     """
 ```
 
 ---
 
-## 5. Workflow de Validação e Pré-Commit (Backend)
+## 5. Backend Validation and Pre-Commit Workflow
 
-Antes de concluir qualquer tarefa ou submeter um PR, execute a sequência de validação:
+Before completing any task or opening a PR, run the validation sequence:
 
 ```bash
-# 1. Checagem de Estilo, Erros Lógicos e Nomenclatura (Ruff)
+# 1. Style, logical errors, and naming checks (Ruff)
 uv run ruff check .
 
-# 2. Formatação Automática (Ruff)
+# 2. Automated code formatting (Ruff)
 uv run ruff format .
 
-# 3. Análise Estática de Tipos (Pyright)
+# 3. Static type analysis (Pyright)
 uv run pyright
 
-# 4. Checagem de Contratos Arquiteturais (quando configurado)
+# 4. Architectural contract checks (when configured)
 uv run lint-imports
 
-# 5. Suíte de Testes Automatizados (Pytest)
+# 5. Automated test suite (Pytest)
 uv run pytest
 ```
 
 ---
 
-## 6. Referências e Leituras Oficiais
+## 6. References and Official Reading
 
 - [Ruff Rules Documentation](https://docs.astral.sh/ruff/rules/)
 - [Astral UV Official Guide](https://docs.astral.sh/uv/)

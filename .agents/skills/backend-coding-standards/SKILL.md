@@ -1,62 +1,62 @@
 ---
 name: backend-coding-standards
-description: Diretrizes e padrões arquiteturais para backend moderno em Python 3.12+ e FastAPI: Clean Architecture, Vertical Slices, Injeção de Dependências (DI), anti-god files, separação de responsabilidades (Routers/Services/Repositories), linters/formatadores (Ruff, Pyright, import-linter), testes e resiliência. Use ao arquitetar, refatorar, implementar APIs, serviços, routers, repositórios, linters ou testes no backend.
+description: Architectural patterns and guidelines for modern Python 3.12+ and FastAPI backends: Clean Architecture, Vertical Slices, Dependency Injection (DI), anti-god files, separation of concerns (Routers/Services/Repositories), linters/formatters (Ruff, Pyright, import-linter), testing, and resilience. Use when architecting, refactoring, implementing APIs, services, routers, repositories, linters, or backend tests.
 ---
 
-# Padrões Arquiteturais e Boas Práticas de Backend (Python 3.12+ & FastAPI)
+# Architectural Patterns and Backend Best Practices (Python 3.12+ & FastAPI)
 
-Este documento atua como o **HUB Central de Diretrizes de Backend**, estabelecendo as regras inegociáveis e roteando para guias especializados sob demanda (*Progressive Disclosure*).
+This document serves as the **Central Hub for Backend Guidelines**, establishing non-negotiable rules and routing to specialized guides on demand (*Progressive Disclosure*).
 
 ---
 
-## 🧭 Mapa de Navegação e Sub-Referências
+## 🧭 Navigation Map and Sub-References
 
-Consulte a referência temática correspondente para implementações detalhadas:
+Consult the corresponding thematic reference for detailed implementations:
 
-| O que você está desenvolvendo ou ajustando? | Referência Especializada |
+| What are you developing or updating? | Specialized Reference |
 |---|---|
-| **Estrutura de pastas, camadas, Routers finos, Services puros, Repositories e Schemas** | 👉 [`references/architecture-and-layers.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/architecture-and-layers.md) |
-| **Injeção de Dependências (4 níveis), `Annotated[T, Depends()]`, lifespan e `app.state`** | 👉 [`references/dependency-injection.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/dependency-injection.md) |
-| **Refatoração de arquivos grandes (>300 linhas), divisão de domínios e Strategy pattern** | 👉 [`references/domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
-| **Sintaxe moderna do Python 3.12+, imutabilidade de variáveis, early returns e walrus (`:=`)** | 👉 [`references/python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |
-| **Regras do Ruff (pyproject.toml), Pyright, contratos arquiteturais (`import-linter`) e Docstrings** | 👉 [`references/linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
-| **Testes assíncronos (`pytest`), fixtures, mocks de serviço e `app.dependency_overrides`** | 👉 [`references/testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
+| **Folder structure, layers, thin Routers, pure Services, Repositories, and Schemas** | 👉 [`references/architecture-and-layers.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/architecture-and-layers.md) |
+| **Dependency Injection (4 levels), `Annotated[T, Depends()]`, lifespan, and `app.state`** | 👉 [`references/dependency-injection.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/dependency-injection.md) |
+| **Refactoring large files (>300 lines), domain splitting, and Strategy pattern** | 👉 [`references/domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
+| **Modern Python 3.12+ syntax, variable immutability, early returns, and walrus (`:=`)** | 👉 [`references/python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |
+| **Ruff rules (pyproject.toml), Pyright, architectural contracts (`import-linter`), and Docstrings** | 👉 [`references/linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
+| **Async testing (`pytest`), fixtures, service mocks, and `app.dependency_overrides`** | 👉 [`references/testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
 
 ---
 
-## ⚡ Princípios Inegociáveis (Core Rules)
+## ⚡ Non-Negotiable Principles (Core Rules)
 
-1. **Separação Estrita de Responsabilidades (SRP):**
-   - **Routers:** Validação com Pydantic, chamada do serviço e retorno. Zero regras de negócio.
-   - **Services:** Pure Python. Proibido importar `fastapi` ou `starlette`.
-   - **Repositories:** Donos das queries e isolamento de ORM. O serviço manipula entidades conceituais.
-2. **Injeção de Dependências Limpa:**
-   - Use aliases `Annotated[T, Depends(factory)]`.
-   - Injeção em serviços via `__init__`, nunca variáveis globais.
-   - Profundidade máxima de injeção $\le 3$ (`route → service → repo`).
-3. **Exceções de Domínio:**
-   - Proibido lançar `HTTPException` dentro de serviços. Lance exceções de domínio (`*Error`) e mapeie-as centralizadamente em `@app.exception_handler`.
-4. **Respeito aos Limites de Tamanho e Complexidade:**
-   - Métodos e funções com **máximo de 30 linhas**.
-   - Arquivos de serviço com **máximo de 300 linhas** (acima disso, extraia colaboradores especialistas ou subdomínios).
-   - Complexidade ciclomática McCabe $\le 10$.
-5. **Imutabilidade e Single Assignment:**
-   - Proibido reatribuir a mesma variável com propósitos ou transformações diferentes (ex: mutação contínua de `queryset`). Adote nomes intencionais e imutáveis.
-6. **Controle Estrito de Tipagem e Qualidade:**
-   - Proibido `dict[str, Any]` em contratos públicos (use Pydantic `BaseModel` ou `TypedDict`).
-   - Nomes de variáveis com uma única letra (`k`, `v`, `i`) são proibidos em pipelines.
-   - Docstrings no padrão Google-Style em todas as funções e métodos públicos.
+1. **Strict Separation of Concerns (SRP):**
+   - **Routers:** Validation with Pydantic, invoking the service, and returning responses. Zero business logic.
+   - **Services:** Pure Python. Importing `fastapi` or `starlette` is strictly prohibited.
+   - **Repositories:** Owners of database queries and ORM isolation. Services manipulate conceptual entities.
+2. **Clean Dependency Injection:**
+   - Use `Annotated[T, Depends(factory)]` aliases.
+   - Inject dependencies into services via `__init__`, never global variables.
+   - Maximum injection depth $\le 3$ (`route → service → repo`).
+3. **Domain Exceptions:**
+   - Throwing `HTTPException` inside services is prohibited. Raise domain exceptions (`*Error`) and map them centrally via `@app.exception_handler`.
+4. **Adherence to Size and Complexity Limits:**
+   - Methods and functions have a **maximum of 30 lines**.
+   - Service files have a **maximum of 300 lines** (beyond this, extract specialist collaborators or subdomains).
+   - McCabe cyclomatic complexity $\le 10$.
+5. **Immutability and Single Assignment:**
+   - Reassigning the same variable for different purposes or transformations is prohibited (e.g., continuous mutation of `queryset`). Adopt intentional and immutable names.
+6. **Strict Typing and Quality Control:**
+   - `dict[str, Any]` is prohibited in public contracts (use Pydantic `BaseModel` or `TypedDict`).
+   - Single-letter variable names (`k`, `v`, `i`) are prohibited in pipelines.
+   - Google-style docstrings on all public functions and methods.
 
 ---
 
-## 📊 Matriz Resumo / Cheat Sheet
+## 📊 Summary Matrix / Cheat Sheet
 
-| Sintoma / Cenário | Ação Corretiva | Onde Ver Mais |
+| Symptom / Scenario | Corrective Action | Where to Read More |
 |---|---|---|
-| Serviço ultrapassou 300 linhas | Extrair colaboradores especialistas por responsabilidade | [`domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
-| Método ultrapassou 30 linhas | Decompor em funções atômicas puras | [`domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
-| Serviço importando `fastapi` | Mover transporte para o router; manter serviço como Pure Python | [`architecture-and-layers.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/architecture-and-layers.md) |
-| Rota com assinatura longa cheia de `Depends` | Criar alias com `Annotated[T, Depends(fn)]` | [`dependency-injection.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/dependency-injection.md) |
-| Mockar banco ou serviço em testes | Usar `app.dependency_overrides` no conftest | [`testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
-| Acoplamento indevido entre features | Enforçar contrato forbidden/layers no `import-linter` | [`linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
-| Reatribuição contínua da mesma variável | Dividir em variáveis intencionais e imutáveis | [`python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |
+| Service exceeded 300 lines | Extract specialist collaborators by responsibility | [`domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
+| Method exceeded 30 lines | Decompose into atomic pure functions | [`domain-and-service-scaling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/domain-and-service-scaling.md) |
+| Service importing `fastapi` | Move transport concerns to router; keep service as Pure Python | [`architecture-and-layers.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/architecture-and-layers.md) |
+| Route with long signature packed with `Depends` | Create alias with `Annotated[T, Depends(fn)]` | [`dependency-injection.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/dependency-injection.md) |
+| Mocking database or service in tests | Use `app.dependency_overrides` in conftest | [`testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
+| Improper coupling across features | Enforce forbidden/layers contracts in `import-linter` | [`linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
+| Continual reassignment of the same variable | Split into intentional, immutable variables | [`python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |

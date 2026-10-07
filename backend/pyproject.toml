@@ -61,10 +61,11 @@ select = [
     "B",    # flake8-bugbear (previne bugs de lógica e anti-padrões comuns)
     "SIM",  # flake8-simplify (sugere simplificações de código)
     "complex-structure", # mccabe (Complexidade Ciclomática - a que você já queria)
-    
+    "PTH", # Suggests using pathlib instead of os.path (mais moderno e seguro)
+    "TC",   # flake8-type-checking (previne importações desnecessárias de tipos)
     "N",    # pep8-naming (garante padrões estritos de nomenclatura)
     "C4",   # flake8-comprehensions (otimiza list/dict comprehensions)
-    "FA",   # flake8-future-annotations (melhora performance de type hinting)
+    "FA",   # flake8-future-annotations (melhora performanceSIM de type hinting)
     "ISC",  # flake8-implicit-str-concat (evita bugs com strings implicitamente unidas)
     "PIE",  # flake8-pie (regras gerais de qualidade e refinamento de código)
     "PT",   # flake8-pytest-style (padroniza testes robustos e eficientes)
@@ -91,6 +92,9 @@ max-complexity = 10
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlalchemy.orm.DeclarativeBase", "fastapi.Depends"]
 
 [dependency-groups]
 dev = [

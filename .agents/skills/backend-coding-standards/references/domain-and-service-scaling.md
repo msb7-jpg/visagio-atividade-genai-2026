@@ -1,68 +1,68 @@
-# Referência: Escalonamento de Domínios, Serviços e Diretriz Anti-God Files
+# Reference: Domain Scaling, Services, and Anti-God Files Guidelines
 
-Este guia detalha estratégias práticas para evitar arquivos inchados (*God Files*) e conduzir a evolução saudável de fatias verticais para domínios irmãos em um monólito modular.
-
----
-
-## 1. As Regras de Ouro de Tamanho e Complexidade
-
-- **Regra dos 30 (Métodos e Funções):** Se um método ultrapassar **30 linhas**, ele está acumulando mais de uma responsabilidade. Divida-o em subfunções puras e descritivas.
-- **Regra dos 300 (Arquivos de Serviço):** Se um `service.py` atingir **300 linhas**, há um subdomínio ou colaborador especialista oculto pronto para ser extraído.
-- **Complexidade Ciclomática (McCabe $\le 10$):** Funções com ramificações excessivas de `if/elif/for/try` devem ser refatoradas imediatamente.
-- **Pureza de `__init__.py`:** Apenas para exportações (`__all__`) e documentação. Proibido fábricas ou lógica de negócios nesses arquivos.
+This guide details practical strategies to avoid bloated files (*God Files*) and foster the healthy evolution of vertical slices into sibling domains within a modular monolith.
 
 ---
 
-## 2. A Progressão e Crescimento de um Domínio
+## 1. Golden Rules for Size and Complexity
 
-Um domínio típico evolui em 3 estágios:
+- **Rule of 30 (Methods and Functions):** If a method exceeds **30 lines**, it is taking on more than one responsibility. Decompose it into pure, descriptive sub-functions.
+- **Rule of 300 (Service Files):** If a `service.py` reaches **300 lines**, there is a hidden subdomain or specialist collaborator waiting to be extracted.
+- **Cyclomatic Complexity (McCabe $\le 10$):** Functions with excessive branching (`if/elif/for/try`) must be refactored immediately.
+- **Purity of `__init__.py`:** Strictly reserved for exports (`__all__`) and documentation. Factories or business logic are prohibited in these files.
+
+---
+
+## 2. Progression and Growth of a Domain
+
+A typical domain evolves across 3 stages:
 
 ```text
-# Estágio 1: Domínio Único e Enxuto
+# Stage 1: Single, Lean Domain
 orders/
 ├── router.py
 ├── service.py
 ├── repository.py
 └── schemas.py
 
-# Estágio 2: Sub-responsabilidades Emergentes
+# Stage 2: Emerging Sub-responsibilities
 orders/
 ├── router.py
-├── service.py          # apenas orquestração de alto nível (~100 linhas)
+├── service.py          # High-level orchestration only (~100 lines)
 ├── repository.py
 ├── schemas.py
-├── billing.py          # extraído: precificação, cupons, impostos
-└── fulfillment.py      # extraído: rastreio, expedição de pacotes
+├── billing.py          # Extracted: pricing, coupons, taxes
+└── fulfillment.py      # Extracted: tracking, package dispatch
 
-# Estágio 3: Promoção a Domínio Irmão (Bounded Context)
+# Stage 3: Promotion to Sibling Domain (Bounded Context)
 orders/
 ├── router.py
 ├── service.py
 ├── repository.py
 └── schemas.py
-billing/                # promovido a pacote de mesmo nível
+billing/                # Promoted to sibling top-level feature package
 ├── router.py
 ├── service.py
 ├── repository.py
 └── schemas.py
 ```
 
-### 2.1 Critérios para Promoção a Domínio Irmão
-Promova uma sub-responsabilidade a um pacote de mesmo nível se ela atender a pelo menos um destes critérios:
-1. Possui **entidades e modelos conceituais próprios** (não apenas métodos utilitários da entidade pai).
-2. Tem **ciclo de vida e alterações independentes** (PRs e cadências separadas).
-3. Outros domínios **precisam consumi-la diretamente** (ex: `payments` precisa de `billing`, mas não de `orders`).
-4. A lógica interna acumulou **mais de 300–400 linhas**.
+### 2.1 Criteria for Promotion to Sibling Domain
+Promote a sub-responsibility to a sibling package if it meets at least one of these criteria:
+1. It has its **own conceptual models and entities** (not just utility methods on the parent entity).
+2. It has an **independent lifecycle and changes** (separate PRs and delivery cadences).
+3. Other domains **need to consume it directly** (e.g., `payments` needs `billing`, but not `orders`).
+4. Internal logic has accumulated **more than 300–400 lines**.
 
 ---
 
-## 3. Estratégias para Decomposição de Serviços Extensos (> 300 linhas)
+## 3. Strategies for Decomposing Large Services (> 300 lines)
 
-### Estratégia 1: Extração de Colaboradores Especialistas (Padrão mais comum)
-Mantenha o `OrderService` como um orquestrador leve e delegue subprocessos a classes especializadas injetadas no construtor:
+### Strategy 1: Extracting Specialist Collaborators (Most Common Pattern)
+Keep `OrderService` as a lightweight orchestrator and delegate sub-processes to specialized classes injected via the constructor:
 
 ```python
-# features/orders/service.py — Orquestração pura (~80-100 linhas)
+# features/orders/service.py — Pure orchestration (~80-100 lines)
 class OrderService:
     def __init__(
         self,
@@ -84,11 +84,11 @@ class OrderService:
         return order
 ```
 
-### Estratégia 2: Extração de Subdomínio
-Quando a funcionalidade possui ciclo próprio (ex: `refunds`), crie uma pasta separada com seu próprio ciclo (`router`, `service`, `repository`).
+### Strategy 2: Subdomain Extraction
+When the functionality has its own lifecycle (e.g., `refunds`), create a dedicated folder with its own slice (`router`, `service`, `repository`).
 
-### Estratégia 3: Padrão Strategy / Registry
-Quando existirem blocos condicionais imensos (`if/elif/else`) para variações de uma mesma operação, utilize `typing.Protocol`:
+### Strategy 3: Strategy / Registry Pattern
+When dealing with large conditional blocks (`if/elif/else`) for variants of the same operation, use `typing.Protocol`:
 
 ```python
 from typing import Protocol

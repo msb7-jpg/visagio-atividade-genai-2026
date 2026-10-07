@@ -1,64 +1,64 @@
-# Referência: Arquitetura Orientada a Features (Vertical Slices), Anti-God Components e Headless Hooks
+# Reference: Feature-Driven Architecture (Vertical Slices), Anti-God Components, and Headless Hooks
 
-Este guia estabelece os limites arquiteturais, a organização de diretórios e o princípio da responsabilidade única (SRP) para componentes e hooks em React 19 e TypeScript.
+This guide defines architectural boundaries, directory organization, and the Single Responsibility Principle (SRP) for components and hooks in React 19 and TypeScript.
 
 ---
 
-## 1. Arquitetura Orientada a Features (Vertical Slices)
+## 1. Feature-Driven Architecture (Vertical Slices)
 
-### 1.1 Organização Semântica de Diretórios
-Abandone pastas horizontais desorganizadas (`components/`, `hooks/`, `utils/` contendo dezenas de arquivos aleatórios). Agrupe o código por funcionalidade ou domínio de negócio:
+### 1.1 Semantic Directory Organization
+Avoid unorganized horizontal folders (`components/`, `hooks/`, `utils/` containing dozens of unrelated files). Group code by feature or business domain:
 
 ```text
 src/
 ├── features/
 │   ├── chat/
-│   │   ├── components/         # Subdividido por papel: feed/, forms/, layout/, renderers/
+│   │   ├── components/         # Subdivided by role: feed/, forms/, layout/, renderers/
 │   │   │   ├── ChatFeed.tsx
 │   │   │   ├── ChatMessageItem.tsx
 │   │   │   └── ChatInputForm.tsx
 │   │   ├── hooks/              # useChatStreamQuery, useSendMessageMutation
-│   │   ├── types/              # DTOs e contratos exclusivos do chat
-│   │   └── utils/              # Parsers ou helpers específicos da feature
+│   │   ├── types/              # DTOs and contracts exclusive to chat
+│   │   └── utils/              # Feature-specific parsers or helpers
 │   └── settings/
 │       ├── components/
 │       └── hooks/
-└── components/                 # Primitivas transversais reutilizáveis
+└── components/                 # Reusable cross-cutting primitives
     ├── ui/                     # Design System (button, dialog, input, tooltip-card)
-    └── animations/             # Wrappers declarativos de motion
+    └── animations/             # Declarative motion wrappers
 ```
 
-### 1.2 Regras Fundamentais de Importação e Tipos
-1. **Sem Barrel Files (`index.ts`):** É expressamente proibido criar arquivos `index.ts` que apenas agregam e re-exportam componentes de uma pasta. Eles geram acoplamento oculto, ciclos de dependência (`circular imports`) e impedem o tree-shaking eficiente do Vite. Importe diretamente o arquivo do componente (ex: `import { ChatFeed } from '@/features/chat/components/ChatFeed'`).
-2. **Single Source of Truth (SSOT) para Tipos:** Um módulo nunca re-exporta tipos de outro módulo. Cada tipo ou interface é exportado exclusivamente do seu arquivo de origem.
-3. **Co-localização de Testes:** Testes unitários e de integração residem no diretório `__tests__/` na mesma subpasta do componente que testam (ex: `components/ui/__tests__/button.test.tsx`).
+### 1.2 Fundamental Rules for Imports and Types
+1. **No Barrel Files (`index.ts`):** Creating `index.ts` files that merely aggregate and re-export components from a folder is strictly prohibited. They introduce hidden coupling, circular dependency cycles (`circular imports`), and hinder efficient tree-shaking in Vite. Import component files directly (e.g., `import { ChatFeed } from '@/features/chat/components/ChatFeed'`).
+2. **Single Source of Truth (SSOT) for Types:** A module must never re-export types from another module. Each type or interface is exported exclusively from its source file.
+3. **Co-location of Tests:** Unit and integration tests reside in the `__tests__/` directory within the same subfolder as the component they test (e.g., `components/ui/__tests__/button.test.tsx`).
 
 ---
 
-## 2. Diretriz Anti-God Components
+## 2. Anti-God Components Guideline
 
-Um *God Component* acumula responsabilidades demais: gerencia chamadas de rede, orquestra formulários, renderiza múltiplos modais condicionais e possui centenas de linhas de JSX.
+A *God Component* takes on too many responsibilities: it manages network requests, orchestrates forms, renders multiple conditional modals, and spans hundreds of lines of JSX.
 
-### 2.1 Limite de Densidade Lógica
-- Componentes com **mais de 150 a 200 linhas** devem ser decompostos imediatamente.
-- Identifique sub-responsabilidades e extraia subcomponentes focados:
-  - Header/Barra de ações $\to$ `<FeatureActions />`
-  - Lista de itens $\to$ `<FeatureItemList />`
-  - Janela modal de confirmação $\to$ `<FeatureConfirmDialog />`
+### 2.1 Logical Density Limit
+- Components exceeding **150 to 200 lines** must be decomposed immediately.
+- Identify sub-responsibilities and extract focused subcomponents:
+  - Header/Action bar $\to$ `<FeatureActions />`
+  - Item list $\to$ `<FeatureItemList />`
+  - Confirmation modal window $\to$ `<FeatureConfirmDialog />`
 
 ---
 
-## 3. Diretriz Anti-God Hooks e Decomposição Headless
+## 3. Anti-God Hooks Guideline and Headless Decomposition
 
-### 3.1 Proibição de God Hooks
-- Hooks customizados que retornam 15 a 25 propriedades misturando mutações, dados remotos, estados visuais e formulários violam o SRP.
-- Crie hooks especialistas e granulares (ex: `useThreadMessagesQuery`, `useDeleteThreadMutation`). Se eles precisarem se comunicar, componha-os passando parâmetros explícitos.
+### 3.1 Prohibition of God Hooks
+- Custom hooks that return 15 to 25 properties mixing mutations, remote data, visual states, and forms violate the SRP.
+- Create specialized, granular hooks (e.g., `useThreadMessagesQuery`, `useDeleteThreadMutation`). If they need to communicate, compose them by passing explicit parameters.
 
-### 3.2 O Padrão Headless Hook (Separação Lógica vs. Visual)
-Separe o estado reativo da árvore de renderização JSX:
+### 3.2 The Headless Hook Pattern (Separating Logic vs. Visuals)
+Decouple reactive state from the JSX render tree:
 
 ```tsx
-// features/chat/hooks/useChatController.ts — Headless (Pura lógica de controle)
+// features/chat/hooks/useChatController.ts — Headless (Pure controller logic)
 export function useChatController() {
   const { data: messages, isLoading } = useMessagesQuery();
   const sendMutation = useSendMessageMutation();
@@ -80,7 +80,7 @@ export function useChatController() {
   };
 }
 
-// features/chat/components/ChatView.tsx — Apresentação limpa
+// features/chat/components/ChatView.tsx — Clean presentation
 export function ChatView() {
   const { messages, isLoading, inputText, setInputText, handleSend, isSubmitting } =
     useChatController();

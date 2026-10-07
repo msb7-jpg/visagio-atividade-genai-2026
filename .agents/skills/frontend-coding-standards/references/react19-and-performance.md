@@ -1,29 +1,29 @@
-# Referência: React 19, Disciplina de Hooks e Performance
+# Reference: React 19, Hook Discipline, and Performance
 
-Este guia reúne as regras de conformidade com o compilador do React 19, eliminação de efeitos desnecessários e boas práticas com `@reactuse/core`.
+This guide gathers compliance rules for the React 19 compiler, eliminating unnecessary effects, and best practices with `@reactuse/core`.
 
 ---
 
-## 1. Regras Fundamentais do React 19
+## 1. Core React 19 Rules
 
-1. **Sem `React.FC` ou `React.FunctionComponent`:**
-   Declare componentes como funções JavaScript convencionais com suas props tipadas explicitamente:
+1. **No `React.FC` or `React.FunctionComponent`:**
+   Declare components as standard JavaScript functions with explicitly typed props:
    ```tsx
-   // ❌ RUIM:
+   // ❌ BAD:
    export const MyCard: React.FC<MyCardProps> = ({ title }) => { ... }
 
-   // ✅ BOM:
+   // ✅ GOOD:
    export function MyCard({ title, active = false }: MyCardProps) { ... }
    ```
-2. **Sem `forwardRef`:**
-   No React 19, `ref` é uma prop nativa de primeiro nível em componentes de função:
+2. **No `forwardRef`:**
+   In React 19, `ref` is a native first-class prop in function components:
    ```tsx
    export function CustomInput({ ref, ...props }: CustomInputProps) {
      return <input ref={ref} {...props} />
    }
    ```
-3. **Sem `<Context.Provider>`:**
-   Renderize o contexto diretamente como elemento JSX:
+3. **No `<Context.Provider>`:**
+   Render the context directly as a JSX element:
    ```tsx
    <ThemeContext value={currentTheme}>
      {children}
@@ -32,38 +32,38 @@ Este guia reúne as regras de conformidade com o compilador do React 19, elimina
 
 ---
 
-## 2. "You Might Not Need an Effect" (Prevenção de Cascading Renders)
+## 2. "You Might Not Need an Effect" (Preventing Cascading Renders)
 
-- **Nunca use `useEffect` para sincronizar estados derivados de props:**
-  Se um valor pode ser calculado a partir de props ou do estado existente, calcule-o diretamente durante a renderização (usando variáveis puras ou `useMemo` apenas se o cálculo envolver iterações pesadas).
-- `useEffect` que executa `setState` causa uma segunda pintura imediata na tela, gera piscadas (*flicker*) e quebra as otimizações do novo compilador do React.
-
----
-
-## 3. Disciplina no Uso de `useCallback`
-
-- Funções passadas para elementos nativos como `<button onClick={handleClick}>` **não precisam de `useCallback`**. O navegador já lida eficientemente com handlers puros.
-- Utilize `useCallback` **apenas** quando:
-  1. A função for repassada para um componente com `React.memo` explícito.
-  2. A função for consumida pelo array de dependências (`dependencies`) de outro hook que exige estabilidade referencial estrita.
+- **Never use `useEffect` to synchronize state derived from props:**
+  If a value can be computed from props or existing state, calculate it directly during rendering (using plain variables, or `useMemo` only if the calculation involves heavy computations).
+- A `useEffect` that calls `setState` causes an immediate second paint on the screen, introduces visual flickering, and disrupts optimizations in the new React compiler.
 
 ---
 
-## 4. Utilitários Modernos com `@reactuse/core`
+## 3. Discipline in `useCallback` Usage
 
-Antes de criar um `useEffect` com cleanup manual de timers, listeners de janela ou observers, verifique as primitivas consolidadas do [`@reactuse/core`](https://reactuse.org/):
+- Functions passed to native elements such as `<button onClick={handleClick}>` **do not need `useCallback`**. Browsers handle raw event handlers efficiently.
+- Use `useCallback` **only** when:
+  1. The function is passed down to a component wrapped with an explicit `React.memo`.
+  2. The function is consumed by the dependency array (`dependencies`) of another hook that requires strict referential stability.
 
-- **Ciclo de vida:** `useMounted`, `useIsMounted`, `useUnmount`.
-- **Timers e Assincronia:** `useTimeoutFn`, `useInterval`, `useDebounceFn`, `useThrottleFn` (eliminam boilerplate de `setTimeout`/`clearTimeout` em refs).
-- **Sensores e Browser APIs:** `useWindowSize`, `useEventListener`, `useIntersectionObserver`, `useOnClickOutside`.
-- **Estado e Refs:** `usePrevious`, `useToggle`, `useLatest`.
+---
+
+## 4. Modern Utilities with `@reactuse/core`
+
+Before writing a `useEffect` with manual cleanup for timers, window listeners, or observers, check the consolidated primitives in [`@reactuse/core`](https://reactuse.org/):
+
+- **Lifecycle:** `useMounted`, `useIsMounted`, `useUnmount`.
+- **Timers and Asynchrony:** `useTimeoutFn`, `useInterval`, `useDebounceFn`, `useThrottleFn` (eliminating boilerplate of `setTimeout`/`clearTimeout` stored in refs).
+- **Sensors and Browser APIs:** `useWindowSize`, `useEventListener`, `useIntersectionObserver`, `useOnClickOutside`.
+- **State and Refs:** `usePrevious`, `useToggle`, `useLatest`.
 
 > [!WARNING]
-> Nunca instale ou importe a biblioteca legada `react-use`. O pacote mantido e padrão no repositório é `@reactuse/core`.
+> Never install or import the legacy `react-use` library. The maintained and canonical package for this repository is `@reactuse/core`.
 
 ---
 
-## 5. Referências e Leituras Oficiais
+## 5. Official References and Further Reading
 
 - [React 19 Official Release Announcement](https://react.dev/blog/2024/12/05/react-19)
 - [You Might Not Need an Effect (React Official Docs)](https://react.dev/learn/you-might-not-need-an-effect)

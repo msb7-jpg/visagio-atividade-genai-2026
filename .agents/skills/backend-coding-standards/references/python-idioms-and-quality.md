@@ -1,20 +1,20 @@
-# Referência: Idiomas de Python 3.12+, Imutabilidade e Qualidade de Código
+# Reference: Python 3.12+ Idioms, Immutability, and Code Quality
 
-Este guia reúne padrões de sintaxe moderna, princípios de imutabilidade e boas práticas para código Python limpo e declarativo no backend.
+This guide compiles modern syntax patterns, immutability principles, and best practices for clean and declarative backend Python code.
 
 ---
 
-## 1. Proibição de Reatribuição de Variáveis com Mesmo Nome (Single Assignment)
+## 1. Prohibition of Reassigning Variables with the Same Name (Single Assignment)
 
-Nunca reutilize a mesma variável para propósitos distintos ou etapas subsequentes de transformação de dados. Variáveis reatribuídas mascaram mutações de estado e aumentam drasticamente a chance de bugs.
+Never reuse the same variable name for distinct purposes or subsequent data transformation steps. Reassigned variables obscure state mutations and drastically increase bug risks.
 
 ```python
-# ❌ RUIM: Reatribuição contínua da mesma variável
+# ❌ BAD: Continual reassignment of the same variable
 queryset = Work.filter(id=1)
 queryset = queryset.delete(price__is_null=True)
 queryset = format_queryset(queryset)
 
-# ✅ BOM: Nomes declarativos, sem reatribuição e imutáveis
+# ✅ GOOD: Declarative, unassigned, and immutable variable names
 active_works = Work.filter(id=work_id)
 works_without_price = active_works.filter(price__is_null=True)
 formatted_works = format_works(works_without_price)
@@ -22,12 +22,12 @@ formatted_works = format_works(works_without_price)
 
 ---
 
-## 2. Early Returns (Guard Clauses) vs. Aninhamento Profundo
+## 2. Early Returns (Guard Clauses) vs. Deep Nesting
 
-Elimine pirâmides de blocos `if` aninhados. Trate ausências de dados, falhas de autorização e validações prévias no topo da função:
+Eliminate pyramids of deeply nested `if` blocks. Handle missing data, authorization failures, and precondition checks upfront at the start of the function:
 
 ```python
-# ❌ RUIM: Aninhamento profundo
+# ❌ BAD: Deep nesting
 def process_user_data(data: dict | None) -> Result | None:
     if data is not None:
         if "id" in data:
@@ -35,7 +35,7 @@ def process_user_data(data: dict | None) -> Result | None:
                 return execute(data)
     return None
 
-# ✅ BOM: Early returns diretos e legíveis
+# ✅ GOOD: Direct and readable early returns
 def process_user_data(data: dict | None) -> Result | None:
     if not data or "id" not in data:
         return None
@@ -46,12 +46,12 @@ def process_user_data(data: dict | None) -> Result | None:
 
 ---
 
-## 3. O Operador Walrus (`:=`)
+## 3. The Walrus Operator (`:=`)
 
-Evite chamadas redundantes a funções custosas ou vazamento de variáveis para fora de loops e blocos condicionais:
+Avoid redundant calls to expensive functions or leaking variables outside loops and conditional blocks:
 
 ```python
-# ✅ BOM: Atribuição concisa no próprio condicional
+# ✅ GOOD: Concise assignment within the condition itself
 if (match := re.search(r"(\d+)-([A-Z]+)", content)) is not None:
     process_code(match.group(1), match.group(2))
 
@@ -61,9 +61,9 @@ while (chunk := await stream.read(1024)):
 
 ---
 
-## 4. Pattern Matching Estruturado (`match/case`)
+## 4. Structural Pattern Matching (`match/case`)
 
-Utilize `match/case` nativo do Python para desempacotar payloads de rede, eventos ou estruturas polimórficas:
+Use Python's native `match/case` to unpack network payloads, events, or polymorphic structures:
 
 ```python
 match payload:
@@ -72,19 +72,19 @@ match payload:
     case {"status": "error", "message": err}:
         raise DomainProcessingError(err)
     case _:
-        raise UnknownPayloadFormatError("Formato não reconhecido")
+        raise UnknownPayloadFormatError("Unrecognized format")
 ```
 
 ---
 
-## 5. Tipagem Estrita e Recursos Modernos (PEP 695)
+## 5. Strict Typing and Modern Features (PEP 695)
 
-1. **Type Aliases Modernos (Python 3.12+):**
+1. **Modern Type Aliases (Python 3.12+):**
    ```python
    type JsonScalar = str | int | float | bool | None
    type PayloadMap = dict[str, JsonScalar]
    ```
-2. **Dataclasses Imutáveis:** Para configurações ou DTOs internos sem lógica de validação:
+2. **Immutable Dataclasses:** For configurations or internal DTOs without validation logic:
    ```python
    from dataclasses import dataclass
 
@@ -93,5 +93,5 @@ match payload:
        namespace: str
        entity_id: str
    ```
-3. **`typing.Self` e `typing.override`:** Use `Self` em métodos de builders fluentes e `@override` ao implementar métodos de classes abstratas ou protocolos.
-4. **Nomes Descritivos:** Jamais use identificadores de uma única letra (`k`, `v`, `i`, `e`). Prefira `key_name`, `item_value`, `loop_index`, `error_cause`.
+3. **`typing.Self` and `typing.override`:** Use `Self` in fluent builder methods and `@override` when implementing abstract methods or protocols.
+4. **Descriptive Names:** Never use single-letter identifiers (`k`, `v`, `i`, `e`). Prefer `key_name`, `item_value`, `loop_index`, `error_cause`.

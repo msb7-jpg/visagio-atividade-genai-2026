@@ -1,10 +1,10 @@
-# Referência: Padrões de Injeção de Dependências (DI) em FastAPI
+# Reference: Dependency Injection (DI) Patterns in FastAPI
 
-Este guia detalha a hierarquia de injeção de dependências em 4 níveis adotada para projetos FastAPI de nível de produção.
+This guide details the 4-level dependency injection hierarchy adopted for production-grade FastAPI projects.
 
 ---
 
-## 1. A Hierarquia Canônica de 4 Níveis
+## 1. The Canonical 4-Level Hierarchy
 
 ```python
 # core/dependencies.py
@@ -13,14 +13,14 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # --------------------------------------------------------------------------
-# Nível 1: Singletons de Infraestrutura
-# Construídos uma única vez no ciclo `lifespan` e armazenados no `app.state`.
-# Exemplos: DB Engine, Redis Pool, clientes HTTP persistentes (httpx.AsyncClient).
+# Level 1: Infrastructure Singletons
+# Initialized once during the `lifespan` cycle and stored in `app.state`.
+# Examples: DB Engine, Redis Pool, persistent HTTP clients (httpx.AsyncClient).
 # --------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------
-# Nível 2: Dependências por Requisição (Per-Request)
-# Puxam recursos do app.state com yield determinístico para cleanup.
+# Level 2: Per-Request Dependencies
+# Pull resources from app.state with a deterministic yield for cleanup.
 # --------------------------------------------------------------------------
 async def get_db(request: Request) -> AsyncSession:
     async with request.app.state.db_session_factory() as session:
@@ -29,8 +29,8 @@ async def get_db(request: Request) -> AsyncSession:
 DBSession = Annotated[AsyncSession, Depends(get_db)]
 
 # --------------------------------------------------------------------------
-# Nível 3: Service Factories
-# Compõem a infraestrutura e os repositórios em serviços de domínio puros.
+# Level 3: Service Factories
+# Compose infrastructure and repositories into pure domain services.
 # --------------------------------------------------------------------------
 async def get_order_service(db: DBSession) -> OrderService:
     return OrderService(repository=OrderRepository(db))
@@ -38,8 +38,8 @@ async def get_order_service(db: DBSession) -> OrderService:
 OrderSvc = Annotated[OrderService, Depends(get_order_service)]
 
 # --------------------------------------------------------------------------
-# Nível 4: Dependências Transversais Baseadas em Classe
-# Rate limiting, auditoria, autenticação de token, feature flags.
+# Level 4: Class-Based Cross-Cutting Dependencies
+# Rate limiting, auditing, token authentication, feature flags.
 # --------------------------------------------------------------------------
 class RateLimiter:
     def __init__(self, requests: int, window: int) -> None:
@@ -47,7 +47,7 @@ class RateLimiter:
         self.window = window
 
     async def __call__(self, request: Request) -> None:
-        # Lógica de verificação...
+        # Verification logic...
         pass
 
 def get_rate_limiter() -> RateLimiter:
@@ -58,21 +58,21 @@ RateLimited = Annotated[None, Depends(get_rate_limiter)]
 
 ---
 
-## 2. Regras Essenciais de Design de DI
+## 2. Core DI Design Rules
 
-| Regra | Por quê? |
+| Rule | Why? |
 |---|---|
-| **Usar `Annotated[T, Depends(fn)]`** | Mantém a assinatura das funções de rotas limpa, legível e reútilizável sem duplicação de `Depends`. |
-| **`yield` para Recursos com Fechamento** | Sessões de banco de dados, locks distribuídos ou streams que exigem garantia de `finally` de limpeza. |
-| **Injeção via `__init__`, Jamais Globais** | Permite instanciar serviços com mocks em testes unitários sem precisar do framework FastAPI. |
-| **Profundidade de Injeção $\le 3$** | A cadeia máxima permitida em uma rota é `route → service → repo`. Cadeias mais profundas devem ser aplanadas. |
-| **`app.dependency_overrides` em Testes** | Troca qualquer dependência por implementações em memória sem alterar o código produtivo. |
+| **Use `Annotated[T, Depends(fn)]`** | Keeps route function signatures clean, readable, and reusable without repeating `Depends`. |
+| **`yield` for Resources Requiring Teardown** | Database sessions, distributed locks, or streams that require guaranteed cleanup via `finally`. |
+| **Injection via `__init__`, Never Globals** | Enables instantiating services with test doubles/mocks in unit tests without requiring the FastAPI framework. |
+| **Injection Depth $\le 3$** | Maximum allowed dependency chain in a route is `route → service → repo`. Deeper chains must be flattened. |
+| **`app.dependency_overrides` in Tests** | Swaps out any dependency with in-memory implementations without modifying production code. |
 
 ---
 
-## 3. Uso em Rotas
+## 3. Usage in Routes
 
-Ao usar type aliases com `Annotated`, a assinatura da rota fica concisa e intuitiva:
+When using type aliases with `Annotated`, route signatures remain concise and intuitive:
 
 ```python
 # features/orders/router.py
@@ -85,18 +85,18 @@ router = APIRouter()
 @router.post(
     "/orders",
     response_model=OrderResponse,
-    dependencies=[RateLimited], # Dependência transversal executada antes da rota
+    dependencies=[RateLimited], # Cross-cutting dependency executed before route handler
 )
 async def create_order(
     payload: OrderCreateRequest,
-    service: OrderSvc, # Serviço de domínio pronto com repositório e sessão injetados
+    service: OrderSvc, # Domain service injected with its repository and session ready
 ) -> OrderResponse:
     return await service.create_order(payload)
 ```
 
 ---
 
-## 4. Substituição em Testes (Dependency Overrides)
+## 4. Overriding in Tests (Dependency Overrides)
 
 ```python
 # tests/conftest.py
@@ -119,7 +119,7 @@ def setup_overrides():
 
 ---
 
-## 5. Referências e Leituras Oficiais
+## 5. References and Official Reading
 
 - [FastAPI Dependency Injection Tutorial](https://fastapi.tiangolo.com/tutorial/dependencies/)
 - [FastAPI Dependencies with yield (Cleanup)](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/)
