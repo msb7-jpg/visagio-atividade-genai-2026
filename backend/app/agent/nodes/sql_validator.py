@@ -77,7 +77,8 @@ def validate_sql_query(
     if not (cleaned := query.strip().rstrip(";")):
         return False, "Query SQL vazia.", SqlErrorCategory.RECOVERABLE_SYNTAX
 
-    if not (parsed := sqlparse.parse(cleaned)):
+    parsed = list(sqlparse.parse(cleaned))
+    if not parsed:
         return False, "Não foi possível analisar a consulta SQL.", SqlErrorCategory.RECOVERABLE_SYNTAX
 
     if len(parsed) > 1:

@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -5,7 +6,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agent.nodes.corrector import sql_corrector_node
 from app.agent.nodes.sql_executor import sql_executor_node
-from app.agent.state import AgentState
+
+if TYPE_CHECKING:
+    from app.agent.state import AgentState
 
 
 @pytest.mark.asyncio

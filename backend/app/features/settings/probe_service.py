@@ -220,7 +220,7 @@ class ProviderProbeService:
                     exc=exc,
                     provider=provider,
                     effective_model=effective_model,
-                    elapsed_ms=timer.elapsed_ms,
+                    elapsed_ms=timer.duration_ms_int,
                     base_url_to_use=base_url_to_use,
                     timeout_seconds=request.timeout_seconds,
                 )

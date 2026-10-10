@@ -6,6 +6,7 @@ from app.core.session_manager import get_session_manager
 from app.db.checkpointer import get_checkpointer
 from app.features.chat.schemas import StepEventDTO, ThreadDetailDTO, ThreadMessageDTO, ThreadSummaryDTO
 from app.features.chat.thread_repository import ThreadRepository
+from app.shared.exceptions import ResourceNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,13 @@ class ThreadsService:
     Serviço que gerencia operações de leitura, recuperação e exclusão de threads de conversa.
     """
 
-    @classmethod
-    async def list_threads(cls, limit: int = 50, offset: int = 0) -> list[ThreadSummaryDTO]:
+    def __init__(
+        self,
+        repository: type[ThreadRepository] | ThreadRepository = ThreadRepository,
+    ) -> None:
+        self.repository = repository
+
+    async def list_threads(self, limit: int = 50, offset: int = 0) -> list[ThreadSummaryDTO]:
         """
         Lista resumos paginados de conversas salvas no SQLite.
 
@@ -27,10 +33,9 @@ class ThreadsService:
         Returns:
             Lista de ThreadSummaryDTO com títulos e timestamps.
         """
-        return await ThreadRepository.list_threads(limit=limit, offset=offset)
+        return await self.repository.list_threads(limit=limit, offset=offset)
 
-    @classmethod
-    async def get_thread_detail(cls, thread_id: str) -> ThreadDetailDTO | None:
+    async def get_thread_detail(self, thread_id: str) -> ThreadDetailDTO:
         """
         Recupera os detalhes completos de uma thread, incluindo mensagens persistidas pelo checkpointer.
 
@@ -38,14 +43,17 @@ class ThreadsService:
             thread_id: Identificador único da conversa.
 
         Returns:
-            ThreadDetailDTO estruturado caso a thread exista, ou None se não for encontrada.
+            ThreadDetailDTO estruturado contendo histórico de mensagens e status.
+
+        Raises:
+            ResourceNotFoundError: Se a conversa não for encontrada.
         """
-        summary = await ThreadRepository.get_thread_summary(thread_id)
+        summary = await self.repository.get_thread_summary(thread_id)
         if not summary:
-            return None
+            raise ResourceNotFoundError(resource="Conversa", identifier=thread_id)
 
         is_running = await get_session_manager().is_session_active(thread_id)
-        messages = await cls._load_thread_messages(thread_id, is_running=is_running)
+        messages = await self._load_thread_messages(thread_id, is_running=is_running)
 
         return ThreadDetailDTO(
             thread_id=summary.thread_id,
@@ -56,8 +64,7 @@ class ThreadsService:
             is_running=is_running,
         )
 
-    @classmethod
-    async def delete_thread(cls, thread_id: str) -> bool:
+    async def delete_thread(self, thread_id: str) -> bool:
         """
         Remove permanentemente uma conversa e seu histórico associado.
 
@@ -65,9 +72,15 @@ class ThreadsService:
             thread_id: Identificador da conversa a ser excluída.
 
         Returns:
-            True se a conversa foi removida com sucesso, False caso contrário.
+            True se a conversa foi removida com sucesso.
+
+        Raises:
+            ResourceNotFoundError: Se a conversa não for encontrada ou já tiver sido removida.
         """
-        return await ThreadRepository.delete_thread(thread_id)
+        deleted = await self.repository.delete_thread(thread_id)
+        if not deleted:
+            raise ResourceNotFoundError(resource="Conversa", identifier=thread_id)
+        return True
 
     @classmethod
     async def _load_thread_messages(cls, thread_id: str, is_running: bool = False) -> list[ThreadMessageDTO]:
@@ -210,3 +223,8 @@ class ThreadsService:
             provider=provider,
             model=model,
         )
+
+
+def get_threads_service() -> ThreadsService:
+    """Factory para injeção de dependência do serviço de threads e histórico."""
+    return ThreadsService()

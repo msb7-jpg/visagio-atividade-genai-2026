@@ -14,7 +14,7 @@ class LLMProvider(StrEnum):
     GOOGLE = "google"
 
 
-SUPPORTED_PROVIDERS: tuple[str, ...] = tuple(p.value for p in LLMProvider)
+SUPPORTED_PROVIDERS: tuple[str, ...] = tuple(provider.value for provider in LLMProvider)
 
 
 class AgentNode(StrEnum):

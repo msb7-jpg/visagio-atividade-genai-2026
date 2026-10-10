@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 
 def _resolve_command_route(command_info: SlashCommandInfo) -> AgentStateUpdate | None:
     """Resolve a rota imediata a partir de comando explícito ou None."""
-    cmd_name = command_info["name"]
+    cmd_name = command_info.get("name")
+    if not cmd_name:
+        return None
     logger.info("Slash command detectado no router: %s", cmd_name)
     if cmd_name == "chart":
         return {"route": "sql", "requires_chart": True, "command": command_info}

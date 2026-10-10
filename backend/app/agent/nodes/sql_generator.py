@@ -1,5 +1,6 @@
 import logging
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from langchain_core.messages import SystemMessage
@@ -113,7 +114,7 @@ def _log_generation_status(
 
 def _build_catalog_prompt_with_candidates(
     base_prompt: str,
-    semantic_results: list[dict[str, Any]] | None,
+    semantic_results: Sequence[Mapping[str, Any]] | None,
 ) -> str:
     """Combina o catálogo semântico básico com os candidatos obtidos no fluxo híbrido RAG."""
     if not semantic_results:

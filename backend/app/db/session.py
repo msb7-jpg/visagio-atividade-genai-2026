@@ -31,6 +31,7 @@ def get_readonly_db_connection(enable_vec: bool = True) -> Generator[sqlite3.Con
     db_path = get_db_path()
     # Conexão estritamente Read-Only em nível de driver SQLite URI
     uri = f"file:{db_path.as_posix()}?mode=ro"
+    conn: sqlite3.Connection | None = None
     try:
         conn = sqlite3.connect(uri, uri=True, timeout=10.0)
         conn.row_factory = sqlite3.Row
@@ -39,11 +40,12 @@ def get_readonly_db_connection(enable_vec: bool = True) -> Generator[sqlite3.Con
                 conn.enable_load_extension(True)
                 sqlite_vec.load(conn)
                 conn.enable_load_extension(False)
-            except Exception as e:
-                logger.debug("Extensão sqlite-vec não carregada: %s", e)
+            except Exception as exc:
+                logger.debug("Extensão sqlite-vec não carregada: %s", exc)
         yield conn
-    except sqlite3.OperationalError as e:
-        raise DatabaseReadError(f"Erro ao acessar banco analítico em modo read-only: {e}") from e
+    except sqlite3.OperationalError as exc:
+        raise DatabaseReadError(f"Erro ao acessar banco analítico em modo read-only: {exc}") from exc
     finally:
-        with suppress(Exception):
-            conn.close()
+        if conn is not None:
+            with suppress(Exception):
+                conn.close()

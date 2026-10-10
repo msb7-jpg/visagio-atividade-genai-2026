@@ -11,6 +11,7 @@ from app.features.analytics.schemas import (
     SuggestionsCatalogResponseDTO,
     TableSummaryDTO,
 )
+from app.shared.exceptions import ResourceNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,7 @@ TABLE_DESCRIPTIONS: dict[str, str] = {
 class AnalyticsService:
     """Provedor de informações analíticas, esquemas e catálogo de prompts do CineData."""
 
-    @classmethod
-    def get_suggestions_catalog(cls) -> SuggestionsCatalogResponseDTO:
+    def get_suggestions_catalog(self) -> SuggestionsCatalogResponseDTO:
         """
         Retorna o catálogo completo de perguntas sugeridas divididas em categorias.
 
@@ -45,8 +45,7 @@ class AnalyticsService:
             total_prompts=total,
         )
 
-    @classmethod
-    def get_database_schema_summary(cls) -> DatabaseSchemaSummaryDTO:
+    def get_database_schema_summary(self) -> DatabaseSchemaSummaryDTO:
         """
         Retorna as contagens de linhas de cada tabela da camada Gold e status da base vetorial.
 
@@ -77,8 +76,7 @@ class AnalyticsService:
             indexed_reviews=indexed_reviews,
         )
 
-    @classmethod
-    def get_movie_details(cls, movie_id: str) -> "MovieDetailDTO | None":
+    def get_movie_details(self, movie_id: str) -> "MovieDetailDTO":
         """
         Retorna os dados cadastrais, métricas financeiras, notas, gêneros e diretores de um filme.
         Permite consulta por sk_movie_id, id_filme ou título exato/normalizado do filme como fallback resiliente.
@@ -87,7 +85,10 @@ class AnalyticsService:
             movie_id: Surrogate key (sk_movie_id), ID de origem (id_filme) ou título do filme.
 
         Returns:
-            MovieDetailDTO estruturado ou None se não encontrado.
+            MovieDetailDTO estruturado com dados do filme.
+
+        Raises:
+            ResourceNotFoundError: Se o filme não for encontrado.
         """
         identifier = movie_id.strip()
         # Normaliza variações unicode comuns como hífens não-quebráveis (U+2011, etc.)
@@ -135,7 +136,7 @@ class AnalyticsService:
                 row = cur.fetchone()
 
             if not row:
-                return None
+                raise ResourceNotFoundError(resource="Filme", identifier=movie_id)
 
             (
                 sk_movie_id,
@@ -202,4 +203,9 @@ class AnalyticsService:
                 orcamento_brl=float(orcamento_brl) if orcamento_brl is not None else None,
                 lucro_brl=float(lucro_brl) if lucro_brl is not None else None,
             )
+
+
+def get_analytics_service() -> AnalyticsService:
+    """Factory para injeção de dependência do serviço de dados analíticos."""
+    return AnalyticsService()
 

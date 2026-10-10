@@ -192,11 +192,41 @@ uv run lint-imports
 
 ---
 
-## 4. Technical Documentation: Google Docstring Standard
+## 4. Pylint: Advanced Design Metrics and Nesting Checks
+
+While Ruff performs ultra-fast AST-based linting, **Pylint** acts as a deep design inspector for structural thresholds and nesting limits not covered by basic AST rules.
+
+### 4.1 Anti-Nesting & Refactoring Rules (`pyproject.toml`)
+- **`too-many-nested-blocks` (`PLR1702` no Ruff / `R1702` no Pylint):** Enforces a maximum nesting depth (`max-nested-blocks = 3`). Prevents deep indentation pyramids (`if` within `for` within `with` within `try`).
+- **`nested-min-max` (`W3301`):** Flags redundant nested `min()`/`max()` calls that obscure mathematical calculations (e.g., `max(0, max(a, b))`).
+- **`too-many-lines` (`C0302`):** Imposes an upper ceiling on module length (`max-module-lines = 250`).
+- **`disallowed-name` & `invalid-name`:** Strictly bans single-letter variable names (`k`, `v`, `i`, `dist`), requiring descriptive identifiers.
+
+```toml
+[tool.pylint.design]
+max-args = 6
+max-locals = 15
+max-statements = 40
+max-attributes = 10
+max-nested-blocks = 3
+
+[tool.ruff.lint.pylint]
+max-nested-blocks = 3
+```
+
+### 4.2 Running Pylint with `uv`
+
+```bash
+uv run pylint app
+```
+
+---
+
+## 5. Technical Documentation: Google Docstring Standard
 
 All public classes, methods, and functions in the backend **must** follow the Google-Style Docstring specification.
 
-### 4.1 Canonical Structure
+### 5.1 Canonical Structure
 1. **Summary:** A concise single line ending with a period.
 2. **Blank line.**
 3. **Detailed description:** Explanation of behavior, constraints, and business rules when needed.
@@ -204,7 +234,7 @@ All public classes, methods, and functions in the backend **must** follow the Go
 5. **`Returns:`** Clear description of the returned data and its semantics.
 6. **`Raises:`** List of domain or system exceptions consciously raised.
 
-### 4.2 Complete Example
+### 5.2 Complete Example
 
 ```python
 from app.db.types import QueryResultRow
@@ -238,7 +268,7 @@ async def execute_safe_query(
 
 ---
 
-## 5. Backend Validation and Pre-Commit Workflow
+## 6. Backend Validation and Pre-Commit Workflow
 
 Before completing any task or opening a PR, run the validation sequence:
 

@@ -4,6 +4,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
+from app.agent.embeddings.vector_store import MovieSearchResult
 from app.core.constants import AgentNode, QueryResultRow, SqlErrorCategory, StepStatus
 
 
@@ -39,12 +40,12 @@ def append_steps(
     new_items: list[AgentStepInfo] = [new] if isinstance(new, dict) else list(new)
 
     # Início de um novo turno conversacional: reinicializa a lista deste turno
-    if any(s.get("node") == AgentNode.ROUTER.value for s in new_items):
+    if any(step_info.get("node") == AgentNode.ROUTER.value for step_info in new_items):
         return list(new_items)
 
     current = list(existing or [])
     for item in new_items:
-        current = [s for s in current if s.get("node") != item.get("node")]
+        current = [step_info for step_info in current if step_info.get("node") != item.get("node")]
         current.append(item)
     return current
 
@@ -105,7 +106,7 @@ class AgentState(TypedDict):
     error_category: SqlErrorCategory | Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX", "UNSUPPORTED_REQUEST"] | None
     chart_spec: dict[str, Any] | None
     requires_chart: bool | None
-    semantic_results: list[dict[str, Any]] | None
+    semantic_results: list[MovieSearchResult] | list[dict[str, Any]] | None
     data_analysis_result: str | None
     title: str | None
     steps: Annotated[list[AgentStepInfo], append_steps]
@@ -125,7 +126,7 @@ class AgentStateUpdate(TypedDict, total=False):
     error_category: SqlErrorCategory | Literal["SECURITY_VIOLATION", "RECOVERABLE_SYNTAX", "UNSUPPORTED_REQUEST"] | None
     chart_spec: dict[str, Any] | None
     requires_chart: bool | None
-    semantic_results: list[dict[str, Any]] | None
+    semantic_results: list[MovieSearchResult] | list[dict[str, Any]] | None
     data_analysis_result: str | None
     title: str | None
     steps: list[AgentStepInfo]

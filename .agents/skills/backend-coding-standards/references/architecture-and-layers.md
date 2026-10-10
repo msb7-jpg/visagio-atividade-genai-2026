@@ -115,10 +115,10 @@ class OrderService:
 
 ---
 
-## 3. Domain Exceptions and Centralized Handling
+### 3. Domain Exceptions and Centralized Handling
 
 - **Prohibition of `HTTPException` in Services:** Raise typed domain exceptions that inherit from a base class with an `Error` suffix (PEP 8 / N818).
-- **Translation in Exception Handlers:** Centralize conversion from domain exceptions to HTTP status codes (400, 404, 409, 422) in `main.py` via `@app.exception_handler`:
+- **Modular Exception Registration:** Do not register exception handlers directly in the body of `main.py`. Instead, centralize handlers in an exceptions module (`app.shared.exceptions` or `app.core.exceptions`) that exposes a `register_exception_handlers(app: FastAPI)` function:
 
 ```python
 # app/features/orders/exceptions.py
@@ -130,13 +130,26 @@ class OrderNotFoundError(OrderDomainError):
         super().__init__(f"Order {order_id} not found")
         self.order_id = order_id
 
+# app/shared/exceptions.py
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from app.features.orders.exceptions import OrderNotFoundError
+
+def register_exception_handlers(app: FastAPI) -> None:
+    """Register all domain exception handlers for the FastAPI application."""
+
+    @app.exception_handler(OrderNotFoundError)
+    async def handle_order_not_found(_request: Request, exc: OrderNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc), "code": "ORDER_NOT_FOUND", "order_id": exc.order_id},
+        )
+
 # main.py
-@app.exception_handler(OrderNotFoundError)
-async def handle_order_not_found(request: Request, exc: OrderNotFoundError) -> JSONResponse:
-    return JSONResponse(
-        status_code=404,
-        content={"detail": str(exc), "code": "ORDER_NOT_FOUND", "order_id": exc.order_id},
-    )
+from app.shared.exceptions import register_exception_handlers
+
+app = FastAPI(...)
+register_exception_handlers(app)
 ```
 
 ---

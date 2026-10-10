@@ -35,13 +35,14 @@ Consult the corresponding thematic reference for detailed implementations:
    - Inject dependencies into services via `__init__`, never global variables.
    - Maximum injection depth $\le 3$ (`route → service → repo`).
 3. **Domain Exceptions:**
-   - Throwing `HTTPException` inside services is prohibited. Raise domain exceptions (`*Error`) and map them centrally via `@app.exception_handler`.
+   - Throwing `HTTPException` inside services is prohibited. Raise domain exceptions (`*Error`) and map them centrally via a modular `register_exception_handlers(app)` function exposed by the exceptions module (never register them scattered in `main.py`).
 4. **Adherence to Size and Complexity Limits:**
    - Methods and functions have a **maximum of 30 lines**.
    - Service files have a **maximum of 300 lines** (beyond this, extract specialist collaborators or subdomains).
    - McCabe cyclomatic complexity $\le 10$.
-5. **Immutability and Single Assignment:**
+5. **Immutability, Single Assignment, and Clean Expressions:**
    - Reassigning the same variable for different purposes or transformations is prohibited (e.g., continuous mutation of `queryset`). Adopt intentional and immutable names.
+   - Deeply nested expressions and mathematical calculations (e.g., `round(max(0, min(1, 1 - (dist / 2))), 3)`) are prohibited. Decompose into descriptive, immutable intermediate variables.
 6. **Strict Typing and Quality Control:**
    - `dict[str, Any]` is prohibited in public contracts (use Pydantic `BaseModel` or `TypedDict`).
    - Single-letter variable names (`k`, `v`, `i`) are prohibited in pipelines.
@@ -60,3 +61,4 @@ Consult the corresponding thematic reference for detailed implementations:
 | Mocking database or service in tests | Use `app.dependency_overrides` in conftest | [`testing.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/testing.md) |
 | Improper coupling across features | Enforce forbidden/layers contracts in `import-linter` | [`linters-and-tooling.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/linters-and-tooling.md) |
 | Continual reassignment of the same variable | Split into intentional, immutable variables | [`python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |
+| Dense nested calls or obscure math calculations | Decompose into descriptive, immutable intermediate variables | [`python-idioms-and-quality.md`](file:///home/miguel/workspace/visagio-atividade-genai-2026/.agents/skills/backend-coding-standards/references/python-idioms-and-quality.md) |

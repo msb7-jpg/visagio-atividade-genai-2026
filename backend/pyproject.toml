@@ -79,6 +79,7 @@ select = [
     "ASYNC",# flake8-async (previne bugs clássicos em corotinas/código assíncrono)
     "S",    # flake8-bandit (análise de vulnerabilidades de segurança - ex: SQLi, Hardcoded secrets)
     "ambiguous-variable-name",
+    "too-many-nested-blocks", # PLR1702 (evita pirâmides profundas de aninhamento)
 ]
 
 # Regras que você quer ignorar deliberadamente (evita alertas irritantes)
@@ -86,6 +87,9 @@ ignore = [
     "assert", # Permite usar `assert` (essencial para testes no pytest)
     "yield-in-context-manager-in-async-generator", # Yield dentro de context manager em gerador assíncrono (necessário para streaming SSE)
 ]
+
+[tool.ruff.lint.pylint]
+max-nested-blocks = 5
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -98,6 +102,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlalchemy.orm.Declarat
 
 [dependency-groups]
 dev = [
+    "pylint>=4.1.2",
     "pyright>=1.1.414",
 ]
 
@@ -106,3 +111,60 @@ include = ["app"] # Substitua pelo nome da pasta do seu código fonte
 typeCheckingMode = "standard"
 useLibraryCodeForTypes = true
 reportMissingTypeStubs = false # Evita alertas chatos de libs sem tipagem
+
+[tool.pylint.main]
+py-version = "3.12"
+ignore-paths = ["migrations/versions"]
+
+[tool.pylint.messages_control]
+disable = ["all"]
+enable = [
+    # Nomenclatura
+    "disallowed-name",
+    "invalid-name",
+
+    # Limite geral de tamanho de arquivo
+    "too-many-lines",
+
+    # Métricas de Design e Tamanho de Métodos
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-statements",
+    "too-many-instance-attributes",
+    "too-many-nested-blocks",
+    "nested-min-max",
+
+    # Integridade de POO e Herança
+    "arguments-differ",
+    "signature-differs",
+    "abstract-method",
+    "attribute-defined-outside-init",
+
+    # Tratamento de Exceções
+    "broad-exception-raised",
+    "try-except-raise",
+    "inconsistent-return-statements",
+
+    # Arquitetura e Imports
+    "cyclic-import",
+]
+
+[tool.pylint.miscellaneous]
+max-module-lines = 250
+
+[tool.pylint.design]
+max-args = 6
+max-locals = 15
+max-statements = 40
+max-attributes = 10
+max-nested-blocks = 5
+
+[tool.pylint.basic]
+bad-names = [
+    "k", "v", "i", "j", "x", "y", "z",
+    "p", "m", "u", "t", "e", "d", "n", "s", "c", "o", "f", "r", "l", "a", "b", "w", "h", "q"
+]
+variable-rgx = "^[a-z_][a-z0-9_]{1,30}$"
+argument-rgx = "^[a-z_][a-z0-9_]{1,30}$"
+const-rgx = "^([A-Z_][A-Z0-9_]*|_[a-z0-9_]+)$"
+good-names = ["_"]

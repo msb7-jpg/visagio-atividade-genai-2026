@@ -22,7 +22,24 @@ formatted_works = format_works(works_without_price)
 
 ---
 
-## 2. Early Returns (Guard Clauses) vs. Deep Nesting
+## 2. Decomposing Complex Nested Expressions (Anti-Nested Expressions)
+
+Avoid grouping multiple mathematical operations, clampings, or nested function calls into a single dense line. Nested expressions obscure the semantics of each computational stage, hinder step-by-step debugging, and make comprehension difficult. Decompose each step into descriptive, immutable intermediate variables:
+
+```python
+# ❌ BAD: Multiple nested calls that hide the intent and mechanics of the calculation
+score = round(max(0.0, min(1.0, 1.0 - (dist / 2.0))), 3)
+
+# ✅ GOOD: Descriptive, immutable, and self-documenting intermediate stages
+normalized_distance = raw_distance / 2.0
+raw_similarity = 1.0 - normalized_distance
+clamped_score = max(0.0, min(1.0, raw_similarity))
+similarity_score = round(clamped_score, 3)
+```
+
+---
+
+## 3. Early Returns (Guard Clauses) vs. Deep Nesting
 
 Eliminate pyramids of deeply nested `if` blocks. Handle missing data, authorization failures, and precondition checks upfront at the start of the function:
 
@@ -46,7 +63,7 @@ def process_user_data(data: dict | None) -> Result | None:
 
 ---
 
-## 3. The Walrus Operator (`:=`)
+## 4. The Walrus Operator (`:=`)
 
 Avoid redundant calls to expensive functions or leaking variables outside loops and conditional blocks:
 
@@ -61,7 +78,7 @@ while (chunk := await stream.read(1024)):
 
 ---
 
-## 4. Structural Pattern Matching (`match/case`)
+## 5. Structural Pattern Matching (`match/case`)
 
 Use Python's native `match/case` to unpack network payloads, events, or polymorphic structures:
 
@@ -77,7 +94,7 @@ match payload:
 
 ---
 
-## 5. Strict Typing and Modern Features (PEP 695)
+## 6. Strict Typing and Modern Features (PEP 695)
 
 1. **Modern Type Aliases (Python 3.12+):**
    ```python

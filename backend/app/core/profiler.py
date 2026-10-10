@@ -106,7 +106,7 @@ def setup_query_profiler(engine: AsyncEngine) -> None:
 def analyze_queries_for_n_plus_one(records: list[QueryRecord]) -> list[tuple[str, int]]:
     """Analisa queries executadas e retorna declarações repetidas que indicam problema de N+1."""
     # Normaliza whitespace para agrupamento
-    normalized = [" ".join(r.statement.split()) for r in records]
+    normalized = [" ".join(record.statement.split()) for record in records]
     counts = Counter(normalized)
     return [(stmt, count) for stmt, count in counts.items() if count >= N_PLUS_ONE_DUPLICATE_THRESHOLD]
 
@@ -129,7 +129,7 @@ class QueryProfilerMiddleware(BaseHTTPMiddleware):
             records = stop_profiling()
 
             query_count = len(records)
-            db_time_ms = sum(r.duration_ms for r in records)
+            db_time_ms = sum(record.duration_ms for record in records)
 
             # Detecção de N+1
             n_plus_one_suspects = analyze_queries_for_n_plus_one(records)

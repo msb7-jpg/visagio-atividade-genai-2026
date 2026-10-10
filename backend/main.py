@@ -9,10 +9,12 @@ from app.agent.embeddings.embedding_model import get_embedding_model
 from app.agent.embeddings.vector_store import get_vector_store
 from app.core.config import get_settings
 from app.core.logger import configure_logging
+from app.core.session_manager import get_session_manager
 from app.features.analytics.router import router as analytics_router
 from app.features.chat.router import router as chat_router
 from app.features.chat.threads_router import router as threads_router
 from app.features.settings.router import router as settings_router
+from app.shared.exceptions import register_exception_handlers
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -20,7 +22,7 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Ciclo de vida da aplicação FastAPI com aquecimento antecipado (eager loading)."""
+    """Ciclo de vida da aplicação FastAPI com aquecimento antecipado e registro de singletons."""
     configure_logging()
     logger.info("Iniciando CineData Analytics Backend — Executando warm-up de embeddings...")
     try:
@@ -29,6 +31,11 @@ async def lifespan(app: FastAPI):
 
         vector_store = get_vector_store()
         vector_store.warmup()
+
+        # Nível 1 na hierarquia de injeção de dependências: singletons em app.state
+        app.state.session_manager = get_session_manager()
+        app.state.embedding_model = embedding_mgr
+        app.state.vector_store = vector_store
         logger.info("Warm-up concluído: Modelo de embeddings e índice vetorial prontos para uso.")
     except Exception as exc:
         logger.error("Falha durante aquecimento de vetores no lifespan: %s", exc)
@@ -55,6 +62,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+register_exception_handlers(app)
+
 
 app.include_router(settings_router)
 app.include_router(chat_router)

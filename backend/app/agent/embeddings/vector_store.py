@@ -1,7 +1,7 @@
 """Mecanismo de busca semântica vetorial em catálogo de filmes via sqlite-vec e fact_movies_performance."""
 
 import logging
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from app.agent.embeddings.embedding_model import get_embedding_model
 from app.db.session import get_readonly_db_connection
@@ -144,33 +144,37 @@ class VectorStore:
                     cur.execute(sql, (vector_bytes, top_k))
                     rows = cur.fetchall()
 
-                results: list[MovieSearchResult] = []
-                for row in rows:
-                    dist = float(row["distance"])
-                    # Para vetores L2 normalizados, a distância cosseno fica entre 0 e 2.0
-                    score = round(max(0.0, min(1.0, 1.0 - (dist / 2.0))), 3)
-                    context_val = str(row["genai_context"] or row["sinopse"])
-
-                    results.append(
-                        MovieSearchResult(
-                            sk_movie_id=str(row["sk_movie_id"]),
-                            titulo=str(row["titulo"]),
-                            ano_lancamento=row["ano_lancamento"],
-                            generos=None,  # Já incluído dentro de genai_context
-                            diretores=None,
-                            popularidade=float(row["popularidade"]) if row["popularidade"] is not None else None,
-                            nota_imdb=float(row["nota_imdb"]) if row["nota_imdb"] is not None else None,
-                            score_similaridade=score,
-                            trecho_relevante=context_val,
-                        )
-                    )
+                results = [self._map_search_row(row) for row in rows]
                 if results:
                     return results
-            except Exception as e:
-                logger.warning("Falha na consulta KNN vec_movies (%s). Usando fallback...", e)
+            except Exception as exc:
+                logger.warning("Falha na consulta KNN vec_movies (%s). Usando fallback...", exc)
 
         # 2. Fallback de contingência caso a tabela vec0 não esteja populada
         return self._fallback_search(query, top_k)
+
+    @staticmethod
+    def _map_search_row(row: Any) -> MovieSearchResult:
+        """Converte registro do SQLite em MovieSearchResult com similaridade decomposta."""
+        raw_distance = float(row["distance"])
+        # Para vetores L2 normalizados, a distância cosseno varia no intervalo [0.0, 2.0]
+        normalized_distance = raw_distance / 2.0
+        raw_similarity = 1.0 - normalized_distance
+        clamped_score = max(0.0, min(1.0, raw_similarity))
+        similarity_score = round(clamped_score, 3)
+
+        context_val = str(row["genai_context"] or row["sinopse"])
+        return MovieSearchResult(
+            sk_movie_id=str(row["sk_movie_id"]),
+            titulo=str(row["titulo"]),
+            ano_lancamento=row["ano_lancamento"],
+            generos=None,  # Já incluído dentro de genai_context
+            diretores=None,
+            popularidade=float(row["popularidade"]) if row["popularidade"] is not None else None,
+            nota_imdb=float(row["nota_imdb"]) if row["nota_imdb"] is not None else None,
+            score_similaridade=similarity_score,
+            trecho_relevante=context_val,
+        )
 
     def _fallback_search(self, query: str, top_k: int) -> list[MovieSearchResult]:
         """Fallback por similaridade de texto no SQLite."""

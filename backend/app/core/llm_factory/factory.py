@@ -54,16 +54,13 @@ def _resolve_active_config(
 
     active = get_active_provider_config_sync()
     if active and active.get("provider") and active.get("model"):
-        p = provider or active["provider"]
-        m = model or active["model"]
-        k = api_key or active.get("api_key")
-        u = base_url or active.get("base_url")
-        t = (
-            active.get("timeout_seconds")
-            if timeout_seconds == 30 and active.get("timeout_seconds")
-            else timeout_seconds
-        )
-        return p, m, k, u, t
+        resolved_provider = provider or active["provider"]
+        resolved_model = model or active["model"]
+        resolved_api_key = api_key or active.get("api_key")
+        resolved_base_url = base_url or active.get("base_url")
+        raw_timeout = active.get("timeout_seconds")
+        resolved_timeout = int(raw_timeout) if (timeout_seconds == 30 and raw_timeout is not None) else timeout_seconds
+        return resolved_provider, resolved_model, resolved_api_key, resolved_base_url, resolved_timeout
 
     return provider, model, api_key, base_url, timeout_seconds
 

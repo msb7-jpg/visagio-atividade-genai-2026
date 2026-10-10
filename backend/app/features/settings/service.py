@@ -1,6 +1,7 @@
 import logging
 
 from app.core.config import get_settings
+from app.core.session_manager import ActiveSessionManager, get_session_manager
 from app.db.settings_db import (
     get_active_provider_config,
     get_active_provider_config_sync,
@@ -17,6 +18,7 @@ from app.features.settings.schemas import (
     TestProviderResponseDTO,
 )
 from app.features.settings.security import mask_api_key
+from app.shared.exceptions import ActiveSessionConflictError
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +29,20 @@ class SettingsService:
     Delega testes de conectividade ao ProviderProbeService e mascaramento ao security.py.
     """
 
-    def __init__(self, user_id: str = "default_user") -> None:
+    def __init__(
+        self,
+        user_id: str = "default_user",
+        session_manager: ActiveSessionManager | None = None,
+    ) -> None:
         """
         Inicializa o serviço de configurações para o usuário especificado.
 
         Args:
             user_id: Identificador de usuário para o qual carregar preferências salvas.
+            session_manager: Gerenciador de sessões ativas para prevenção de concorrência.
         """
         self.user_id = user_id
+        self.session_manager = session_manager or get_session_manager()
         active = get_active_provider_config_sync(self.user_id)
         if active:
             self._current_config = ProviderConfigDTO(
@@ -126,7 +134,16 @@ class SettingsService:
 
         Returns:
             ProviderConfigDTO atualizado com chave mascarada para exibição.
+
+        Raises:
+            ActiveSessionConflictError: Se houver uma sessão analítica em andamento.
         """
+        if await self.session_manager.has_active_sessions():
+            raise ActiveSessionConflictError(
+                "Não é possível alterar as configurações de provedor enquanto houver "
+                "uma sessão analítica em andamento. Aguarde a conclusão da consulta atual."
+            )
+
         await self._ensure_db_loaded()
         updated_key = new_config.api_key
 

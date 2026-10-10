@@ -1,3 +1,11 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI, Request
+
+
 class DomainError(Exception):
     """
     Exceção base para erros de domínio da aplicação CineData Analytics.
@@ -67,3 +75,64 @@ class ProviderUnavailableError(DomainError):
         """
         super().__init__(message, code="PROVIDER_UNAVAILABLE")
         self.status_code = status_code
+
+
+class ActiveSessionConflictError(DomainError):
+    """Lançada quando uma mutação é impedida por sessões analíticas em andamento."""
+
+    def __init__(self, message: str = "Operação bloqueada enquanto houver sessão ativa em andamento.") -> None:
+        super().__init__(message, code="ACTIVE_SESSION_CONFLICT")
+
+
+class ResourceNotFoundError(DomainError):
+    """Lançada quando uma entidade de domínio não é encontrada."""
+
+    def __init__(self, resource: str, identifier: str) -> None:
+        super().__init__(
+            f"{resource} com identificador '{identifier}' não foi encontrado(a).",
+            code="RESOURCE_NOT_FOUND",
+        )
+        self.resource = resource
+        self.identifier = identifier
+
+
+def register_exception_handlers(app: FastAPI | Any) -> None:
+    """
+    Registra centralizadamente todos os manipuladores de exceções de domínio da aplicação FastAPI.
+
+    Args:
+        app: Instância da aplicação FastAPI.
+    """
+    from fastapi.responses import JSONResponse
+
+    @app.exception_handler(ActiveSessionConflictError)
+    def handle_active_session_conflict(_request: Request, exc: ActiveSessionConflictError) -> JSONResponse:
+        """Mapeamento central para conflito de sessão concorrente (409 Conflict)."""
+        return JSONResponse(
+            status_code=409,
+            content={"detail": exc.message, "code": exc.code},
+        )
+
+    @app.exception_handler(ResourceNotFoundError)
+    def handle_resource_not_found(_request: Request, exc: ResourceNotFoundError) -> JSONResponse:
+        """Mapeamento central para entidade não localizada (404 Not Found)."""
+        return JSONResponse(
+            status_code=404,
+            content={"detail": exc.message, "code": exc.code, "resource": exc.resource, "id": exc.identifier},
+        )
+
+    @app.exception_handler(ProviderUnavailableError)
+    def handle_provider_unavailable(_request: Request, exc: ProviderUnavailableError) -> JSONResponse:
+        """Mapeamento central para indisponibilidade de provedor LLM (503 Service Unavailable)."""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.message, "code": exc.code},
+        )
+
+    @app.exception_handler(DomainError)
+    def handle_domain_error(_request: Request, exc: DomainError) -> JSONResponse:
+        """Mapeamento central de fallback para DomainError genérico (400 Bad Request)."""
+        return JSONResponse(
+            status_code=400,
+            content={"detail": exc.message, "code": exc.code},
+        )

@@ -106,7 +106,7 @@ async def get_all_saved_providers(user_id: str = "default_user") -> list[str]:
         ) as cursor,
     ):
         rows = await cursor.fetchall()
-        return [r[0] for r in rows]
+        return [row[0] for row in rows]
 
 
 async def get_active_provider_config(user_id: str = "default_user") -> dict[str, Any] | None:
@@ -153,8 +153,8 @@ async def get_all_user_provider_configs(
             (user_id,),
         ) as cursor:
             rows = await cursor.fetchall()
-            for r in rows:
-                item = dict(r)
+            for row in rows:
+                item = dict(row)
                 if item.get("api_key"):
                     item["api_key"] = decrypt_api_key(item["api_key"])
                 result[item["provider"]] = item
